@@ -135,10 +135,10 @@
     top: 0;
     z-index: 3;
     display: grid;
-    grid-template-columns: 262px 132px 92px 38px 62px 62px 48px;
+    grid-template-columns: 262px 132px 92px 62px 62px 48px;
     align-items: center;
     gap: 7px;
-    min-width: 738px;
+    min-width: 693px;
     padding: 5px 4px 7px;
     background: #202020;
     color: #888;
@@ -148,10 +148,10 @@
   }
   .photo-row {
     display: grid;
-    grid-template-columns: 262px 132px 92px 38px 62px 62px 48px;
+    grid-template-columns: 262px 132px 92px 62px 62px 48px;
     align-items: center;
     gap: 7px;
-    min-width: 738px;
+    min-width: 693px;
     padding: 7px 4px;
     border-bottom: 1px solid #303030;
   }
@@ -178,6 +178,14 @@
     gap: 5px;
     min-width: 0;
   }
+  .legend-fields {
+    grid-template-columns: 42px 84px 48px 70px;
+  }
+  .row-note {
+    color: #aaa;
+    font-size: 12px;
+    white-space: nowrap;
+  }
   .player-field-input {
     min-width: 0;
     padding: 5px 6px;
@@ -200,15 +208,16 @@
     padding: 5px 7px;
     font-size: 12px;
   }
-  .captain-check {
-    justify-content: center;
-    min-width: 38px;
-    font-size: 12px;
-  }
   .photo-btn {
     width: 62px;
     padding: 5px 4px;
     font-size: 12px;
+  }
+  .lineup-switcher {
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) minmax(190px, 1fr) auto;
+    gap: 8px;
+    width: 100%;
   }
   .coach-settings {
     display: grid;
@@ -729,12 +738,28 @@
     overflow: hidden;
     flex-shrink: 0;
     cursor: pointer;
+    position: relative;
   }
   .legend-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+  .legend-num-badge {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.82);
+    border: 1px solid #d4af37;
+    color: #f8e29a;
+    font-size: 9px;
+    line-height: 16px;
+    text-align: center;
   }
   .legend-name {
     font-size: 13px;
@@ -813,6 +838,11 @@
     border: 1px solid #333;
     border-radius: 8px;
   }
+  .draw-card.legend-draw {
+    background: linear-gradient(135deg, #1a1408 0%, #33240a 58%, #0f0b04 100%);
+    border-color: #d4af37;
+    box-shadow: 0 0 0 1px rgba(212,175,55,0.22), inset 0 0 28px rgba(212,175,55,0.1);
+  }
   .draw-avatar {
     width: 88px;
     height: 100px;
@@ -825,6 +855,29 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
+  }
+  .legend-draw .draw-avatar {
+    background: radial-gradient(circle at 50% 20%, #f8e29a 0%, #d4af37 36%, #5d430e 100%);
+    border-color: #f8e29a;
+    color: #2a1f08;
+  }
+  .draw-tag {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    margin-bottom: 6px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: rgba(212,175,55,0.14);
+    color: #f8e29a;
+    border: 1px solid rgba(212,175,55,0.35);
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .legend-star-fallback {
+    font-size: 34px;
+    color: #2a1f08;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.36);
   }
   .draw-avatar img {
     width: 100%;
@@ -879,6 +932,15 @@
     <label>数据</label>
     <button class="ctrl-btn stats-toggle-btn active" data-stats-visible="true">显示数据角标</button>
     <button class="ctrl-btn stats-toggle-btn" data-stats-visible="false">隐藏数据角标</button>
+  </div>
+
+  <div class="control-row">
+    <label>首发</label>
+    <div class="lineup-switcher">
+      <select class="ctrl-select" id="starter-slot-select" aria-label="选择要替换的首发位置"></select>
+      <select class="ctrl-select" id="bench-player-select" aria-label="选择替补球员"></select>
+      <button class="ctrl-btn" id="swap-starter-btn">换上首发</button>
+    </div>
   </div>
 
   <div class="control-row">
@@ -938,7 +1000,7 @@
 
   <div class="help">
     💡 <strong>海报上所有文字直接点击即可编辑</strong>（队名、标题、对手信息、战术风格）。<br>
-    💡 替补球员可拖拽到任意首发位置完成换人；新上场球员自动继承该位置标签。<br>
+    💡 替补球员可拖拽到任意首发位置完成换人，也可用“首发”下拉控件换人；新上场球员自动继承该位置标签。<br>
     💡 页面会自动恢复 v7 状态，预设可保存多套阵容、照片、队徽、球员状态、二维码和教练设置。
   </div>
 </div>
@@ -997,7 +1059,7 @@
     <div class="draw-avatar">🦅</div>
     <div>
       <div class="draw-name">等待抽卡</div>
-      <div class="draw-meta">首发与替补都会进入卡池</div>
+      <div class="draw-meta">首发、替补与绝版人物都会进入卡池</div>
       <div class="draw-intro">点击按钮，随机抽出一位老和山之翼成员。</div>
     </div>
   </div>
@@ -1023,6 +1085,11 @@ let LEGENDS_DATA = [];
 const DEFAULT_PRESET_NAME = '老和山之翼 4-2-3-1 本场名单';
 let CARD_INTROS = {};
 const PLAYER_DATA_URL = 'data/players.json';
+const DEFAULT_CAPTAIN_NAME = '张子冲';
+const LEGACY_NAME_MAP = {
+  '徐俊秋': '许俊秋',
+  '黄坤鱼': '黄煜宇'
+};
 
 const FORMATIONS = {
   '433': {
@@ -1142,6 +1209,9 @@ const presetSelect = document.getElementById('preset-select');
 const savePresetBtn = document.getElementById('save-preset-btn');
 const deletePresetBtn = document.getElementById('delete-preset-btn');
 const exportJsonBtn = document.getElementById('export-json-btn');
+const starterSlotSelect = document.getElementById('starter-slot-select');
+const benchPlayerSelect = document.getElementById('bench-player-select');
+const swapStarterBtn = document.getElementById('swap-starter-btn');
 const reportLinkInput = document.getElementById('report-link-input');
 const reportQr = document.getElementById('report-qr');
 const qrBox = document.getElementById('qr-box');
@@ -1185,19 +1255,25 @@ function normalizeStats(stats = {}) {
   };
 }
 
+function normalizeName(name) {
+  const value = String(name ?? '');
+  return LEGACY_NAME_MAP[value] || value;
+}
+
 function normalizePlayer(player) {
   const allowedStatus = ['fit', 'injured', 'yellow', 'red', 'suspended'];
+  const name = normalizeName(player.name);
   return {
     ...player,
     num: player.num ?? '',
-    name: String(player.name ?? ''),
+    name,
     pos: String(player.pos ?? ''),
     role: String(player.role ?? ''),
     avatarHome: player.avatarHome || '',
     avatarAway: player.avatarAway || '',
     stats: normalizeStats(player.stats),
     status: allowedStatus.includes(player.status) ? player.status : 'fit',
-    captain: Boolean(player.captain)
+    captain: name === DEFAULT_CAPTAIN_NAME
   };
 }
 
@@ -1219,8 +1295,10 @@ function normalizeTeamData(team = {}) {
 }
 
 function normalizeLegend(legend = {}) {
+  const name = normalizeName(legend.name);
   return {
-    name: String(legend.name ?? ''),
+    num: legend.num ?? '',
+    name,
     role: String(legend.role ?? '绝版人物'),
     avatar: legend.avatar || ''
   };
@@ -1231,7 +1309,7 @@ function normalizeIntroMap(intros = {}) {
   if (!intros || typeof intros !== 'object' || Array.isArray(intros)) return result;
   Object.entries(intros).forEach(([name, intro]) => {
     if (typeof name === 'string' && typeof intro === 'string') {
-      result[name] = intro;
+      result[normalizeName(name)] = intro;
     }
   });
   return result;
@@ -1279,6 +1357,10 @@ function getCurrentAvatar(player) {
   const normalized = normalizePlayer(player);
   const avatar = currentKit === 'away' ? normalized.avatarAway : normalized.avatarHome;
   return resolveImageSource(avatar);
+}
+
+function getLegendAvatar(legend) {
+  return resolveImageSource(normalizeLegend(legend).avatar);
 }
 
 function getStatusIcon(status) {
@@ -1412,13 +1494,18 @@ function applySnapshot(snapshot, shouldSave = true) {
   if (Array.isArray(snapshot.legendsData) && snapshot.legendsData.length) {
     const nextLegends = LEGENDS_DATA.map(normalizeLegend);
     snapshot.legendsData.forEach((item, i) => {
-      if (item && typeof item === 'object' && nextLegends[i]) {
-        nextLegends[i] = normalizeLegend({
-          ...nextLegends[i],
-          name: typeof item.name === 'string' ? item.name : nextLegends[i].name,
-          role: typeof item.role === 'string' ? item.role : nextLegends[i].role,
-          avatar: typeof item.avatar === 'string' ? item.avatar : nextLegends[i].avatar
-        });
+      if (item && typeof item === 'object') {
+        const normalizedItem = normalizeLegend(item);
+        const targetIndex = nextLegends.findIndex(legend => legend.name === normalizedItem.name);
+        const index = targetIndex >= 0 ? targetIndex : i;
+        if (nextLegends[index]) {
+          nextLegends[index] = normalizeLegend({
+            ...nextLegends[index],
+            name: targetIndex >= 0 ? nextLegends[index].name : normalizedItem.name,
+            role: normalizedItem.role || nextLegends[index].role,
+            avatar: typeof item.avatar === 'string' ? item.avatar : nextLegends[index].avatar
+          });
+        }
       }
     });
     LEGENDS_DATA = nextLegends;
@@ -1433,6 +1520,33 @@ function applySnapshot(snapshot, shouldSave = true) {
   renderAll();
   if (shouldSave) saveLastState();
   return true;
+}
+
+function renderLineupSwitcher() {
+  const formation = FORMATIONS[currentFormation];
+  starterSlotSelect.innerHTML = '';
+  benchPlayerSelect.innerHTML = '';
+
+  formation.slots.forEach(slot => {
+    const player = SQUAD_DATA.starters[slot.playerIndex];
+    if (!player) return;
+    const option = document.createElement('option');
+    option.value = String(slot.playerIndex);
+    option.textContent = `${slot.pos} · #${player.num} ${player.name}`;
+    starterSlotSelect.appendChild(option);
+  });
+
+  SQUAD_DATA.bench.forEach((player, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = `#${player.num} ${player.name} · ${player.role || player.pos || '替补'}`;
+    benchPlayerSelect.appendChild(option);
+  });
+
+  const disabled = !starterSlotSelect.options.length || !benchPlayerSelect.options.length;
+  starterSlotSelect.disabled = disabled;
+  benchPlayerSelect.disabled = disabled;
+  swapStarterBtn.disabled = disabled;
 }
 
 function updateControls() {
@@ -1455,6 +1569,7 @@ function updateControls() {
   coachRoleInput.value = COACH_DATA.role;
   coachClearBtn.disabled = !COACH_DATA.avatar;
   teamLogoClearBtn.disabled = !TEAM_DATA.logo;
+  renderLineupSwitcher();
 }
 
 // ============================================================
@@ -1571,15 +1686,17 @@ function renderLegends() {
   if (!legendsGrid) return;
   legendsGrid.innerHTML = '';
   LEGENDS_DATA.forEach((legend, index) => {
-    const avatar = resolveImageSource(legend.avatar);
+    const normalized = normalizeLegend(legend);
+    const avatar = getLegendAvatar(normalized);
     const item = document.createElement('div');
     item.className = 'legend-item';
     item.innerHTML = `
       <div class="legend-avatar" data-legend-index="${index}" title="点击上传照片">
-        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : escapeHtml(legend.name.charAt(0))}
+        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : escapeHtml(normalized.name.charAt(0))}
+        ${normalized.num !== '' ? `<span class="legend-num-badge">${escapeHtml(normalized.num)}</span>` : ''}
       </div>
-      <div class="legend-name">${escapeHtml(legend.name)}</div>
-      <div class="legend-role">${escapeHtml(legend.role || '绝版人物')}</div>
+      <div class="legend-name">${escapeHtml(normalized.name)}</div>
+      <div class="legend-role">${escapeHtml(normalized.role || '绝版人物')}</div>
     `;
     const avatarEl = item.querySelector('.legend-avatar');
     avatarEl.addEventListener('click', () => {
@@ -1620,7 +1737,8 @@ function renderPhotoManager() {
   photoManager.innerHTML = '';
   const rows = [
     ...SQUAD_DATA.starters.map((player, index) => ({ player, list: 'starters', index })),
-    ...SQUAD_DATA.bench.map((player, index) => ({ player, list: 'bench', index }))
+    ...SQUAD_DATA.bench.map((player, index) => ({ player, list: 'bench', index })),
+    ...LEGENDS_DATA.map((legend, index) => ({ player: normalizeLegend(legend), list: 'legends', index }))
   ].sort((a, b) => {
     const numA = Number.parseInt(a.player.num, 10);
     const numB = Number.parseInt(b.player.num, 10);
@@ -1629,41 +1747,37 @@ function renderPhotoManager() {
   });
   photoManager.innerHTML = `
     <div class="photo-header">
-      <div>球员（号 / 名 / 位 / 角色）</div>
+      <div>成员（号 / 名 / 位 / 角色）</div>
       <div>进球 / 助攻 / 出场</div>
       <div>状态</div>
-      <div>队长</div>
-      <div>主场照</div>
+      <div>主场/照片</div>
       <div>客场照</div>
       <div>清除</div>
     </div>
   `;
   rows.forEach(({ player, list, index }) => {
+    const isLegend = list === 'legends';
     const row = document.createElement('div');
-    const hasHome = Boolean(player.avatarHome);
-    const hasAway = Boolean(player.avatarAway);
+    const hasHome = isLegend ? Boolean(player.avatar) : Boolean(player.avatarHome);
+    const hasAway = !isLegend && Boolean(player.avatarAway);
     row.className = 'photo-row';
     row.innerHTML = `
-      <div class="player-fields">
+      <div class="player-fields ${isLegend ? 'legend-fields' : ''}">
         <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.num)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="num" aria-label="号码">
         <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.name)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="name" aria-label="姓名">
-        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.pos || '')}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="pos" aria-label="位置">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(isLegend ? 'HOF' : (player.pos || ''))}" ${isLegend ? 'disabled' : ''} data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="pos" aria-label="位置">
         <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.role || '')}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="role" aria-label="角色">
       </div>
-      <div class="stats-inputs" title="进球 / 助攻 / 出场">
+      ${isLegend ? '<div class="row-note">绝版人物</div>' : `<div class="stats-inputs" title="进球 / 助攻 / 出场">
         <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.goals)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="goals" aria-label="进球">
         <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.assists)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="assists" aria-label="助攻">
         <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.appearances)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="appearances" aria-label="出场">
-      </div>
-      <select class="ctrl-select status-select" data-action="update-status" data-list="${list}" data-index="${index}" aria-label="状态">
+      </div>`}
+      ${isLegend ? '<div class="row-note">金色卡</div>' : `<select class="ctrl-select status-select" data-action="update-status" data-list="${list}" data-index="${index}" aria-label="状态">
         ${renderStatusOptions(player.status)}
-      </select>
-      <label class="inline-check captain-check" title="队长">
-        <input type="checkbox" ${player.captain ? 'checked' : ''} data-action="update-captain" data-list="${list}" data-index="${index}">
-        C
-      </label>
-      <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarHome">${hasHome ? '✓ 已上传主场' : '上传主场照'}</button>
-      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway">${hasAway ? '✓ 已上传客场' : '上传客场照'}</button>
+      </select>`}
+      <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="${isLegend ? 'avatar' : 'avatarHome'}">${hasHome ? '✓ 已上传' : (isLegend ? '上传照片' : '上传主场照')}</button>
+      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway" ${isLegend ? 'disabled' : ''}>${isLegend ? '—' : (hasAway ? '✓ 已上传客场' : '上传客场照')}</button>
       <button class="ctrl-btn photo-btn" data-action="clear-photo" data-list="${list}" data-index="${index}" ${hasHome || hasAway ? '' : 'disabled'}>清除</button>
     `;
     photoManager.appendChild(row);
@@ -1685,8 +1799,8 @@ function renderAll() {
 // 照片管理
 // ============================================================
 function uploadPhoto(list, index, field) {
-  const player = SQUAD_DATA[list]?.[index];
-  if (!player) return;
+  const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
+  if (!item) return;
 
   const input = document.createElement('input');
   input.type = 'file';
@@ -1696,7 +1810,7 @@ function uploadPhoto(list, index, field) {
     if (!file) return;
     const reader = new FileReader();
     reader.addEventListener('load', () => {
-      player[field] = String(reader.result || '');
+      item[list === 'legends' ? 'avatar' : field] = String(reader.result || '');
       renderAll();
       saveLastState();
     });
@@ -1706,20 +1820,27 @@ function uploadPhoto(list, index, field) {
 }
 
 function clearPhoto(list, index) {
-  const player = SQUAD_DATA[list]?.[index];
-  if (!player) return;
-  player.avatarHome = '';
-  player.avatarAway = '';
+  const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
+  if (!item) return;
+  if (list === 'legends') {
+    item.avatar = '';
+  } else {
+    item.avatarHome = '';
+    item.avatarAway = '';
+  }
   renderAll();
   saveLastState();
 }
 
 function updatePlayerField(list, index, field, value) {
-  const player = SQUAD_DATA[list]?.[index];
-  if (!player) return;
-  player[field] = field === 'num' ? value.trim() : value.trim();
+  const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
+  if (!item || (list === 'legends' && field === 'pos')) return;
+  item[field] = value.trim();
+  if (field === 'name') item.name = normalizeName(item.name);
   renderPitch();
   renderBench();
+  renderLegends();
+  updateControls();
   queueSaveLastState();
 }
 
@@ -1739,15 +1860,6 @@ function updatePlayerStatus(list, index, status) {
   if (!player) return;
   player.status = status;
   renderPitch();
-  queueSaveLastState();
-}
-
-function updatePlayerCaptain(list, index, checked) {
-  const player = SQUAD_DATA[list]?.[index];
-  if (!player) return;
-  player.captain = checked;
-  renderPitch();
-  renderBench();
   queueSaveLastState();
 }
 
@@ -1775,11 +1887,6 @@ photoManager.addEventListener('change', event => {
   const statusSelect = event.target.closest('select[data-action="update-status"]');
   if (statusSelect) {
     updatePlayerStatus(statusSelect.dataset.list, Number(statusSelect.dataset.index), statusSelect.value);
-    return;
-  }
-  const captainInput = event.target.closest('input[data-action="update-captain"]');
-  if (captainInput) {
-    updatePlayerCaptain(captainInput.dataset.list, Number(captainInput.dataset.index), captainInput.checked);
   }
 });
 
@@ -1827,6 +1934,13 @@ function swapBenchToStarter(benchIndex, starterIndex) {
   clearDragVisuals();
   renderAll();
   saveLastState();
+}
+
+function swapSelectedStarter() {
+  const benchIndex = Number(benchPlayerSelect.value);
+  const starterIndex = Number(starterSlotSelect.value);
+  if (!Number.isFinite(benchIndex) || !Number.isFinite(starterIndex)) return;
+  swapBenchToStarter(benchIndex, starterIndex);
 }
 
 function handleBenchDragStart(event) {
@@ -2002,25 +2116,35 @@ function syncCoachFromControls() {
 }
 
 function getAllCardPlayers() {
-  return [...SQUAD_DATA.starters, ...SQUAD_DATA.bench].map(normalizePlayer);
+  return [
+    ...SQUAD_DATA.starters.map(player => ({ ...normalizePlayer(player), cardType: 'player' })),
+    ...SQUAD_DATA.bench.map(player => ({ ...normalizePlayer(player), cardType: 'player' })),
+    ...LEGENDS_DATA.map(legend => ({ ...normalizeLegend(legend), cardType: 'legend' }))
+  ];
 }
 
 function getCardIntro(player) {
   if (CARD_INTROS[player.name]) return CARD_INTROS[player.name];
+  if (player.cardType === 'legend') {
+    return `${player.num}号，绝版人物。时间不一定记得每一场比赛，但老和山之翼会记得这个名字。`;
+  }
   const role = player.role || player.pos || '万能替补';
   return `${player.num}号，${role}。这张卡的隐藏属性是：上场前看起来很冷静，上场后让对手也开始不冷静。`;
 }
 
 function renderDrawCard(player) {
-  const avatar = getCurrentAvatar(player);
+  const isLegend = player.cardType === 'legend';
+  const avatar = isLegend ? getLegendAvatar(player) : getCurrentAvatar(player);
+  drawCard.className = `draw-card${isLegend ? ' legend-draw' : ''}`;
   drawCard.innerHTML = `
     <div class="draw-avatar">
       <span class="player-num">${escapeHtml(player.num)}</span>
-      ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : SVG_AVATAR}
+      ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : (isLegend ? '<span class="legend-star-fallback">★</span>' : SVG_AVATAR)}
     </div>
     <div>
+      ${isLegend ? '<div class="draw-tag">HALL OF FAME</div>' : ''}
       <div class="draw-name">${escapeHtml(player.name)}</div>
-      <div class="draw-meta">#${escapeHtml(player.num)} · ${escapeHtml(player.role || player.pos || '老和山之翼')}</div>
+      <div class="draw-meta">#${escapeHtml(player.num)} · ${escapeHtml(isLegend ? `${player.role || '绝版人物'} · 金色卡` : (player.role || player.pos || '老和山之翼'))}</div>
       <div class="draw-intro">${escapeHtml(getCardIntro(player))}</div>
     </div>
   `;
@@ -2178,6 +2302,7 @@ function bindControls() {
   presetSelect.addEventListener('change', loadSelectedPreset);
   deletePresetBtn.addEventListener('click', deleteSelectedPreset);
   exportJsonBtn.addEventListener('click', exportCurrentPresetJson);
+  swapStarterBtn.addEventListener('click', swapSelectedStarter);
 
   document.querySelectorAll('[contenteditable="true"]').forEach(el => {
     el.addEventListener('input', queueSaveLastState);
