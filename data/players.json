@@ -1,0 +1,529 @@
+{
+  "starters": [
+    {
+      "num": 18,
+      "name": "张天乐",
+      "pos": "LW",
+      "role": "左边锋",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 10,
+      "name": "张文杰",
+      "pos": "ST",
+      "role": "中锋",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "red",
+      "captain": false
+    },
+    {
+      "num": 28,
+      "name": "邓翔宇",
+      "pos": "RW",
+      "role": "右边锋",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 77,
+      "name": "汪昌强",
+      "pos": "CM",
+      "role": "后腰（左）",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 9,
+      "name": "金世纪",
+      "pos": "CAM",
+      "role": "前腰",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 20,
+      "name": "张子冲",
+      "pos": "CM",
+      "role": "后腰（右）",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 31,
+      "name": "黄于翀",
+      "pos": "LB",
+      "role": "左边卫",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 4,
+      "name": "徐多",
+      "pos": "CB",
+      "role": "中后卫（左）",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 8,
+      "name": "宋健",
+      "pos": "CB",
+      "role": "中后卫（右）",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 7,
+      "name": "蒋天鸿",
+      "pos": "RB",
+      "role": "右边卫",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 1,
+      "name": "吴优",
+      "pos": "GK",
+      "role": "门将",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    }
+  ],
+  "bench": [
+    {
+      "num": "·",
+      "name": "徐俊秋",
+      "pos": "",
+      "role": "领队",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 2,
+      "name": "李骁",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 3,
+      "name": "陈炫",
+      "pos": "",
+      "role": "教练",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "injured",
+      "captain": false
+    },
+    {
+      "num": 5,
+      "name": "俞智超",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 12,
+      "name": "樊世洲",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 14,
+      "name": "钱诚浩",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 15,
+      "name": "程志伟",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 19,
+      "name": "沈熙洲",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 21,
+      "name": "徐文浩",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 22,
+      "name": "万江源",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 25,
+      "name": "孟红厉",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 26,
+      "name": "徐戈",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 32,
+      "name": "张帆",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 33,
+      "name": "梁之恒",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 39,
+      "name": "郑又畅",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 41,
+      "name": "许艺",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 47,
+      "name": "赖飞扬",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 55,
+      "name": "张启行",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 86,
+      "name": "黎兆荣",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    },
+    {
+      "num": 88,
+      "name": "徐乾洲",
+      "pos": "",
+      "role": "",
+      "avatarHome": "",
+      "avatarAway": "",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
+    }
+  ],
+  "legends": [
+    {
+      "name": "黄坤鱼",
+      "role": "绝版人物",
+      "avatar": ""
+    },
+    {
+      "name": "王开来",
+      "role": "绝版人物",
+      "avatar": ""
+    },
+    {
+      "name": "田治华",
+      "role": "绝版人物",
+      "avatar": ""
+    }
+  ],
+  "coach": {
+    "show": true,
+    "num": "3",
+    "posLabel": "COACH",
+    "name": "陈炫",
+    "role": "教练",
+    "avatar": ""
+  },
+  "intros": {
+    "徐俊秋": "领队。不下场，但场上每一次轮换、每一份名单、每一次出征，都是他在背后默默调度。",
+    "李骁": "2号，替补席的隐藏按钮。平时安静，一上场就像系统弹窗：是否立即加速比赛节奏？",
+    "徐多": "4号，中后卫（左）。防守风格朴素但有效，主打一个你过得去算我没站好。",
+    "俞智超": "5号，替补。名字里带智，踢法也讲究，偶尔还会让对手怀疑自己是不是少看了一集战术课。",
+    "蒋天鸿": "7号，右边卫。边路巡航能力在线，像开了导航，目的地永远是对手身后。",
+    "宋健": "8号，中后卫（右）。看起来稳，实际更稳，属于后场保险柜的密码本人。",
+    "金世纪": "9号，前腰。负责把普通进攻加工成看起来很有想法的进攻。",
+    "张文杰": "10号，中锋。曾经也打过8人制右边卫。你问张文杰和内马尔、登贝莱的区别是什么？他们的射门枪法没有张文杰准。",
+    "樊世洲": "12号，替补。上场像插电，跑起来以后对手会开始思考人生和补水。",
+    "钱诚浩": "14号，替补。诚恳是真的，浩大也是真的，尤其是冲刺时覆盖面积很有存在感。",
+    "程志伟": "15号，替补。名字听着像班干部，踢起来像负责把混乱局面重新整理成表格的人。",
+    "张天乐": "18号，左边锋。天乐一启动，边路就开始播放快乐足球，但快乐通常只属于我们。",
+    "沈熙洲": "19号，替补。名字自带江湖气，上场后主要业务是让对面边路变成风景区。",
+    "张子冲": "20号，后腰（右）。冲不是乱冲，是有组织有纪律地把球和人一起送到前面。",
+    "徐文浩": "21号，替补。文能看懂局势，浩能覆盖空间，合起来就是替补席上的多功能接口。",
+    "万江源": "22号，替补。名字像水系法师，传球也讲究源源不断，偶尔还能制造水花。",
+    "孟红厉": "25号，替补。红厉不是红牌厉害，是气势厉害，上场自带压迫感滤镜。",
+    "徐戈": "26号，替补。名字短，动作也干脆，防守时主打一个少废话多断球。",
+    "邓翔宇": "28号，右边锋。翔宇起速时像把边线当跑道，缺点是摄像机可能跟不上。",
+    "黄于翀": "31号，左边卫。左路守护神，能上能下，仿佛体力条偷偷接了充电宝。",
+    "张帆": "32号，替补。帆一挂起来，顺风球会更顺，逆风球也能试着借点风。",
+    "梁之恒": "33号，替补。恒字辈选手，优势是稳定输出，劣势是对手很难等到他掉线。",
+    "郑又畅": "39号，替补。又畅一上，传接球都想变顺一点，像给中场抹了润滑油。",
+    "许艺": "41号，替补。名字带艺，脚下也有点节目效果，偶尔会给比赛加一段即兴表演。",
+    "赖飞扬": "47号，替补。飞扬起来不是形容词，是边路实况，对手追着追着就只剩背影。",
+    "张启行": "55号，替补。启行代表随时出发，热身完毕后像导航开始播报：即将进入战场。",
+    "黎兆荣": "86号，替补。号码很大，存在感也不小，上场后主打一个让人记住今晚有这个人。",
+    "徐乾洲": "88号，替补。88号自带吉利属性，上场像给球队抽到一张隐藏增益卡。",
+    "陈炫": "3号，教练。战术板一拿，气质就上来了；受伤也不影响他在场边输出能量。",
+    "吴优": "1号，门将。门前一站，像给球门装了一个人工智能防火墙。",
+    "汪昌强": "77号，后腰。左路忠诚守护者，哪里缺人补哪里，哪里危险先到哪里。"
+  }
+}

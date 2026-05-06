@@ -1,0 +1,2229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAOHE WINGS · 阵容生成器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #1a1a1a;
+    min-height: 100vh;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    overflow-x: auto;
+  }
+
+  /* === 控制台 === */
+  .control-panel {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 16px;
+    width: 100%;
+    max-width: 760px;
+    color: #eee;
+  }
+  .control-panel h2 { font-size: 16px; margin-bottom: 12px; color: #dc2626; }
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .control-row label {
+    font-size: 13px;
+    color: #aaa;
+    min-width: 60px;
+  }
+  .ctrl-btn,
+  .ctrl-select,
+  .ctrl-input {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #aaa;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .ctrl-btn {
+    cursor: pointer;
+  }
+  .ctrl-btn:hover { background: #333; color: #fff; }
+  .ctrl-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .ctrl-btn.active {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+    font-weight: 600;
+  }
+  .ctrl-btn.active[data-kit="away"] {
+    background: #2563eb;
+    border-color: #2563eb;
+  }
+  .ctrl-btn.export {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #fff;
+    font-weight: 600;
+    padding: 8px 20px;
+  }
+  .ctrl-btn.export:hover { background: #15803d; }
+  .ctrl-select {
+    min-width: 210px;
+    cursor: pointer;
+  }
+  .ctrl-input {
+    min-width: 220px;
+    outline: none;
+  }
+  .ctrl-input:focus,
+  .ctrl-select:focus {
+    border-color: #666;
+    color: #fff;
+  }
+  .inline-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #ddd;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .inline-check input {
+    accent-color: #dc2626;
+  }
+  .control-section {
+    margin: 12px 0;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    background: #202020;
+    overflow: hidden;
+  }
+  .control-section summary {
+    cursor: pointer;
+    padding: 10px 12px;
+    color: #eee;
+    font-size: 13px;
+    font-weight: 700;
+    user-select: none;
+  }
+  .control-section[open] summary {
+    border-bottom: 1px solid #333;
+    color: #fff;
+  }
+  .photo-manager {
+    max-height: 320px;
+    overflow: auto;
+    padding: 8px;
+  }
+  .photo-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: 262px 132px 92px 38px 62px 62px 48px;
+    align-items: center;
+    gap: 7px;
+    min-width: 738px;
+    padding: 5px 4px 7px;
+    background: #202020;
+    color: #888;
+    border-bottom: 1px solid #3a3a3a;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .photo-row {
+    display: grid;
+    grid-template-columns: 262px 132px 92px 38px 62px 62px 48px;
+    align-items: center;
+    gap: 7px;
+    min-width: 738px;
+    padding: 7px 4px;
+    border-bottom: 1px solid #303030;
+  }
+  .photo-row:last-child { border-bottom: none; }
+  .photo-player {
+    min-width: 0;
+    color: #ddd;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .photo-player .num {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 28px;
+    margin-right: 6px;
+    color: #fff;
+    font-weight: 900;
+  }
+  .player-fields {
+    display: grid;
+    grid-template-columns: 42px 84px 48px 70px;
+    gap: 5px;
+    min-width: 0;
+  }
+  .player-field-input {
+    min-width: 0;
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+  .stats-inputs {
+    display: inline-grid;
+    grid-template-columns: repeat(3, 40px);
+    gap: 5px;
+  }
+  .stat-input {
+    width: 40px;
+    min-width: 0;
+    padding: 5px 4px;
+    text-align: center;
+    font-size: 12px;
+  }
+  .status-select {
+    min-width: 92px;
+    padding: 5px 7px;
+    font-size: 12px;
+  }
+  .captain-check {
+    justify-content: center;
+    min-width: 38px;
+    font-size: 12px;
+  }
+  .photo-btn {
+    width: 62px;
+    padding: 5px 4px;
+    font-size: 12px;
+  }
+  .coach-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px;
+  }
+  .coach-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .coach-field label {
+    color: #aaa;
+    font-size: 12px;
+  }
+  .coach-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .photo-btn.is-uploaded {
+    color: #bbf7d0;
+    border-color: #15803d;
+    background: #12351e;
+  }
+  .help {
+    color: #777;
+    font-size: 12px;
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+  .help code { background: #1a1a1a; padding: 1px 5px; border-radius: 3px; color: #dc2626; }
+
+  /* === 海报本体 === */
+  .poster {
+    width: 760px;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(220,38,38,0.15), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(220,38,38,0.1), transparent 40%),
+      #0a0a0a;
+    color: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    --shirt-bg: #dc2626;
+    --shirt-edge: #7f1d1d;
+    --shirt-text: #fff;
+    --accent: #dc2626;
+    --accent-soft: rgba(220,38,38,0.15);
+  }
+  .poster[data-kit="away"] {
+    --shirt-bg: #2563eb;
+    --shirt-edge: #1e3a8a;
+    --shirt-text: #fff;
+    --accent: #3b82f6;
+    --accent-soft: rgba(59,130,246,0.15);
+    background:
+      radial-gradient(circle at 0% 0%, rgba(59,130,246,0.18), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(59,130,246,0.12), transparent 40%),
+      #0a0a0a;
+  }
+
+  /* contenteditable 视觉提示 */
+  [contenteditable="true"] {
+    outline: none;
+    border-radius: 3px;
+    transition: background 0.15s, box-shadow 0.15s;
+    cursor: text;
+  }
+  [contenteditable="true"]:hover {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+  }
+  [contenteditable="true"]:focus {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  /* 顶部标题区 */
+  .poster-head {
+    padding: 24px 32px 18px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    border-bottom: 3px solid var(--accent);
+    background:
+      linear-gradient(90deg, var(--accent-soft) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 20h40M20 0v40' stroke='%23222' stroke-width='0.5'/%3E%3C/svg%3E");
+  }
+  .head-logo {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, var(--shirt-bg), var(--shirt-edge));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+  .head-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .head-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .head-team-cn {
+    font-size: 13px;
+    color: #aaa;
+    letter-spacing: 3px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .head-team-en {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .head-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .head-title {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    line-height: 1;
+    color: #fff;
+  }
+  .head-title-en {
+    font-size: 13px;
+    color: #555;
+    letter-spacing: 3px;
+    font-weight: 600;
+  }
+  .head-formation {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .head-formation .num {
+    font-size: 36px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .head-formation .style {
+    font-size: 12px;
+    color: #888;
+    letter-spacing: 2px;
+    margin-top: 6px;
+  }
+  .head-meta {
+    padding: 11px 32px;
+    background: #050505;
+    color: #ccc;
+    font-size: 13px;
+    border-bottom: 1px solid #222;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  /* 球场 */
+  .pitch {
+    position: relative;
+    height: 700px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.04) 100%),
+      repeating-linear-gradient(0deg, #1a4a1a 0px, #1a4a1a 50px, #185018 50px, #185018 100px);
+    overflow: hidden;
+  }
+  .pitch::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 130px; height: 130px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .pitch::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 2px;
+    background: rgba(255,255,255,0.2);
+  }
+  .pitch .penalty {
+    position: absolute;
+    bottom: 0; left: 50%;
+    width: 320px; height: 100px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-bottom: none;
+    transform: translateX(-50%);
+  }
+  .pitch .small-box {
+    position: absolute;
+    bottom: 0; left: 50%;
+    width: 160px; height: 40px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-bottom: none;
+    transform: translateX(-50%);
+  }
+
+  .player-card,
+  .coach-card {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 92px;
+    text-align: center;
+    transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s;
+  }
+  .player-card.unavailable {
+    filter: grayscale(0.7) opacity(0.7);
+  }
+  .player-card.drop-target .player-avatar {
+    outline: 3px dashed #22c55e;
+    outline-offset: 4px;
+    box-shadow: 0 0 0 4px rgba(34,197,94,0.16), 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .player-avatar {
+    width: 78px;
+    height: 88px;
+    background: linear-gradient(180deg, var(--shirt-bg) 0%, var(--shirt-edge) 100%);
+    border: 2px solid rgba(0,0,0,0.6);
+    border-radius: 12px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    color: var(--shirt-bg);
+  }
+  .player-avatar svg { width: 100%; height: 100%; display: block; }
+  .player-avatar-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .player-num {
+    position: absolute;
+    top: 5px; left: 5px;
+    background: rgba(0,0,0,0.8);
+    color: var(--shirt-text);
+    font-weight: 900;
+    font-size: 13px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    z-index: 2;
+  }
+  .player-pos {
+    position: absolute;
+    top: 5px; right: 5px;
+    background: rgba(0,0,0,0.8);
+    color: var(--shirt-bg);
+    font-weight: 700;
+    font-size: 9px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    z-index: 2;
+  }
+  .poster[data-kit="away"] .player-pos { color: #93c5fd; }
+  .status-badge,
+  .stats-badge {
+    position: absolute;
+    bottom: 5px;
+    z-index: 2;
+    background: rgba(0,0,0,0.74);
+    border-radius: 4px;
+    line-height: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .status-badge {
+    left: 5px;
+    padding: 3px 4px;
+    font-size: 12px;
+  }
+  .stats-badge {
+    right: 5px;
+    max-width: 78px;
+    padding: 3px 4px;
+    color: #fff;
+    font-size: 8.5px;
+    font-weight: 800;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  .player-name {
+    margin-top: 5px;
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 1px 4px rgba(0,0,0,1);
+    letter-spacing: 1px;
+  }
+  .captain-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    border-radius: 50%;
+    background: #d4af37;
+    color: #111;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-shadow: none;
+    vertical-align: 1px;
+  }
+  .player-role {
+    font-size: 9px;
+    color: var(--accent);
+    margin-top: 1px;
+    text-shadow: 0 1px 3px rgba(0,0,0,1);
+  }
+  .coach-card {
+    left: 12%;
+    top: 88%;
+  }
+  .coach-card .player-avatar {
+    background: linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 100%);
+    color: #2a2a2a;
+  }
+  .coach-card .player-pos,
+  .poster[data-kit="away"] .coach-card .player-pos {
+    color: #d4af37;
+    top: auto;
+    right: 5px;
+    bottom: 5px;
+  }
+
+  /* 替补区 */
+  .bench {
+    background: #050505;
+    padding: 16px 32px;
+    border-top: 3px solid var(--accent);
+  }
+  .bench-title {
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: 3px;
+  }
+  .bench-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .bench-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: #161616;
+    min-height: 78px;
+    padding: 8px 6px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    cursor: grab;
+    touch-action: none;
+    transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .bench-item:hover {
+    background: #202020;
+    border-color: #454545;
+  }
+  .bench-item:active { cursor: grabbing; }
+  .bench-item.dragging-source {
+    opacity: 0.42;
+  }
+  .bench-item.unavailable {
+    filter: grayscale(0.7) opacity(0.7);
+  }
+  .bench-avatar {
+    width: 38px;
+    height: 38px;
+    background: linear-gradient(180deg, var(--shirt-bg), var(--shirt-edge));
+    border: 1px solid rgba(0,0,0,0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--shirt-text);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .bench-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .bench-avatar-num {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.78);
+    color: #fff;
+    font-size: 9px;
+    line-height: 15px;
+    text-align: center;
+  }
+  .bench-status-badge {
+    position: absolute;
+    left: -2px;
+    bottom: -2px;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.78);
+    font-size: 10px;
+    line-height: 17px;
+    text-align: center;
+  }
+  .bench-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ddd;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bench-role {
+    color: var(--accent);
+    font-size: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .drag-ghost {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    opacity: 0.82;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+
+  /* 绝版人物 */
+  .legends {
+    background: #050505;
+    padding: 14px 32px 18px;
+    border-top: 1px dashed #2a2a2a;
+  }
+  .legends-title {
+    color: #d4af37;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: 3px;
+  }
+  .legends-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .legend-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: linear-gradient(180deg, #1a1408 0%, #0e0a04 100%);
+    border: 1px solid #3a2c10;
+    border-radius: 8px;
+    padding: 10px 6px;
+    min-height: 90px;
+    position: relative;
+  }
+  .legend-item::before {
+    content: '★';
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    color: #d4af37;
+    font-size: 10px;
+    opacity: 0.7;
+  }
+  .legend-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #2a1f08;
+    border: 1.5px solid #d4af37;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 900;
+    color: #d4af37;
+    overflow: hidden;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .legend-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .legend-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #e8d28a;
+    letter-spacing: 1px;
+  }
+  .legend-role {
+    color: #8a6d2a;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .report-qr {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #050505;
+    border-top: 1px solid #202020;
+    padding: 12px 32px;
+  }
+  .report-qr[hidden] {
+    display: none;
+  }
+  .qr-box {
+    width: 60px;
+    height: 60px;
+    padding: 4px;
+    background: #fff;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .qr-box img,
+  .qr-box canvas {
+    width: 52px !important;
+    height: 52px !important;
+    display: block;
+  }
+  .report-qr-text {
+    color: #d6d6d6;
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+
+  .poster-foot {
+    background: #000;
+    padding: 10px;
+    text-align: center;
+    color: #444;
+    font-size: 10px;
+    letter-spacing: 6px;
+  }
+
+  .side-tools {
+    width: 100%;
+    max-width: 760px;
+    background: #202020;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 16px;
+    color: #eee;
+  }
+  .side-tools h2 {
+    color: #dc2626;
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+  .draw-card {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    align-items: center;
+    gap: 14px;
+    margin-top: 12px;
+    padding: 12px;
+    background: #151515;
+    border: 1px solid #333;
+    border-radius: 8px;
+  }
+  .draw-avatar {
+    width: 88px;
+    height: 100px;
+    background: linear-gradient(180deg, var(--shirt-bg, #dc2626), var(--shirt-edge, #7f1d1d));
+    border: 2px solid rgba(0,0,0,0.6);
+    border-radius: 12px;
+    color: var(--shirt-bg, #dc2626);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .draw-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .draw-name {
+    font-size: 18px;
+    font-weight: 900;
+    margin-bottom: 4px;
+  }
+  .draw-meta {
+    color: #aaa;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .draw-intro {
+    color: #ddd;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- 控制台 -->
+<div class="control-panel">
+  <h2>⚙️ 阵容生成器</h2>
+
+  <div class="control-row">
+    <label>阵型</label>
+    <button class="ctrl-btn formation-btn" data-formation="433">4-3-3</button>
+    <button class="ctrl-btn formation-btn" data-formation="442">4-4-2</button>
+    <button class="ctrl-btn formation-btn" data-formation="352">3-5-2</button>
+    <button class="ctrl-btn formation-btn active" data-formation="4231">4-2-3-1</button>
+  </div>
+
+  <div class="control-row">
+    <label>球衣</label>
+    <button class="ctrl-btn kit-btn active" data-kit="home">🔴 主场（红）</button>
+    <button class="ctrl-btn kit-btn" data-kit="away">🔵 客场（蓝）</button>
+  </div>
+
+  <div class="control-row">
+    <label>队徽</label>
+    <button class="ctrl-btn" id="team-logo-upload-btn">上传队徽</button>
+    <button class="ctrl-btn" id="team-logo-clear-btn">清除队徽</button>
+  </div>
+
+  <div class="control-row">
+    <label>数据</label>
+    <button class="ctrl-btn stats-toggle-btn active" data-stats-visible="true">显示数据角标</button>
+    <button class="ctrl-btn stats-toggle-btn" data-stats-visible="false">隐藏数据角标</button>
+  </div>
+
+  <div class="control-row">
+    <label>战报</label>
+    <input class="ctrl-input" id="report-link-input" type="url" placeholder="战报链接（为空不显示二维码）">
+  </div>
+
+  <div class="control-row">
+    <label>预设</label>
+    <button class="ctrl-btn" id="save-preset-btn">保存当前为预设</button>
+    <select class="ctrl-select" id="preset-select">
+      <option value="">载入预设...</option>
+    </select>
+    <button class="ctrl-btn" id="delete-preset-btn">删除预设</button>
+    <button class="ctrl-btn" id="export-json-btn">导出 JSON</button>
+  </div>
+
+  <details class="control-section">
+    <summary>球员管理</summary>
+    <div class="photo-manager" id="photo-manager"></div>
+  </details>
+
+  <details class="control-section">
+    <summary>教练设置</summary>
+    <div class="coach-settings" id="coach-settings">
+      <label class="inline-check coach-actions">
+        <input type="checkbox" id="coach-show-input" checked>
+        显示教练卡片
+      </label>
+      <div class="coach-field">
+        <label for="coach-num-input">号码</label>
+        <input class="ctrl-input" id="coach-num-input" type="text" value="3">
+      </div>
+      <div class="coach-field">
+        <label for="coach-pos-input">角标文字</label>
+        <input class="ctrl-input" id="coach-pos-input" type="text" value="COACH">
+      </div>
+      <div class="coach-field">
+        <label for="coach-name-input">姓名</label>
+        <input class="ctrl-input" id="coach-name-input" type="text" value="陈炫">
+      </div>
+      <div class="coach-field">
+        <label for="coach-role-input">角色</label>
+        <input class="ctrl-input" id="coach-role-input" type="text" value="教练">
+      </div>
+      <div class="coach-actions">
+        <button class="ctrl-btn" id="coach-upload-btn">上传西服照</button>
+        <button class="ctrl-btn" id="coach-clear-btn">清除照片</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="control-row">
+    <label></label>
+    <button class="ctrl-btn export" onclick="exportPoster()">📷 导出 PNG 海报</button>
+  </div>
+
+  <div class="help">
+    💡 <strong>海报上所有文字直接点击即可编辑</strong>（队名、标题、对手信息、战术风格）。<br>
+    💡 替补球员可拖拽到任意首发位置完成换人；新上场球员自动继承该位置标签。<br>
+    💡 页面会自动恢复 v7 状态，预设可保存多套阵容、照片、队徽、球员状态、二维码和教练设置。
+  </div>
+</div>
+
+<!-- 海报本体 -->
+<div class="poster" id="poster" data-kit="home">
+
+  <div class="poster-head">
+    <div class="head-logo" id="team-logo">🦅</div>
+    <div class="head-text">
+      <div class="head-team-cn" contenteditable="true" data-edit-key="teamCn">浙江大学老和山之翼</div>
+      <div class="head-team-en" contenteditable="true" data-edit-key="teamEn">ZJU SAA · LAOHE WINGS</div>
+      <div class="head-title-row">
+        <div class="head-title" contenteditable="true" data-edit-key="titleCn">首发阵容</div>
+        <div class="head-title-en" contenteditable="true" data-edit-key="titleEn">STARTING XI</div>
+      </div>
+    </div>
+    <div class="head-formation">
+      <div class="num" id="formation-display">4-2-3-1</div>
+      <div class="style" contenteditable="true" data-edit-key="style">进攻 · 控球 · 压迫</div>
+    </div>
+  </div>
+
+  <div class="head-meta" contenteditable="true" data-edit-key="meta">老和山之翼 · 4-2-3-1 本场名单</div>
+
+  <div class="pitch" id="pitch">
+    <div class="penalty"></div>
+    <div class="small-box"></div>
+  </div>
+
+  <div class="bench">
+    <div class="bench-title" contenteditable="true" data-edit-key="benchTitle">▌ 替补卡片</div>
+    <div class="bench-grid" id="bench-grid"></div>
+  </div>
+
+  <div class="legends">
+    <div class="legends-title" contenteditable="true" data-edit-key="legendsTitle">★ 绝版人物 · HALL OF FAME</div>
+    <div class="legends-grid" id="legends-grid"></div>
+  </div>
+
+  <div class="report-qr" id="report-qr" hidden>
+    <div class="qr-box" id="qr-box"></div>
+    <div class="report-qr-text">扫码查看战报</div>
+  </div>
+
+  <div class="poster-foot" contenteditable="true" data-edit-key="footer">L  A  O  H  E  　 W  I  N  G  S  　 F  O  O  T  B  A  L  L  　 C  L  U  B</div>
+</div>
+
+<div class="side-tools" id="draw-panel">
+  <h2>🎴 随机抽卡</h2>
+  <div class="control-row">
+    <label></label>
+    <button class="ctrl-btn export" id="random-draw-btn">抽一张球员卡</button>
+  </div>
+  <div class="draw-card" id="draw-card">
+    <div class="draw-avatar">🦅</div>
+    <div>
+      <div class="draw-name">等待抽卡</div>
+      <div class="draw-meta">首发与替补都会进入卡池</div>
+      <div class="draw-intro">点击按钮，随机抽出一位老和山之翼成员。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 阵容数据 —— 每场比赛只需要修改这一段
+// ============================================================
+let SQUAD_DATA = { starters: [], bench: [] };
+let COACH_DATA = {
+  show: true,
+  num: '3',
+  posLabel: 'COACH',
+  name: '陈炫',
+  role: '教练',
+  avatar: ''
+};
+const TEAM_DATA = {
+  logo: ''
+};
+let LEGENDS_DATA = [];
+const DEFAULT_PRESET_NAME = '老和山之翼 4-2-3-1 本场名单';
+let CARD_INTROS = {};
+const PLAYER_DATA_URL = 'data/players.json';
+
+const FORMATIONS = {
+  '433': {
+    label: '4-3-3',
+    slots: [
+      { playerIndex: 0, coord: [20, 18], pos: 'LW', role: '左边锋' },
+      { playerIndex: 1, coord: [50, 14], pos: 'ST', role: '中锋' },
+      { playerIndex: 2, coord: [80, 18], pos: 'RW', role: '右边锋' },
+      { playerIndex: 3, coord: [25, 40], pos: 'CM', role: '中场' },
+      { playerIndex: 4, coord: [50, 42], pos: 'CAM', role: '前腰' },
+      { playerIndex: 5, coord: [75, 40], pos: 'CM', role: '中场' },
+      { playerIndex: 6, coord: [13, 64], pos: 'LB', role: '左后卫' },
+      { playerIndex: 7, coord: [37, 66], pos: 'CB', role: '中后卫' },
+      { playerIndex: 8, coord: [63, 66], pos: 'CB', role: '中后卫' },
+      { playerIndex: 9, coord: [87, 64], pos: 'RB', role: '右后卫' },
+      { playerIndex: 10, coord: [50, 87], pos: 'GK', role: '门将' }
+    ]
+  },
+  '442': {
+    label: '4-4-2',
+    slots: [
+      { playerIndex: 0, coord: [35, 18], pos: 'ST', role: '前锋' },
+      { playerIndex: 1, coord: [65, 18], pos: 'ST', role: '前锋' },
+      { playerIndex: 2, coord: [13, 40], pos: 'LM', role: '左前卫' },
+      { playerIndex: 3, coord: [37, 42], pos: 'CM', role: '中场' },
+      { playerIndex: 4, coord: [63, 42], pos: 'CM', role: '中场' },
+      { playerIndex: 5, coord: [87, 40], pos: 'RM', role: '右前卫' },
+      { playerIndex: 6, coord: [13, 64], pos: 'LB', role: '左后卫' },
+      { playerIndex: 7, coord: [37, 66], pos: 'CB', role: '中后卫' },
+      { playerIndex: 8, coord: [63, 66], pos: 'CB', role: '中后卫' },
+      { playerIndex: 9, coord: [87, 64], pos: 'RB', role: '右后卫' },
+      { playerIndex: 10, coord: [50, 87], pos: 'GK', role: '门将' }
+    ]
+  },
+  '352': {
+    label: '3-5-2',
+    slots: [
+      { playerIndex: 0, coord: [35, 18], pos: 'ST', role: '前锋' },
+      { playerIndex: 1, coord: [65, 18], pos: 'ST', role: '前锋' },
+      { playerIndex: 2, coord: [10, 42], pos: 'LWB', role: '左翼卫' },
+      { playerIndex: 3, coord: [30, 44], pos: 'CM', role: '中场' },
+      { playerIndex: 4, coord: [50, 40], pos: 'CAM', role: '前腰' },
+      { playerIndex: 5, coord: [70, 44], pos: 'CM', role: '中场' },
+      { playerIndex: 9, coord: [90, 42], pos: 'RWB', role: '右翼卫' },
+      { playerIndex: 6, coord: [25, 66], pos: 'LCB', role: '左中卫' },
+      { playerIndex: 7, coord: [50, 68], pos: 'CB', role: '中后卫' },
+      { playerIndex: 8, coord: [75, 66], pos: 'RCB', role: '右中卫' },
+      { playerIndex: 10, coord: [50, 87], pos: 'GK', role: '门将' }
+    ]
+  },
+  '4231': {
+    label: '4-2-3-1',
+    slots: [
+      { playerIndex: 1, coord: [50, 10], pos: 'ST', role: '中锋' },
+      { playerIndex: 0, coord: [20, 29], pos: 'LW', role: '左边锋' },
+      { playerIndex: 4, coord: [50, 29], pos: 'CAM', role: '前腰' },
+      { playerIndex: 2, coord: [80, 29], pos: 'RW', role: '右边锋' },
+      { playerIndex: 3, coord: [35, 47], pos: 'DM', role: '后腰（左）' },
+      { playerIndex: 5, coord: [65, 47], pos: 'DM', role: '后腰（右）' },
+      { playerIndex: 6, coord: [13, 66], pos: 'LB', role: '左边卫' },
+      { playerIndex: 7, coord: [37, 66], pos: 'CB', role: '中后卫（左）' },
+      { playerIndex: 8, coord: [63, 66], pos: 'CB', role: '中后卫（右）' },
+      { playerIndex: 9, coord: [87, 66], pos: 'RB', role: '右边卫' },
+      { playerIndex: 10, coord: [50, 87], pos: 'GK', role: '门将' }
+    ]
+  }
+};
+
+const SVG_AVATAR = `
+<svg viewBox="0 0 88 100" preserveAspectRatio="xMidYMax meet">
+  <ellipse cx="44" cy="32" rx="17" ry="19" fill="#e8c9a0"/>
+  <path d="M 26 28 Q 28 12 44 11 Q 60 12 62 28 Q 62 22 56 18 Q 48 14 44 14 Q 40 14 32 18 Q 26 22 26 28 Z" fill="#1a1a1a"/>
+  <rect x="38" y="46" width="12" height="8" fill="#d4a878"/>
+  <path d="M 6 100 L 6 66 Q 18 56 32 52 L 56 52 Q 70 56 82 66 L 82 100 Z" fill="currentColor"/>
+  <path d="M 32 52 L 44 60 L 56 52 L 56 56 L 44 64 L 32 56 Z" fill="rgba(0,0,0,0.25)"/>
+</svg>
+`;
+
+const COACH_SVG_AVATAR = SVG_AVATAR.replace('fill="currentColor"', 'fill="#2a2a2a"');
+
+// ============================================================
+// 状态与工具
+// ============================================================
+const STORAGE_KEYS = {
+  lastState: 'laohe-lineup-v8-last-state',
+  presets: 'laohe-lineup-v8-presets',
+  legacyLastStateV7: 'laohe-lineup-v7-last-state',
+  legacyPresetsV7: 'laohe-lineup-v7-presets',
+  legacyLastStateV6: 'laohe-lineup-v6-last-state',
+  legacyPresetsV6: 'laohe-lineup-v6-presets',
+  legacyLastState: 'laohe-lineup-v4-last-state',
+  legacyPresets: 'laohe-lineup-v4-presets',
+  legacyLastStateV5: 'laohe-lineup-v5-last-state',
+  legacyPresetsV5: 'laohe-lineup-v5-presets',
+  legacyLastStateV3: 'laohe-lineup-v3-last-state',
+  legacyPresetsV3: 'laohe-lineup-v3-presets'
+};
+
+let currentFormation = '4231';
+let currentKit = 'home';
+let currentShowStats = true;
+let reportLink = '';
+let saveTimer = null;
+let html5DragBenchIndex = null;
+let pointerDrag = null;
+
+const poster = document.getElementById('poster');
+const pitch = document.getElementById('pitch');
+const benchGrid = document.getElementById('bench-grid');
+const legendsGrid = document.getElementById('legends-grid');
+const formationDisplay = document.getElementById('formation-display');
+const teamLogo = document.getElementById('team-logo');
+const teamLogoUploadBtn = document.getElementById('team-logo-upload-btn');
+const teamLogoClearBtn = document.getElementById('team-logo-clear-btn');
+const photoManager = document.getElementById('photo-manager');
+const presetSelect = document.getElementById('preset-select');
+const savePresetBtn = document.getElementById('save-preset-btn');
+const deletePresetBtn = document.getElementById('delete-preset-btn');
+const exportJsonBtn = document.getElementById('export-json-btn');
+const reportLinkInput = document.getElementById('report-link-input');
+const reportQr = document.getElementById('report-qr');
+const qrBox = document.getElementById('qr-box');
+const coachShowInput = document.getElementById('coach-show-input');
+const coachNumInput = document.getElementById('coach-num-input');
+const coachPosInput = document.getElementById('coach-pos-input');
+const coachNameInput = document.getElementById('coach-name-input');
+const coachRoleInput = document.getElementById('coach-role-input');
+const coachUploadBtn = document.getElementById('coach-upload-btn');
+const coachClearBtn = document.getElementById('coach-clear-btn');
+const randomDrawBtn = document.getElementById('random-draw-btn');
+const drawCard = document.getElementById('draw-card');
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function toNonNegativeInt(value) {
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function normalizeStats(stats = {}) {
+  return {
+    goals: toNonNegativeInt(stats.goals),
+    assists: toNonNegativeInt(stats.assists),
+    appearances: toNonNegativeInt(stats.appearances)
+  };
+}
+
+function normalizePlayer(player) {
+  const allowedStatus = ['fit', 'injured', 'yellow', 'red', 'suspended'];
+  return {
+    ...player,
+    num: player.num ?? '',
+    name: String(player.name ?? ''),
+    pos: String(player.pos ?? ''),
+    role: String(player.role ?? ''),
+    avatarHome: player.avatarHome || '',
+    avatarAway: player.avatarAway || '',
+    stats: normalizeStats(player.stats),
+    status: allowedStatus.includes(player.status) ? player.status : 'fit',
+    captain: Boolean(player.captain)
+  };
+}
+
+function normalizeCoachData(coach = {}) {
+  return {
+    show: coach.show !== false,
+    num: String(coach.num ?? '3'),
+    posLabel: String(coach.posLabel ?? 'COACH'),
+    name: String(coach.name ?? '陈炫'),
+    role: String(coach.role ?? '教练'),
+    avatar: coach.avatar || ''
+  };
+}
+
+function normalizeTeamData(team = {}) {
+  return {
+    logo: team.logo || ''
+  };
+}
+
+function normalizeLegend(legend = {}) {
+  return {
+    name: String(legend.name ?? ''),
+    role: String(legend.role ?? '绝版人物'),
+    avatar: legend.avatar || ''
+  };
+}
+
+function normalizeIntroMap(intros = {}) {
+  const result = {};
+  if (!intros || typeof intros !== 'object' || Array.isArray(intros)) return result;
+  Object.entries(intros).forEach(([name, intro]) => {
+    if (typeof name === 'string' && typeof intro === 'string') {
+      result[name] = intro;
+    }
+  });
+  return result;
+}
+
+function normalizeSquadData() {
+  SQUAD_DATA.starters = SQUAD_DATA.starters.map(normalizePlayer);
+  SQUAD_DATA.bench = SQUAD_DATA.bench.map(normalizePlayer);
+  Object.assign(COACH_DATA, normalizeCoachData(COACH_DATA));
+  Object.assign(TEAM_DATA, normalizeTeamData(TEAM_DATA));
+  LEGENDS_DATA = LEGENDS_DATA.map(normalizeLegend);
+}
+
+function applyCurrentFormationLabels() {
+  const formation = FORMATIONS[currentFormation];
+  if (!formation?.slots) return;
+  formation.slots.forEach(slot => {
+    const player = SQUAD_DATA.starters[slot.playerIndex];
+    if (!player) return;
+    player.pos = slot.pos;
+    player.role = slot.role;
+  });
+}
+
+function benchVersionOf(player) {
+  const normalized = normalizePlayer(player);
+  return {
+    num: normalized.num,
+    name: normalized.name,
+    avatarHome: normalized.avatarHome,
+    avatarAway: normalized.avatarAway,
+    stats: normalized.stats,
+    status: normalized.status,
+    captain: normalized.captain
+  };
+}
+
+function resolveImageSource(value) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  return source.startsWith('data:') ? source : source.replace(/\\/g, '/');
+}
+
+function getCurrentAvatar(player) {
+  const normalized = normalizePlayer(player);
+  const avatar = currentKit === 'away' ? normalized.avatarAway : normalized.avatarHome;
+  return resolveImageSource(avatar);
+}
+
+function getStatusIcon(status) {
+  return {
+    injured: '🤕',
+    yellow: '🟨',
+    red: '🟥',
+    suspended: '⛔'
+  }[status] || '';
+}
+
+function getStatsBadgeText(player) {
+  if (!currentShowStats) return '';
+  const stats = normalizeStats(player.stats);
+  const parts = [];
+  if (stats.goals > 0) parts.push(`⚽${stats.goals}`);
+  if (stats.assists > 0) parts.push(`🅰️${stats.assists}`);
+  return parts.join(' ');
+}
+
+function getEditableTexts() {
+  const values = {};
+  document.querySelectorAll('[data-edit-key]').forEach(el => {
+    values[el.dataset.editKey] = el.textContent;
+  });
+  return values;
+}
+
+function setEditableTexts(values = {}) {
+  document.querySelectorAll('[data-edit-key]').forEach(el => {
+    const value = values[el.dataset.editKey];
+    if (typeof value === 'string') {
+      el.textContent = value;
+    }
+  });
+}
+
+function createSnapshot() {
+  return {
+    version: 9,
+    squadData: clone(SQUAD_DATA),
+    coachData: clone(COACH_DATA),
+    teamData: clone(TEAM_DATA),
+    legendsData: clone(LEGENDS_DATA),
+    formation: currentFormation,
+    kit: currentKit,
+    showStats: currentShowStats,
+    reportLink,
+    editables: getEditableTexts()
+  };
+}
+
+function replaceSquadData(nextSquadData) {
+  if (!nextSquadData || !Array.isArray(nextSquadData.starters) || !Array.isArray(nextSquadData.bench)) return;
+  SQUAD_DATA.starters = nextSquadData.starters.map(normalizePlayer).slice(0, 11);
+  SQUAD_DATA.bench = nextSquadData.bench.map(normalizePlayer);
+}
+
+function replaceCoachData(nextCoachData) {
+  Object.assign(COACH_DATA, normalizeCoachData(nextCoachData || {
+    show: true,
+    num: '3',
+    posLabel: 'COACH',
+    name: '陈炫',
+    role: '教练',
+    avatar: ''
+  }));
+}
+
+function replaceTeamData(nextTeamData) {
+  Object.assign(TEAM_DATA, normalizeTeamData(nextTeamData || TEAM_DATA));
+}
+
+async function loadPlayerData() {
+  try {
+    const response = await fetch(PLAYER_DATA_URL, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
+    SQUAD_DATA = {
+      starters: Array.isArray(data.starters) ? data.starters.map(normalizePlayer) : [],
+      bench: Array.isArray(data.bench) ? data.bench.map(normalizePlayer) : []
+    };
+    COACH_DATA = normalizeCoachData(data.coach);
+    LEGENDS_DATA = Array.isArray(data.legends) ? data.legends.map(normalizeLegend) : [];
+    CARD_INTROS = normalizeIntroMap(data.intros);
+  } catch (error) {
+    console.error('加载球员数据失败：', error);
+    alert('加载球员数据失败。请用本地服务器打开页面，例如 python3 -m http.server 8000。');
+  }
+}
+
+function readJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (error) {
+    console.warn('读取本地存储失败：', error);
+    return fallback;
+  }
+}
+
+function writeJson(key, value, notify = false) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.warn('写入本地存储失败：', error);
+    if (notify) {
+      alert('保存失败：浏览器本地存储空间不足。请尝试压缩照片后再保存。');
+    }
+    return false;
+  }
+}
+
+function saveLastState() {
+  writeJson(STORAGE_KEYS.lastState, createSnapshot(), false);
+}
+
+function queueSaveLastState() {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(saveLastState, 180);
+}
+
+function applySnapshot(snapshot, shouldSave = true) {
+  if (!snapshot) return false;
+  replaceSquadData(snapshot.squadData);
+  replaceCoachData(snapshot.coachData);
+  replaceTeamData(snapshot.teamData);
+  if (Array.isArray(snapshot.legendsData) && snapshot.legendsData.length) {
+    const nextLegends = LEGENDS_DATA.map(normalizeLegend);
+    snapshot.legendsData.forEach((item, i) => {
+      if (item && typeof item === 'object' && nextLegends[i]) {
+        nextLegends[i] = normalizeLegend({
+          ...nextLegends[i],
+          name: typeof item.name === 'string' ? item.name : nextLegends[i].name,
+          role: typeof item.role === 'string' ? item.role : nextLegends[i].role,
+          avatar: typeof item.avatar === 'string' ? item.avatar : nextLegends[i].avatar
+        });
+      }
+    });
+    LEGENDS_DATA = nextLegends;
+  }
+  setEditableTexts(snapshot.editables);
+  currentFormation = FORMATIONS[snapshot.formation] ? snapshot.formation : '433';
+  currentKit = snapshot.kit === 'away' ? 'away' : 'home';
+  currentShowStats = snapshot.showStats !== false;
+  reportLink = typeof snapshot.reportLink === 'string' ? snapshot.reportLink : '';
+  applyCurrentFormationLabels();
+  updateControls();
+  renderAll();
+  if (shouldSave) saveLastState();
+  return true;
+}
+
+function updateControls() {
+  document.querySelectorAll('.formation-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.formation === currentFormation);
+  });
+  document.querySelectorAll('.kit-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.kit === currentKit);
+  });
+  poster.dataset.kit = currentKit;
+  formationDisplay.textContent = FORMATIONS[currentFormation].label;
+  document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', String(currentShowStats) === btn.dataset.statsVisible);
+  });
+  reportLinkInput.value = reportLink;
+  coachShowInput.checked = COACH_DATA.show;
+  coachNumInput.value = COACH_DATA.num;
+  coachPosInput.value = COACH_DATA.posLabel;
+  coachNameInput.value = COACH_DATA.name;
+  coachRoleInput.value = COACH_DATA.role;
+  coachClearBtn.disabled = !COACH_DATA.avatar;
+  teamLogoClearBtn.disabled = !TEAM_DATA.logo;
+}
+
+// ============================================================
+// 渲染
+// ============================================================
+function renderTeamLogo() {
+  const logo = resolveImageSource(TEAM_DATA.logo);
+  teamLogo.innerHTML = logo
+    ? `<img class="head-logo-img" src="${escapeAttr(logo)}" alt="">`
+    : '🦅';
+}
+
+function renderReportQr() {
+  const value = reportLink.trim();
+  reportQr.hidden = !value;
+  qrBox.innerHTML = '';
+  if (!value) return;
+
+  if (typeof QRCode === 'function') {
+    new QRCode(qrBox, {
+      text: value,
+      width: 52,
+      height: 52,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } else {
+    qrBox.textContent = 'QR';
+  }
+}
+
+function renderPitch() {
+  const formation = FORMATIONS[currentFormation];
+  formationDisplay.textContent = formation.label;
+  pitch.innerHTML = '<div class="penalty"></div><div class="small-box"></div>';
+
+  formation.slots.forEach(slot => {
+    const player = SQUAD_DATA.starters[slot.playerIndex];
+    const coord = slot.coord;
+    if (!player || !coord) return;
+    const avatar = getCurrentAvatar(player);
+    const statusIcon = getStatusIcon(player.status);
+    const statsBadge = getStatsBadgeText(player);
+    const card = document.createElement('div');
+    card.className = `player-card ${player.status === 'injured' || player.status === 'suspended' ? 'unavailable' : ''}`;
+    card.dataset.starterIndex = String(slot.playerIndex);
+    card.style.left = coord[0] + '%';
+    card.style.top = coord[1] + '%';
+    card.innerHTML = `
+      <div class="player-avatar">
+        <span class="player-num" contenteditable="true" data-player-field="num" data-starter-index="${slot.playerIndex}">${escapeHtml(player.num)}</span>
+        <span class="player-pos" contenteditable="true" data-player-field="pos" data-starter-index="${slot.playerIndex}">${escapeHtml(player.pos)}</span>
+        ${statusIcon ? `<span class="status-badge">${statusIcon}</span>` : ''}
+        ${statsBadge ? `<span class="stats-badge">${escapeHtml(statsBadge)}</span>` : ''}
+        ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : SVG_AVATAR}
+      </div>
+      <div class="player-name"><span contenteditable="true" data-player-field="name" data-starter-index="${slot.playerIndex}">${escapeHtml(player.name)}</span>${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
+      <div class="player-role" contenteditable="true" data-player-field="role" data-starter-index="${slot.playerIndex}">${escapeHtml(player.role)}</div>
+    `;
+    card.addEventListener('dragover', handleStarterDragOver);
+    card.addEventListener('dragenter', handleStarterDragEnter);
+    card.addEventListener('dragleave', handleStarterDragLeave);
+    card.addEventListener('drop', handleStarterDrop);
+    pitch.appendChild(card);
+  });
+  renderCoachCard();
+}
+
+function renderCoachCard() {
+  if (!COACH_DATA.show) return;
+  const avatar = resolveImageSource(COACH_DATA.avatar);
+  const card = document.createElement('div');
+  card.className = 'coach-card';
+  card.style.left = '12%';
+  card.style.top = '87%';
+  card.innerHTML = `
+    <div class="player-avatar">
+      <span class="player-num">${escapeHtml(COACH_DATA.num)}</span>
+      <span class="player-pos">${escapeHtml(COACH_DATA.posLabel)}</span>
+      ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
+    </div>
+    <div class="player-name">${escapeHtml(COACH_DATA.name)}</div>
+    <div class="player-role">${escapeHtml(COACH_DATA.role)}</div>
+  `;
+  pitch.appendChild(card);
+}
+
+function renderBench() {
+  benchGrid.innerHTML = '';
+  SQUAD_DATA.bench.forEach((player, index) => {
+    const avatar = getCurrentAvatar(player);
+    const statusIcon = getStatusIcon(player.status);
+    const item = document.createElement('div');
+    item.className = `bench-item ${player.status === 'injured' || player.status === 'suspended' ? 'unavailable' : ''}`;
+    item.draggable = true;
+    item.dataset.benchIndex = String(index);
+    item.innerHTML = `
+      <div class="bench-avatar">
+        ${avatar ? `<img class="bench-avatar-img" src="${escapeAttr(avatar)}" alt=""><span class="bench-avatar-num">${escapeHtml(player.num)}</span>` : escapeHtml(player.num)}
+        ${statusIcon ? `<span class="bench-status-badge">${statusIcon}</span>` : ''}
+      </div>
+      <div class="bench-name">${escapeHtml(player.name)}${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
+      <div class="bench-role">${escapeHtml(player.role || player.pos || '替补')}</div>
+    `;
+    item.addEventListener('dragstart', handleBenchDragStart);
+    item.addEventListener('dragend', handleBenchDragEnd);
+    item.addEventListener('pointerdown', handleBenchPointerDown);
+    benchGrid.appendChild(item);
+  });
+}
+
+function renderLegends() {
+  if (!legendsGrid) return;
+  legendsGrid.innerHTML = '';
+  LEGENDS_DATA.forEach((legend, index) => {
+    const avatar = resolveImageSource(legend.avatar);
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <div class="legend-avatar" data-legend-index="${index}" title="点击上传照片">
+        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : escapeHtml(legend.name.charAt(0))}
+      </div>
+      <div class="legend-name">${escapeHtml(legend.name)}</div>
+      <div class="legend-role">${escapeHtml(legend.role || '绝版人物')}</div>
+    `;
+    const avatarEl = item.querySelector('.legend-avatar');
+    avatarEl.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          LEGENDS_DATA[index].avatar = reader.result;
+          renderLegends();
+          saveLastState();
+        };
+        reader.readAsDataURL(file);
+      });
+      input.click();
+    });
+    legendsGrid.appendChild(item);
+  });
+}
+
+function renderStatusOptions(selectedStatus) {
+  const options = [
+    ['fit', '健康'],
+    ['injured', '受伤'],
+    ['yellow', '黄牌'],
+    ['red', '红牌'],
+    ['suspended', '停赛']
+  ];
+  return options.map(([value, label]) => (
+    `<option value="${value}" ${value === selectedStatus ? 'selected' : ''}>${label}</option>`
+  )).join('');
+}
+
+function renderPhotoManager() {
+  photoManager.innerHTML = '';
+  const rows = [
+    ...SQUAD_DATA.starters.map((player, index) => ({ player, list: 'starters', index })),
+    ...SQUAD_DATA.bench.map((player, index) => ({ player, list: 'bench', index }))
+  ].sort((a, b) => {
+    const numA = Number.parseInt(a.player.num, 10);
+    const numB = Number.parseInt(b.player.num, 10);
+    if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) return numA - numB;
+    return String(a.player.num).localeCompare(String(b.player.num), 'zh-CN');
+  });
+  photoManager.innerHTML = `
+    <div class="photo-header">
+      <div>球员（号 / 名 / 位 / 角色）</div>
+      <div>进球 / 助攻 / 出场</div>
+      <div>状态</div>
+      <div>队长</div>
+      <div>主场照</div>
+      <div>客场照</div>
+      <div>清除</div>
+    </div>
+  `;
+  rows.forEach(({ player, list, index }) => {
+    const row = document.createElement('div');
+    const hasHome = Boolean(player.avatarHome);
+    const hasAway = Boolean(player.avatarAway);
+    row.className = 'photo-row';
+    row.innerHTML = `
+      <div class="player-fields">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.num)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="num" aria-label="号码">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.name)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="name" aria-label="姓名">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.pos || '')}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="pos" aria-label="位置">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.role || '')}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="role" aria-label="角色">
+      </div>
+      <div class="stats-inputs" title="进球 / 助攻 / 出场">
+        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.goals)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="goals" aria-label="进球">
+        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.assists)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="assists" aria-label="助攻">
+        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.appearances)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="appearances" aria-label="出场">
+      </div>
+      <select class="ctrl-select status-select" data-action="update-status" data-list="${list}" data-index="${index}" aria-label="状态">
+        ${renderStatusOptions(player.status)}
+      </select>
+      <label class="inline-check captain-check" title="队长">
+        <input type="checkbox" ${player.captain ? 'checked' : ''} data-action="update-captain" data-list="${list}" data-index="${index}">
+        C
+      </label>
+      <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarHome">${hasHome ? '✓ 已上传主场' : '上传主场照'}</button>
+      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway">${hasAway ? '✓ 已上传客场' : '上传客场照'}</button>
+      <button class="ctrl-btn photo-btn" data-action="clear-photo" data-list="${list}" data-index="${index}" ${hasHome || hasAway ? '' : 'disabled'}>清除</button>
+    `;
+    photoManager.appendChild(row);
+  });
+}
+
+function renderAll() {
+  normalizeSquadData();
+  renderTeamLogo();
+  renderPitch();
+  renderBench();
+  renderLegends();
+  renderPhotoManager();
+  renderReportQr();
+  updateControls();
+}
+
+// ============================================================
+// 照片管理
+// ============================================================
+function uploadPhoto(list, index, field) {
+  const player = SQUAD_DATA[list]?.[index];
+  if (!player) return;
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      player[field] = String(reader.result || '');
+      renderAll();
+      saveLastState();
+    });
+    reader.readAsDataURL(file);
+  }, { once: true });
+  input.click();
+}
+
+function clearPhoto(list, index) {
+  const player = SQUAD_DATA[list]?.[index];
+  if (!player) return;
+  player.avatarHome = '';
+  player.avatarAway = '';
+  renderAll();
+  saveLastState();
+}
+
+function updatePlayerField(list, index, field, value) {
+  const player = SQUAD_DATA[list]?.[index];
+  if (!player) return;
+  player[field] = field === 'num' ? value.trim() : value.trim();
+  renderPitch();
+  renderBench();
+  queueSaveLastState();
+}
+
+function updatePlayerStat(list, index, field, value) {
+  const player = SQUAD_DATA[list]?.[index];
+  if (!player) return;
+  player.stats = normalizeStats({
+    ...player.stats,
+    [field]: value
+  });
+  renderPitch();
+  queueSaveLastState();
+}
+
+function updatePlayerStatus(list, index, status) {
+  const player = SQUAD_DATA[list]?.[index];
+  if (!player) return;
+  player.status = status;
+  renderPitch();
+  queueSaveLastState();
+}
+
+function updatePlayerCaptain(list, index, checked) {
+  const player = SQUAD_DATA[list]?.[index];
+  if (!player) return;
+  player.captain = checked;
+  renderPitch();
+  renderBench();
+  queueSaveLastState();
+}
+
+photoManager.addEventListener('click', event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const { action, list, field } = button.dataset;
+  const index = Number(button.dataset.index);
+  if (action === 'upload-photo') uploadPhoto(list, index, field);
+  if (action === 'clear-photo') clearPhoto(list, index);
+});
+
+photoManager.addEventListener('input', event => {
+  const fieldInput = event.target.closest('input[data-action="update-player-field"]');
+  if (fieldInput) {
+    updatePlayerField(fieldInput.dataset.list, Number(fieldInput.dataset.index), fieldInput.dataset.field, fieldInput.value);
+    return;
+  }
+  const input = event.target.closest('input[data-action="update-stat"]');
+  if (!input) return;
+  updatePlayerStat(input.dataset.list, Number(input.dataset.index), input.dataset.field, input.value);
+});
+
+photoManager.addEventListener('change', event => {
+  const statusSelect = event.target.closest('select[data-action="update-status"]');
+  if (statusSelect) {
+    updatePlayerStatus(statusSelect.dataset.list, Number(statusSelect.dataset.index), statusSelect.value);
+    return;
+  }
+  const captainInput = event.target.closest('input[data-action="update-captain"]');
+  if (captainInput) {
+    updatePlayerCaptain(captainInput.dataset.list, Number(captainInput.dataset.index), captainInput.checked);
+  }
+});
+
+pitch.addEventListener('input', event => {
+  const target = event.target.closest('[data-player-field]');
+  if (!target) return;
+  const starterIndex = Number(target.dataset.starterIndex);
+  const player = SQUAD_DATA.starters[starterIndex];
+  if (!player) return;
+  player[target.dataset.playerField] = target.textContent.trim();
+  renderBench();
+  queueSaveLastState();
+});
+
+// ============================================================
+// 首发 / 替补拖拽换人
+// ============================================================
+function setDropTarget(card) {
+  document.querySelectorAll('.player-card.drop-target').forEach(el => {
+    if (el !== card) el.classList.remove('drop-target');
+  });
+  if (card) card.classList.add('drop-target');
+}
+
+function clearDragVisuals() {
+  document.querySelectorAll('.dragging-source').forEach(el => el.classList.remove('dragging-source'));
+  document.querySelectorAll('.player-card.drop-target').forEach(el => el.classList.remove('drop-target'));
+  document.querySelectorAll('.drag-ghost').forEach(el => el.remove());
+}
+
+function swapBenchToStarter(benchIndex, starterIndex) {
+  const benchPlayer = SQUAD_DATA.bench[benchIndex];
+  const starterPlayer = SQUAD_DATA.starters[starterIndex];
+  if (!benchPlayer || !starterPlayer) return;
+
+  const inheritedPos = starterPlayer.pos;
+  const inheritedRole = starterPlayer.role;
+  SQUAD_DATA.starters[starterIndex] = normalizePlayer({
+    ...benchPlayer,
+    pos: inheritedPos,
+    role: inheritedRole
+  });
+  SQUAD_DATA.bench[benchIndex] = benchVersionOf(starterPlayer);
+
+  clearDragVisuals();
+  renderAll();
+  saveLastState();
+}
+
+function handleBenchDragStart(event) {
+  html5DragBenchIndex = Number(event.currentTarget.dataset.benchIndex);
+  event.currentTarget.classList.add('dragging-source');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', String(html5DragBenchIndex));
+}
+
+function handleBenchDragEnd() {
+  html5DragBenchIndex = null;
+  clearDragVisuals();
+}
+
+function handleStarterDragOver(event) {
+  if (html5DragBenchIndex === null) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  setDropTarget(event.currentTarget);
+}
+
+function handleStarterDragEnter(event) {
+  if (html5DragBenchIndex === null) return;
+  event.preventDefault();
+  setDropTarget(event.currentTarget);
+}
+
+function handleStarterDragLeave(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    event.currentTarget.classList.remove('drop-target');
+  }
+}
+
+function handleStarterDrop(event) {
+  if (html5DragBenchIndex === null) return;
+  event.preventDefault();
+  const benchIndex = Number(event.dataTransfer.getData('text/plain'));
+  const starterIndex = Number(event.currentTarget.dataset.starterIndex);
+  html5DragBenchIndex = null;
+  swapBenchToStarter(benchIndex, starterIndex);
+}
+
+function createDragGhost(source) {
+  const ghost = source.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  ghost.style.width = source.offsetWidth + 'px';
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+function autoScrollForPointer(clientY) {
+  const edge = 72;
+  if (clientY < edge) {
+    window.scrollBy(0, -18);
+  } else if (clientY > window.innerHeight - edge) {
+    window.scrollBy(0, 18);
+  }
+}
+
+function movePointerDrag(event) {
+  if (!pointerDrag) return;
+  event.preventDefault();
+  autoScrollForPointer(event.clientY);
+  pointerDrag.ghost.style.left = event.clientX + 'px';
+  pointerDrag.ghost.style.top = event.clientY + 'px';
+
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+  const card = element?.closest?.('.player-card[data-starter-index]') || null;
+  pointerDrag.target = card;
+  setDropTarget(card);
+}
+
+function stopPointerDrag(event, shouldDrop) {
+  if (!pointerDrag) return;
+  const { benchIndex, target } = pointerDrag;
+  window.removeEventListener('pointermove', movePointerDrag);
+  window.removeEventListener('pointerup', handlePointerUp);
+  window.removeEventListener('pointercancel', handlePointerCancel);
+  pointerDrag = null;
+
+  if (shouldDrop && target) {
+    swapBenchToStarter(benchIndex, Number(target.dataset.starterIndex));
+  } else {
+    clearDragVisuals();
+  }
+}
+
+function handlePointerUp(event) {
+  stopPointerDrag(event, true);
+}
+
+function handlePointerCancel(event) {
+  stopPointerDrag(event, false);
+}
+
+function handleBenchPointerDown(event) {
+  if (event.pointerType === 'mouse' || event.button > 0) return;
+  event.preventDefault();
+  const source = event.currentTarget;
+  pointerDrag = {
+    benchIndex: Number(source.dataset.benchIndex),
+    source,
+    ghost: createDragGhost(source),
+    target: null
+  };
+  source.classList.add('dragging-source');
+  movePointerDrag(event);
+  window.addEventListener('pointermove', movePointerDrag, { passive: false });
+  window.addEventListener('pointerup', handlePointerUp);
+  window.addEventListener('pointercancel', handlePointerCancel);
+}
+
+// ============================================================
+// 战报二维码与教练设置
+// ============================================================
+function uploadTeamLogo() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      TEAM_DATA.logo = String(reader.result || '');
+      renderAll();
+      saveLastState();
+    });
+    reader.readAsDataURL(file);
+  }, { once: true });
+  input.click();
+}
+
+function clearTeamLogo() {
+  TEAM_DATA.logo = '';
+  renderAll();
+  saveLastState();
+}
+
+function uploadCoachPhoto() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      COACH_DATA.avatar = String(reader.result || '');
+      renderAll();
+      saveLastState();
+    });
+    reader.readAsDataURL(file);
+  }, { once: true });
+  input.click();
+}
+
+function clearCoachPhoto() {
+  COACH_DATA.avatar = '';
+  renderAll();
+  saveLastState();
+}
+
+function syncCoachFromControls() {
+  COACH_DATA.show = coachShowInput.checked;
+  COACH_DATA.num = coachNumInput.value.trim() || '3';
+  COACH_DATA.posLabel = coachPosInput.value.trim() || 'COACH';
+  COACH_DATA.name = coachNameInput.value.trim() || '陈炫';
+  COACH_DATA.role = coachRoleInput.value.trim() || '教练';
+  renderPitch();
+  updateControls();
+  queueSaveLastState();
+}
+
+function getAllCardPlayers() {
+  return [...SQUAD_DATA.starters, ...SQUAD_DATA.bench].map(normalizePlayer);
+}
+
+function getCardIntro(player) {
+  if (CARD_INTROS[player.name]) return CARD_INTROS[player.name];
+  const role = player.role || player.pos || '万能替补';
+  return `${player.num}号，${role}。这张卡的隐藏属性是：上场前看起来很冷静，上场后让对手也开始不冷静。`;
+}
+
+function renderDrawCard(player) {
+  const avatar = getCurrentAvatar(player);
+  drawCard.innerHTML = `
+    <div class="draw-avatar">
+      <span class="player-num">${escapeHtml(player.num)}</span>
+      ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : SVG_AVATAR}
+    </div>
+    <div>
+      <div class="draw-name">${escapeHtml(player.name)}</div>
+      <div class="draw-meta">#${escapeHtml(player.num)} · ${escapeHtml(player.role || player.pos || '老和山之翼')}</div>
+      <div class="draw-intro">${escapeHtml(getCardIntro(player))}</div>
+    </div>
+  `;
+}
+
+function drawRandomPlayer() {
+  const players = getAllCardPlayers();
+  if (!players.length) return;
+  const player = players[Math.floor(Math.random() * players.length)];
+  renderDrawCard(player);
+}
+
+// ============================================================
+// 预设与自动恢复
+// ============================================================
+function getPresets() {
+  return {
+    ...readJson(STORAGE_KEYS.legacyPresetsV3, {}),
+    ...readJson(STORAGE_KEYS.legacyPresets, {}),
+    ...readJson(STORAGE_KEYS.legacyPresetsV5, {}),
+    ...readJson(STORAGE_KEYS.legacyPresetsV6, {}),
+    ...readJson(STORAGE_KEYS.legacyPresetsV7, {}),
+    ...readJson(STORAGE_KEYS.presets, {})
+  };
+}
+
+function setPresets(presets, notify = false) {
+  return writeJson(STORAGE_KEYS.presets, presets, notify);
+}
+
+function ensureDefaultPreset() {
+  const presets = readJson(STORAGE_KEYS.presets, {});
+  if (presets[DEFAULT_PRESET_NAME]) return;
+  presets[DEFAULT_PRESET_NAME] = createSnapshot();
+  setPresets(presets, false);
+}
+
+function readInitialState() {
+  return readJson(STORAGE_KEYS.lastState, null);
+}
+
+function renderPresetSelect(selectedName = '') {
+  const presets = getPresets();
+  const names = Object.keys(presets).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  const nextSelected = names.includes(selectedName) ? selectedName : '';
+  presetSelect.innerHTML = '<option value="">载入预设...</option>';
+  names.forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    presetSelect.appendChild(option);
+  });
+  presetSelect.value = nextSelected;
+  deletePresetBtn.disabled = !nextSelected;
+}
+
+function saveCurrentAsPreset() {
+  const defaultName = document.querySelector('[data-edit-key="meta"]')?.textContent?.trim() || '';
+  const name = prompt('输入预设名称', defaultName);
+  if (!name || !name.trim()) return;
+  const presetName = name.trim();
+  const presets = getPresets();
+  presets[presetName] = createSnapshot();
+  if (setPresets(presets, true)) {
+    renderPresetSelect(presetName);
+  }
+}
+
+function loadSelectedPreset() {
+  const name = presetSelect.value;
+  deletePresetBtn.disabled = !name;
+  if (!name) return;
+  const presets = getPresets();
+  applySnapshot(presets[name], true);
+  renderPresetSelect(name);
+}
+
+function deleteSelectedPreset() {
+  const name = presetSelect.value;
+  if (!name) return;
+  if (!confirm(`删除预设「${name}」？`)) return;
+  const presets = getPresets();
+  delete presets[name];
+  if (setPresets(presets, true)) {
+    renderPresetSelect('');
+  }
+}
+
+function safeFileName(value, fallback = 'laohe-lineup-preset') {
+  const text = String(value || '').trim().replace(/[\\/:*?"<>|]+/g, '-');
+  return text.slice(0, 80) || fallback;
+}
+
+function exportCurrentPresetJson() {
+  const defaultName = document.querySelector('[data-edit-key="meta"]')?.textContent?.trim() || DEFAULT_PRESET_NAME;
+  const json = JSON.stringify(createSnapshot(), null, 2);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `${safeFileName(defaultName)}.json`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function bindControls() {
+  document.querySelectorAll('.formation-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentFormation = btn.dataset.formation;
+      applyCurrentFormationLabels();
+      updateControls();
+      renderPitch();
+      renderPhotoManager();
+      queueSaveLastState();
+    });
+  });
+
+  document.querySelectorAll('.kit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentKit = btn.dataset.kit;
+      updateControls();
+      renderPitch();
+      renderBench();
+      queueSaveLastState();
+    });
+  });
+
+  document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentShowStats = btn.dataset.statsVisible === 'true';
+      updateControls();
+      renderPitch();
+      queueSaveLastState();
+    });
+  });
+
+  reportLinkInput.addEventListener('input', () => {
+    reportLink = reportLinkInput.value.trim();
+    renderReportQr();
+    queueSaveLastState();
+  });
+
+  teamLogoUploadBtn.addEventListener('click', uploadTeamLogo);
+  teamLogoClearBtn.addEventListener('click', clearTeamLogo);
+
+  coachShowInput.addEventListener('change', syncCoachFromControls);
+  [coachNumInput, coachPosInput, coachNameInput, coachRoleInput].forEach(input => {
+    input.addEventListener('input', syncCoachFromControls);
+  });
+  coachUploadBtn.addEventListener('click', uploadCoachPhoto);
+  coachClearBtn.addEventListener('click', clearCoachPhoto);
+  randomDrawBtn.addEventListener('click', drawRandomPlayer);
+
+  savePresetBtn.addEventListener('click', saveCurrentAsPreset);
+  presetSelect.addEventListener('change', loadSelectedPreset);
+  deletePresetBtn.addEventListener('click', deleteSelectedPreset);
+  exportJsonBtn.addEventListener('click', exportCurrentPresetJson);
+
+  document.querySelectorAll('[contenteditable="true"]').forEach(el => {
+    el.addEventListener('input', queueSaveLastState);
+  });
+
+  window.addEventListener('beforeunload', saveLastState);
+}
+
+async function exportPoster() {
+  clearDragVisuals();
+  const editables = document.querySelectorAll('[contenteditable="true"]');
+  editables.forEach(el => el.contentEditable = 'false');
+
+  try {
+    const canvas = await html2canvas(poster, {
+      backgroundColor: null,
+      scale: 2,
+      logging: false
+    });
+    const link = document.createElement('a');
+    link.download = `LAOHE_lineup_${new Date().toISOString().slice(0,10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } finally {
+    editables.forEach(el => el.contentEditable = 'true');
+  }
+}
+
+async function init() {
+  await loadPlayerData();
+  normalizeSquadData();
+  bindControls();
+
+  const initialState = readInitialState();
+  if (!applySnapshot(initialState, false)) {
+    applyCurrentFormationLabels();
+    updateControls();
+    renderAll();
+    saveLastState();
+    ensureDefaultPreset();
+  }
+  renderPresetSelect(initialState ? '' : DEFAULT_PRESET_NAME);
+}
+
+init();
+</script>
+
+</body>
+</html>
