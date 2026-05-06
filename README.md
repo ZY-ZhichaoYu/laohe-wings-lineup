@@ -4,7 +4,7 @@
 
 在线访问地址：
 
-https://YOUR_USERNAME.github.io/laohe-wings-lineup/
+https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 
 ## 本地预览
 
