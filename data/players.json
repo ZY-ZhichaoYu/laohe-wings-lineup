@@ -530,6 +530,22 @@
       },
       "status": "fit",
       "captain": false
+    },
+    {
+      "num": 90,
+      "name": "吴优",
+      "pos": "",
+      "role": "",
+      "positions": [],
+      "avatarHome": "assets/players/90-吴优-home.png",
+      "avatarAway": "assets/players/90-吴优-away.png",
+      "stats": {
+        "goals": 0,
+        "assists": 0,
+        "appearances": 0
+      },
+      "status": "fit",
+      "captain": false
     }
   ],
   "legends": [
@@ -622,6 +638,12 @@
     "孟红历": "25号，替补。红历不是红牌厉害，是气势厉害，上场自带压迫感滤镜。",
     "黄焜宇": "84号，绝版人物。老和山之翼的金色记忆卡，名字一亮出来就自带队史滤镜。",
     "樊世洲": "12号，替补。上场像插电，跑起来以后对手会开始思考人生和补水。",
-    "黄于翀": "31号，左边卫。左路守护神，能上能下，仿佛体力条偷偷接了充电宝。"
+    "黄于翀": "31号，左边卫。左路守护神，能上能下，仿佛体力条偷偷接了充电宝。",
+    "吴优90": "90号，替补门将。号码换了，门线上的存在感没换；随时准备把球门重新锁上。"
+  },
+  "team": {
+    "logo": "",
+    "logoHome": "assets/team/logo-home.jpg",
+    "logoAway": "assets/team/logo-away.jpg"
   }
 }
