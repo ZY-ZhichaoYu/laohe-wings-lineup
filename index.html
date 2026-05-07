@@ -135,10 +135,10 @@
     top: 0;
     z-index: 3;
     display: grid;
-    grid-template-columns: 262px 132px 92px 62px 62px 48px;
+    grid-template-columns: 290px 132px 92px 62px 62px 48px;
     align-items: center;
     gap: 7px;
-    min-width: 693px;
+    min-width: 721px;
     padding: 5px 4px 7px;
     background: #202020;
     color: #888;
@@ -148,10 +148,10 @@
   }
   .photo-row {
     display: grid;
-    grid-template-columns: 262px 132px 92px 62px 62px 48px;
+    grid-template-columns: 290px 132px 92px 62px 62px 48px;
     align-items: center;
     gap: 7px;
-    min-width: 693px;
+    min-width: 721px;
     padding: 7px 4px;
     border-bottom: 1px solid #303030;
   }
@@ -174,9 +174,18 @@
   }
   .player-fields {
     display: grid;
-    grid-template-columns: 42px 84px 48px 70px;
+    grid-template-columns: 42px 80px minmax(0, 1fr) 60px;
     gap: 5px;
     min-width: 0;
+  }
+  .bench-positions {
+    color: #555;
+    font-size: 9px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
   }
   .legend-fields {
     grid-template-columns: 42px 84px 48px 70px;
@@ -270,6 +279,8 @@
     --shirt-text: #fff;
     --accent: #dc2626;
     --accent-soft: rgba(220,38,38,0.15);
+    --purple: #818cf8;
+    --purple-soft: rgba(99,102,241,0.22);
   }
   .poster[data-kit="away"] {
     --shirt-bg: #2563eb;
@@ -435,7 +446,7 @@
   .coach-card {
     position: absolute;
     transform: translate(-50%, -50%);
-    width: 92px;
+    width: 108px;
     text-align: center;
     transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s;
   }
@@ -448,8 +459,8 @@
     box-shadow: 0 0 0 4px rgba(34,197,94,0.16), 0 4px 12px rgba(0,0,0,0.5);
   }
   .player-avatar {
-    width: 78px;
-    height: 88px;
+    width: 92px;
+    height: 118px;
     background: linear-gradient(180deg, var(--shirt-bg) 0%, var(--shirt-edge) 100%);
     border: 2px solid rgba(0,0,0,0.6);
     border-radius: 12px;
@@ -469,6 +480,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: top center;
     display: block;
   }
   .player-num {
@@ -511,7 +523,7 @@
   }
   .stats-badge {
     right: 5px;
-    max-width: 78px;
+    max-width: 92px;
     padding: 3px 4px;
     color: #fff;
     font-size: 8.5px;
@@ -563,6 +575,88 @@
     top: auto;
     right: 5px;
     bottom: 5px;
+  }
+
+  /* 技术团队 */
+  .staff-section {
+    background: #050505;
+    padding: 12px 32px 14px;
+    border-top: 1px solid rgba(99,102,241,0.25);
+  }
+  .staff-section-title {
+    color: var(--purple);
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: 3px;
+  }
+  /* 教练与领队和替补卡片之间用虚线 */
+  .staff-section:not([hidden]) + .bench {
+    border-top: 1px dashed #2a2a2a;
+  }
+  .staff-grid {
+    display: flex;
+    gap: 12px;
+  }
+  .staff-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    background: rgba(99,102,241,0.08);
+    border: 1px solid rgba(99,102,241,0.28);
+    border-radius: 8px;
+    padding: 8px 18px 8px 10px;
+    flex: 0 0 auto;
+  }
+  .staff-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 100%);
+    border: 1.5px solid rgba(99,102,241,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    color: #2a2a2a;
+  }
+  .staff-avatar svg { width: 100%; height: 100%; display: block; }
+  .staff-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .staff-info { min-width: 0; }
+  .staff-pos-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--purple-soft);
+    border: 1px solid rgba(99,102,241,0.45);
+    color: var(--purple);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .staff-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ddd;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .staff-role {
+    font-size: 10px;
+    color: #888;
+    margin-top: 2px;
+    letter-spacing: 1px;
   }
 
   /* 替补区 */
@@ -843,6 +937,26 @@
     border-color: #d4af37;
     box-shadow: 0 0 0 1px rgba(212,175,55,0.22), inset 0 0 28px rgba(212,175,55,0.1);
   }
+  .draw-card.staff-draw {
+    background: linear-gradient(135deg, #0d0d1a 0%, #151530 58%, #0a0a14 100%);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 1px rgba(99,102,241,0.22), inset 0 0 28px rgba(99,102,241,0.08);
+  }
+  .staff-draw .draw-avatar {
+    background: radial-gradient(circle at 50% 20%, #818cf8 0%, #6366f1 40%, #1e1b4b 100%);
+    border-color: #818cf8;
+    color: #1e1b4b;
+  }
+  .draw-tag.staff-tag {
+    background: rgba(99,102,241,0.14);
+    color: #a5b4fc;
+    border: 1px solid rgba(99,102,241,0.35);
+  }
+  .staff-star-fallback {
+    font-size: 28px;
+    color: #3730a3;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.2);
+  }
   .draw-avatar {
     width: 88px;
     height: 100px;
@@ -964,8 +1078,9 @@
   </details>
 
   <details class="control-section">
-    <summary>教练设置</summary>
+    <summary>教练与领队管理</summary>
     <div class="coach-settings" id="coach-settings">
+      <div style="grid-column:1/-1;color:#777;font-size:11px;font-weight:700;padding:4px 0 6px;border-bottom:1px solid #333;letter-spacing:2px;">教练</div>
       <label class="inline-check coach-actions">
         <input type="checkbox" id="coach-show-input" checked>
         显示教练卡片
@@ -987,8 +1102,35 @@
         <input class="ctrl-input" id="coach-role-input" type="text" value="教练">
       </div>
       <div class="coach-actions">
-        <button class="ctrl-btn" id="coach-upload-btn">上传西服照</button>
+        <button class="ctrl-btn" id="coach-upload-home-btn">上传主场照</button>
+        <button class="ctrl-btn" id="coach-upload-away-btn">上传客场照</button>
         <button class="ctrl-btn" id="coach-clear-btn">清除照片</button>
+      </div>
+      <div style="grid-column:1/-1;color:#777;font-size:11px;font-weight:700;padding:10px 0 6px;border-bottom:1px solid #333;letter-spacing:2px;margin-top:4px;">领队</div>
+      <label class="inline-check coach-actions">
+        <input type="checkbox" id="manager-show-input" checked>
+        显示领队卡片
+      </label>
+      <div class="coach-field">
+        <label for="manager-num-input">号码</label>
+        <input class="ctrl-input" id="manager-num-input" type="text" value="·">
+      </div>
+      <div class="coach-field">
+        <label for="manager-pos-input">角标文字</label>
+        <input class="ctrl-input" id="manager-pos-input" type="text" value="MGR">
+      </div>
+      <div class="coach-field">
+        <label for="manager-name-input">姓名</label>
+        <input class="ctrl-input" id="manager-name-input" type="text" value="许俊秋">
+      </div>
+      <div class="coach-field">
+        <label for="manager-role-input">角色</label>
+        <input class="ctrl-input" id="manager-role-input" type="text" value="领队">
+      </div>
+      <div class="coach-actions">
+        <button class="ctrl-btn" id="manager-upload-home-btn">上传主场照</button>
+        <button class="ctrl-btn" id="manager-upload-away-btn">上传客场照</button>
+        <button class="ctrl-btn" id="manager-clear-btn">清除照片</button>
       </div>
     </div>
   </details>
@@ -1001,7 +1143,8 @@
   <div class="help">
     💡 <strong>海报上所有文字直接点击即可编辑</strong>（队名、标题、对手信息、战术风格）。<br>
     💡 替补球员可拖拽到任意首发位置完成换人，也可用“首发”下拉控件换人；新上场球员自动继承该位置标签。<br>
-    💡 页面会自动恢复 v7 状态，预设可保存多套阵容、照片、队徽、球员状态、二维码和教练设置。
+    💡 "球员管理"中可为每位球员设置多个擅长位置（逗号分隔，如 LW, CAM），会显示在替补卡片上。<br>
+    💡 "教练与领队管理"可分别配置教练和领队的卡片；页面支持直接双击打开（无需本地服务器）。
   </div>
 </div>
 
@@ -1031,8 +1174,10 @@
     <div class="small-box"></div>
   </div>
 
+  <div class="staff-section" id="staff-section"></div>
+
   <div class="bench">
-    <div class="bench-title" contenteditable="true" data-edit-key="benchTitle">▌ 替补卡片</div>
+    <div class="bench-title" contenteditable="true" data-edit-key="benchTitle">▌ 替补卡片 · BENCH</div>
     <div class="bench-grid" id="bench-grid"></div>
   </div>
 
@@ -1078,6 +1223,14 @@ let COACH_DATA = {
   role: '教练',
   avatar: ''
 };
+let MANAGER_DATA = {
+  show: true,
+  num: '·',
+  posLabel: 'MGR',
+  name: '许俊秋',
+  role: '领队',
+  avatar: ''
+};
 const TEAM_DATA = {
   logo: ''
 };
@@ -1085,10 +1238,15 @@ let LEGENDS_DATA = [];
 const DEFAULT_PRESET_NAME = '老和山之翼 4-2-3-1 本场名单';
 let CARD_INTROS = {};
 const PLAYER_DATA_URL = 'data/players.json';
+const INLINE_PLAYER_DATA = {"starters":[{"num":18,"name":"张天乐","pos":"LW","role":"左边锋","positions":["LW","LM"],"avatarHome":"assets/players/18-张天乐-home.png","avatarAway":"assets/players/18-张天乐-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":10,"name":"张文杰","pos":"ST","role":"中锋","positions":["ST","RW"],"avatarHome":"assets/players/10-张文杰-home.jpg","avatarAway":"assets/players/10-张文杰-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"red","captain":false},{"num":28,"name":"邓翔宇","pos":"RW","role":"右边锋","positions":["RW","RM"],"avatarHome":"assets/players/28-邓翔宇-home.png","avatarAway":"assets/players/28-邓翔宇-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":77,"name":"汪昌强","pos":"CM","role":"后腰（左）","positions":["DM","CM"],"avatarHome":"assets/players/77-汪昌强-home.png","avatarAway":"assets/players/77-汪昌强-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":9,"name":"金世纪","pos":"CAM","role":"前腰","positions":["CAM","CM"],"avatarHome":"assets/players/9-金世纪-home.jpg","avatarAway":"assets/players/9-金世纪-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":20,"name":"张子冲","pos":"CM","role":"后腰（右）","positions":["DM","CM","CAM"],"avatarHome":"assets/players/20-张子冲-home.png","avatarAway":"assets/players/20-张子冲-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":true},{"num":31,"name":"黄于翀","pos":"LB","role":"左边卫","positions":["LB","LWB"],"avatarHome":"assets/players/31-黄于翀-home.png","avatarAway":"assets/players/31-黄于翀-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":4,"name":"徐多","pos":"CB","role":"中后卫（左）","positions":["CB","LB"],"avatarHome":"assets/players/4-徐多-home.png","avatarAway":"assets/players/4-徐多-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":8,"name":"宋健","pos":"CB","role":"中后卫（右）","positions":["CB","RB"],"avatarHome":"assets/players/8-宋健-home.png","avatarAway":"assets/players/8-宋健-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":7,"name":"蒋天鸿","pos":"RB","role":"右边卫","positions":["RB","RWB"],"avatarHome":"assets/players/7-蒋天鸿-home.png","avatarAway":"assets/players/7-蒋天鸿-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":1,"name":"吴优","pos":"GK","role":"门将","positions":["GK"],"avatarHome":"assets/players/1-吴优-home.png","avatarAway":"assets/players/1-吴优-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false}],"bench":[{"num":2,"name":"李骁","pos":"","role":"","positions":[],"avatarHome":"assets/players/2-李骁-home.png","avatarAway":"assets/players/2-李骁-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":3,"name":"陈炫","pos":"","role":"教练","positions":[],"avatarHome":"assets/players/3-陈炫-home.png","avatarAway":"assets/players/3-陈炫-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"injured","captain":false},{"num":5,"name":"俞智超","pos":"","role":"","positions":[],"avatarHome":"assets/players/5-俞智超-home.jpg","avatarAway":"assets/players/5-俞智超-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":12,"name":"樊世洲","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":14,"name":"钱诚浩","pos":"","role":"","positions":[],"avatarHome":"assets/players/14-钱诚浩-home.png","avatarAway":"assets/players/14-钱诚浩-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":15,"name":"程志伟","pos":"","role":"","positions":[],"avatarHome":"assets/players/15-程志伟-home.png","avatarAway":"assets/players/15-程志伟-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":19,"name":"沈熙洲","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":21,"name":"徐文浩","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":22,"name":"万江源","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":24,"name":"刘方年","pos":"","role":"","positions":[],"avatarHome":"assets/players/24-刘方年-home.png","avatarAway":"assets/players/24-刘方年-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":25,"name":"孟红历","pos":"","role":"","positions":[],"avatarHome":"assets/players/25-孟红历-home.png","avatarAway":"assets/players/25-孟红历-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":26,"name":"徐戈","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":32,"name":"张帆","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":33,"name":"梁之恒","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":39,"name":"郑又畅","pos":"","role":"","positions":[],"avatarHome":"assets/players/39-郑又畅-home.png","avatarAway":"assets/players/39-郑又畅-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":41,"name":"许艺","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":47,"name":"赖飞扬","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":55,"name":"张启行","pos":"","role":"","positions":[],"avatarHome":"assets/players/55-张启行-home.png","avatarAway":"assets/players/55-张启行-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":86,"name":"黎兆荣","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":88,"name":"徐乾洲","pos":"","role":"","positions":[],"avatarHome":"assets/players/88-徐乾洲-home.png","avatarAway":"assets/players/88-徐乾洲-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false}],"legends":[{"num":23,"name":"张柔和","role":"绝版人物","avatar":"","avatarHome":"","avatarAway":""},{"num":36,"name":"田治华","role":"绝版人物","avatar":"","avatarHome":"assets/legends/36-田治华-home.png","avatarAway":"assets/legends/36-田治华-away.png"},{"num":37,"name":"王开来","role":"绝版人物","avatar":"","avatarHome":"assets/legends/37-王开来-home.png","avatarAway":"assets/legends/37-王开来-away.png"},{"num":84,"name":"黄焜宇","role":"绝版人物","avatar":"","avatarHome":"assets/legends/84-黄焜宇-home.png","avatarAway":"assets/legends/84-黄焜宇-away.png"}],"coach":{"show":true,"num":"3","posLabel":"COACH","name":"陈炫","role":"教练","avatar":"","avatarHome":"assets/staff/coach-home.jpg","avatarAway":"assets/staff/coach-away.jpg"},"manager":{"show":true,"num":"·","posLabel":"MGR","name":"许俊秋","role":"领队","avatar":"","avatarHome":"assets/staff/manager-home.png","avatarAway":"assets/staff/manager-away.png"},"intros":{"李骁":"2号，替补席的隐藏按钮。平时安静，一上场就像系统弹窗：是否立即加速比赛节奏？","徐多":"4号，中后卫（左）。防守风格朴素但有效，主打一个你过得去算我没站好。","俞智超":"5号，替补。名字里带智，踢法也讲究，偶尔还会让对手怀疑自己是不是少看了一集战术课。","蒋天鸿":"7号，右边卫。边路巡航能力在线，像开了导航，目的地永远是对手身后。","宋健":"8号，中后卫（右）。看起来稳，实际更稳，属于后场保险柜的密码本人。","金世纪":"9号，前腰。负责把普通进攻加工成看起来很有想法的进攻。","张文杰":"10号，中锋。曾经也打过8人制右边卫。你问张文杰和内马尔、登贝莱的区别是什么？他们的射门枪法没有张文杰准。","钱诚浩":"14号，替补。诚恳是真的，浩大也是真的，尤其是冲刺时覆盖面积很有存在感。","程志伟":"15号，替补。名字听着像班干部，踢起来像负责把混乱局面重新整理成表格的人。","张天乐":"18号，左边锋。天乐一启动，边路就开始播放快乐足球，但快乐通常只属于我们。","沈熙洲":"19号，替补。名字自带江湖气，上场后主要业务是让对面边路变成风景区。","张子冲":"20号，后腰（右）。冲不是乱冲，是有组织有纪律地把球和人一起送到前面。","徐文浩":"21号，替补。文能看懂局势，浩能覆盖空间，合起来就是替补席上的多功能接口。","万江源":"22号，替补。名字像水系法师，传球也讲究源源不断，偶尔还能制造水花。","刘方年":"24号，替补。方年一出场，带的是一股少年气；对手可以低估他年纪，但低估不了他的奔跑覆盖。","徐戈":"26号，替补。名字短，动作也干脆，防守时主打一个少废话多断球。","邓翔宇":"28号，右边锋。翔宇起速时像把边线当跑道，缺点是摄像机可能跟不上。","张帆":"32号，替补。帆一挂起来，顺风球会更顺，逆风球也能试着借点风。","梁之恒":"33号，替补。恒字辈选手，优势是稳定输出，劣势是对手很难等到他掉线。","郑又畅":"39号，替补。又畅一上，传接球都想变顺一点，像给中场抹了润滑油。","许艺":"41号，替补。名字带艺，脚下也有点节目效果，偶尔会给比赛加一段即兴表演。","赖飞扬":"47号，替补。飞扬起来不是形容词，是边路实况，对手追着追着就只剩背影。","张启行":"55号，替补。启行代表随时出发，热身完毕后像导航开始播报：即将进入战场。","黎兆荣":"86号，替补。号码很大，存在感也不小，上场后主打一个让人记住今晚有这个人。","徐乾洲":"88号，替补。88号自带吉利属性，上场像给球队抽到一张隐藏增益卡。","陈炫":"3号，教练。战术板一拿，气质就上来了；受伤也不影响他在场边输出能量。","吴优":"1号，门将。门前一站，像给球门装了一个人工智能防火墙。","汪昌强":"77号，后腰。左路忠诚守护者，哪里缺人补哪里，哪里危险先到哪里。","许俊秋":"领队。不下场，但场上每一次轮换、每一份名单、每一次出征，都是他在背后默默调度。","张柔和":"23号，绝版人物。名字带着柔和，球风里自有一股劲道；这张卡一出现，卡池里的氛围立刻不一样了。","田治华":"36号，绝版人物。号码不靠前，江湖地位很靠前；一出现在卡面上，回忆自动加滤镜。","王开来":"37号，绝版人物。开来不是将来，是已经写进队史里；抽到这张卡，说明今天手气有点金。","孟红历":"25号，替补。红历不是红牌厉害，是气势厉害，上场自带压迫感滤镜。","黄焜宇":"84号，绝版人物。老和山之翼的金色记忆卡，名字一亮出来就自带队史滤镜。","樊世洲":"12号，替补。上场像插电，跑起来以后对手会开始思考人生和补水。","黄于翀":"31号，左边卫。左路守护神，能上能下，仿佛体力条偷偷接了充电宝。"}};
 const DEFAULT_CAPTAIN_NAME = '张子冲';
 const LEGACY_NAME_MAP = {
   '徐俊秋': '许俊秋',
-  '黄坤鱼': '黄煜宇'
+  '黄坤鱼': '黄焜宇',
+  '黄坤宇': '黄焜宇',
+  '黄煜宇': '黄焜宇',
+  '黄于狒': '黄于翀',
+  '晏世洲': '樊世洲'
 };
 
 const FORMATIONS = {
@@ -1174,8 +1332,10 @@ const COACH_SVG_AVATAR = SVG_AVATAR.replace('fill="currentColor"', 'fill="#2a2a2
 // 状态与工具
 // ============================================================
 const STORAGE_KEYS = {
-  lastState: 'laohe-lineup-v8-last-state',
-  presets: 'laohe-lineup-v8-presets',
+  lastState: 'laohe-lineup-v9-last-state',
+  presets: 'laohe-lineup-v9-presets',
+  legacyLastStateV8: 'laohe-lineup-v8-last-state',
+  legacyPresetsV8: 'laohe-lineup-v8-presets',
   legacyLastStateV7: 'laohe-lineup-v7-last-state',
   legacyPresetsV7: 'laohe-lineup-v7-presets',
   legacyLastStateV6: 'laohe-lineup-v6-last-state',
@@ -1194,7 +1354,9 @@ let currentShowStats = true;
 let reportLink = '';
 let saveTimer = null;
 let html5DragBenchIndex = null;
+let html5DragStarterIndex = null;
 let pointerDrag = null;
+let pointerDragStarter = null;
 
 const poster = document.getElementById('poster');
 const pitch = document.getElementById('pitch');
@@ -1220,8 +1382,17 @@ const coachNumInput = document.getElementById('coach-num-input');
 const coachPosInput = document.getElementById('coach-pos-input');
 const coachNameInput = document.getElementById('coach-name-input');
 const coachRoleInput = document.getElementById('coach-role-input');
-const coachUploadBtn = document.getElementById('coach-upload-btn');
+const coachUploadHomeBtn = document.getElementById('coach-upload-home-btn');
+const coachUploadAwayBtn = document.getElementById('coach-upload-away-btn');
 const coachClearBtn = document.getElementById('coach-clear-btn');
+const managerShowInput = document.getElementById('manager-show-input');
+const managerNumInput = document.getElementById('manager-num-input');
+const managerPosInput = document.getElementById('manager-pos-input');
+const managerNameInput = document.getElementById('manager-name-input');
+const managerRoleInput = document.getElementById('manager-role-input');
+const managerUploadHomeBtn = document.getElementById('manager-upload-home-btn');
+const managerUploadAwayBtn = document.getElementById('manager-upload-away-btn');
+const managerClearBtn = document.getElementById('manager-clear-btn');
 const randomDrawBtn = document.getElementById('random-draw-btn');
 const drawCard = document.getElementById('draw-card');
 
@@ -1263,12 +1434,16 @@ function normalizeName(name) {
 function normalizePlayer(player) {
   const allowedStatus = ['fit', 'injured', 'yellow', 'red', 'suspended'];
   const name = normalizeName(player.name);
+  const positions = Array.isArray(player.positions)
+    ? player.positions.map(p => String(p).trim()).filter(Boolean)
+    : (player.pos ? [String(player.pos).trim()] : []);
   return {
     ...player,
     num: player.num ?? '',
     name,
     pos: String(player.pos ?? ''),
     role: String(player.role ?? ''),
+    positions,
     avatarHome: player.avatarHome || '',
     avatarAway: player.avatarAway || '',
     stats: normalizeStats(player.stats),
@@ -1284,7 +1459,22 @@ function normalizeCoachData(coach = {}) {
     posLabel: String(coach.posLabel ?? 'COACH'),
     name: String(coach.name ?? '陈炫'),
     role: String(coach.role ?? '教练'),
-    avatar: coach.avatar || ''
+    avatar: coach.avatar || '',
+    avatarHome: coach.avatarHome || '',
+    avatarAway: coach.avatarAway || ''
+  };
+}
+
+function normalizeManagerData(manager = {}) {
+  return {
+    show: manager.show !== false,
+    num: String(manager.num ?? '·'),
+    posLabel: String(manager.posLabel ?? 'MGR'),
+    name: String(manager.name ?? '许俊秋'),
+    role: String(manager.role ?? '领队'),
+    avatar: manager.avatar || '',
+    avatarHome: manager.avatarHome || '',
+    avatarAway: manager.avatarAway || ''
   };
 }
 
@@ -1300,7 +1490,9 @@ function normalizeLegend(legend = {}) {
     num: legend.num ?? '',
     name,
     role: String(legend.role ?? '绝版人物'),
-    avatar: legend.avatar || ''
+    avatar: legend.avatar || '',
+    avatarHome: legend.avatarHome || '',
+    avatarAway: legend.avatarAway || ''
   };
 }
 
@@ -1319,6 +1511,7 @@ function normalizeSquadData() {
   SQUAD_DATA.starters = SQUAD_DATA.starters.map(normalizePlayer);
   SQUAD_DATA.bench = SQUAD_DATA.bench.map(normalizePlayer);
   Object.assign(COACH_DATA, normalizeCoachData(COACH_DATA));
+  Object.assign(MANAGER_DATA, normalizeManagerData(MANAGER_DATA));
   Object.assign(TEAM_DATA, normalizeTeamData(TEAM_DATA));
   LEGENDS_DATA = LEGENDS_DATA.map(normalizeLegend);
 }
@@ -1339,6 +1532,7 @@ function benchVersionOf(player) {
   return {
     num: normalized.num,
     name: normalized.name,
+    positions: normalized.positions,
     avatarHome: normalized.avatarHome,
     avatarAway: normalized.avatarAway,
     stats: normalized.stats,
@@ -1360,7 +1554,18 @@ function getCurrentAvatar(player) {
 }
 
 function getLegendAvatar(legend) {
-  return resolveImageSource(normalizeLegend(legend).avatar);
+  const n = normalizeLegend(legend);
+  const chosen = currentKit === 'away'
+    ? (n.avatarAway || n.avatarHome || n.avatar)
+    : (n.avatarHome || n.avatarAway || n.avatar);
+  return resolveImageSource(chosen);
+}
+
+function getStaffAvatar(data) {
+  const chosen = currentKit === 'away'
+    ? (data.avatarAway || data.avatarHome || data.avatar || '')
+    : (data.avatarHome || data.avatarAway || data.avatar || '');
+  return resolveImageSource(chosen);
 }
 
 function getStatusIcon(status) {
@@ -1403,6 +1608,7 @@ function createSnapshot() {
     version: 9,
     squadData: clone(SQUAD_DATA),
     coachData: clone(COACH_DATA),
+    managerData: clone(MANAGER_DATA),
     teamData: clone(TEAM_DATA),
     legendsData: clone(LEGENDS_DATA),
     formation: currentFormation,
@@ -1413,44 +1619,76 @@ function createSnapshot() {
   };
 }
 
+function mergeSavedPlayerFields(basePlayer, savedPlayer) {
+  const base = normalizePlayer(basePlayer);
+  if (!savedPlayer || typeof savedPlayer !== 'object') return base;
+  const saved = normalizePlayer(savedPlayer);
+  return {
+    ...base,
+    avatarHome: saved.avatarHome || base.avatarHome,
+    avatarAway: saved.avatarAway || base.avatarAway,
+    stats: saved.stats || base.stats,
+    status: saved.status || base.status,
+    captain: Boolean(saved.captain || base.captain)
+  };
+}
+
 function replaceSquadData(nextSquadData) {
   if (!nextSquadData || !Array.isArray(nextSquadData.starters) || !Array.isArray(nextSquadData.bench)) return;
-  SQUAD_DATA.starters = nextSquadData.starters.map(normalizePlayer).slice(0, 11);
-  SQUAD_DATA.bench = nextSquadData.bench.map(normalizePlayer);
+  const savedByNum = new Map([
+    ...nextSquadData.starters,
+    ...nextSquadData.bench
+  ].filter(Boolean).map(player => [String(player.num), player]));
+  SQUAD_DATA.starters = SQUAD_DATA.starters.map(player => mergeSavedPlayerFields(player, savedByNum.get(String(player.num)))).slice(0, 11);
+  SQUAD_DATA.bench = SQUAD_DATA.bench.map(player => mergeSavedPlayerFields(player, savedByNum.get(String(player.num))));
+}
+
+function mergeSavedStaffFields(baseData, savedData) {
+  const saved = savedData && typeof savedData === 'object' ? savedData : {};
+  return {
+    ...baseData,
+    show: saved.show !== false,
+    avatar: typeof saved.avatar === 'string' && saved.avatar.startsWith('data:') ? saved.avatar : baseData.avatar,
+    avatarHome: typeof saved.avatarHome === 'string' && saved.avatarHome.startsWith('data:') ? saved.avatarHome : baseData.avatarHome,
+    avatarAway: typeof saved.avatarAway === 'string' && saved.avatarAway.startsWith('data:') ? saved.avatarAway : baseData.avatarAway
+  };
 }
 
 function replaceCoachData(nextCoachData) {
-  Object.assign(COACH_DATA, normalizeCoachData(nextCoachData || {
-    show: true,
-    num: '3',
-    posLabel: 'COACH',
-    name: '陈炫',
-    role: '教练',
-    avatar: ''
-  }));
+  Object.assign(COACH_DATA, normalizeCoachData(mergeSavedStaffFields(COACH_DATA, nextCoachData)));
+}
+
+function replaceManagerData(nextManagerData) {
+  Object.assign(MANAGER_DATA, normalizeManagerData(mergeSavedStaffFields(MANAGER_DATA, nextManagerData)));
 }
 
 function replaceTeamData(nextTeamData) {
   Object.assign(TEAM_DATA, normalizeTeamData(nextTeamData || TEAM_DATA));
 }
 
+function applyPlayerData(data) {
+  SQUAD_DATA = {
+    starters: Array.isArray(data.starters) ? data.starters.map(normalizePlayer) : [],
+    bench: Array.isArray(data.bench) ? data.bench.map(normalizePlayer) : []
+  };
+  COACH_DATA = normalizeCoachData(data.coach);
+  MANAGER_DATA = normalizeManagerData(data.manager);
+  LEGENDS_DATA = Array.isArray(data.legends) ? data.legends.map(normalizeLegend) : [];
+  CARD_INTROS = normalizeIntroMap(data.intros);
+}
+
 async function loadPlayerData() {
+  if (location.protocol === 'file:') {
+    applyPlayerData(INLINE_PLAYER_DATA);
+    return;
+  }
   try {
     const response = await fetch(PLAYER_DATA_URL, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`);
-    }
-    const data = await response.json();
-    SQUAD_DATA = {
-      starters: Array.isArray(data.starters) ? data.starters.map(normalizePlayer) : [],
-      bench: Array.isArray(data.bench) ? data.bench.map(normalizePlayer) : []
-    };
-    COACH_DATA = normalizeCoachData(data.coach);
-    LEGENDS_DATA = Array.isArray(data.legends) ? data.legends.map(normalizeLegend) : [];
-    CARD_INTROS = normalizeIntroMap(data.intros);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    applyPlayerData(await response.json());
   } catch (error) {
-    console.error('加载球员数据失败：', error);
-    alert('加载球员数据失败。请用本地服务器打开页面，例如 python3 -m http.server 8000。');
+    console.warn('fetch players.json failed, using inline data:', error);
+    applyPlayerData(INLINE_PLAYER_DATA);
   }
 }
 
@@ -1490,20 +1728,23 @@ function applySnapshot(snapshot, shouldSave = true) {
   if (!snapshot) return false;
   replaceSquadData(snapshot.squadData);
   replaceCoachData(snapshot.coachData);
+  replaceManagerData(snapshot.managerData);
   replaceTeamData(snapshot.teamData);
   if (Array.isArray(snapshot.legendsData) && snapshot.legendsData.length) {
     const nextLegends = LEGENDS_DATA.map(normalizeLegend);
     snapshot.legendsData.forEach((item, i) => {
       if (item && typeof item === 'object') {
         const normalizedItem = normalizeLegend(item);
-        const targetIndex = nextLegends.findIndex(legend => legend.name === normalizedItem.name);
+        const targetIndex = nextLegends.findIndex(legend =>
+          legend.name === normalizedItem.name || String(legend.num) === String(normalizedItem.num)
+        );
         const index = targetIndex >= 0 ? targetIndex : i;
         if (nextLegends[index]) {
           nextLegends[index] = normalizeLegend({
             ...nextLegends[index],
-            name: targetIndex >= 0 ? nextLegends[index].name : normalizedItem.name,
-            role: normalizedItem.role || nextLegends[index].role,
-            avatar: typeof item.avatar === 'string' ? item.avatar : nextLegends[index].avatar
+            avatar: typeof item.avatar === 'string' && item.avatar.startsWith('data:') ? item.avatar : nextLegends[index].avatar,
+            avatarHome: typeof item.avatarHome === 'string' && item.avatarHome.startsWith('data:') ? item.avatarHome : nextLegends[index].avatarHome,
+            avatarAway: typeof item.avatarAway === 'string' && item.avatarAway.startsWith('data:') ? item.avatarAway : nextLegends[index].avatarAway
           });
         }
       }
@@ -1567,7 +1808,13 @@ function updateControls() {
   coachPosInput.value = COACH_DATA.posLabel;
   coachNameInput.value = COACH_DATA.name;
   coachRoleInput.value = COACH_DATA.role;
-  coachClearBtn.disabled = !COACH_DATA.avatar;
+  coachClearBtn.disabled = !COACH_DATA.avatar && !COACH_DATA.avatarHome && !COACH_DATA.avatarAway;
+  managerShowInput.checked = MANAGER_DATA.show;
+  managerNumInput.value = MANAGER_DATA.num;
+  managerPosInput.value = MANAGER_DATA.posLabel;
+  managerNameInput.value = MANAGER_DATA.name;
+  managerRoleInput.value = MANAGER_DATA.role;
+  managerClearBtn.disabled = !MANAGER_DATA.avatar && !MANAGER_DATA.avatarHome && !MANAGER_DATA.avatarAway;
   teamLogoClearBtn.disabled = !TEAM_DATA.logo;
   renderLineupSwitcher();
 }
@@ -1630,35 +1877,64 @@ function renderPitch() {
       <div class="player-name"><span contenteditable="true" data-player-field="name" data-starter-index="${slot.playerIndex}">${escapeHtml(player.name)}</span>${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
       <div class="player-role" contenteditable="true" data-player-field="role" data-starter-index="${slot.playerIndex}">${escapeHtml(player.role)}</div>
     `;
+    card.draggable = true;
+    card.addEventListener('dragstart', handleStarterDragStart);
+    card.addEventListener('dragend', handleStarterDragEnd);
     card.addEventListener('dragover', handleStarterDragOver);
     card.addEventListener('dragenter', handleStarterDragEnter);
     card.addEventListener('dragleave', handleStarterDragLeave);
     card.addEventListener('drop', handleStarterDrop);
+    card.addEventListener('pointerdown', handleStarterPointerDown);
     pitch.appendChild(card);
   });
-  renderCoachCard();
 }
+// staff cards no longer rendered on pitch — moved to staff-section strip
 
-function renderCoachCard() {
-  if (!COACH_DATA.show) return;
-  const avatar = resolveImageSource(COACH_DATA.avatar);
-  const card = document.createElement('div');
-  card.className = 'coach-card';
-  card.style.left = '12%';
-  card.style.top = '87%';
-  card.innerHTML = `
-    <div class="player-avatar">
-      <span class="player-num">${escapeHtml(COACH_DATA.num)}</span>
-      <span class="player-pos">${escapeHtml(COACH_DATA.posLabel)}</span>
-      ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
-    </div>
-    <div class="player-name">${escapeHtml(COACH_DATA.name)}</div>
-    <div class="player-role">${escapeHtml(COACH_DATA.role)}</div>
-  `;
-  pitch.appendChild(card);
+function renderStaffCards() {
+  if (COACH_DATA.show) {
+    const avatar = resolveImageSource(COACH_DATA.avatar);
+    const card = document.createElement('div');
+    card.className = 'coach-card';
+    card.style.left = '12%';
+    card.style.top = '87%';
+    card.innerHTML = `
+      <div class="player-avatar">
+        <span class="player-num">${escapeHtml(COACH_DATA.num)}</span>
+        <span class="player-pos">${escapeHtml(COACH_DATA.posLabel)}</span>
+        ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
+      </div>
+      <div class="player-name">${escapeHtml(COACH_DATA.name)}</div>
+      <div class="player-role">${escapeHtml(COACH_DATA.role)}</div>
+    `;
+    pitch.appendChild(card);
+  }
+  if (MANAGER_DATA.show) {
+    const avatar = resolveImageSource(MANAGER_DATA.avatar);
+    const card = document.createElement('div');
+    card.className = 'coach-card';
+    card.style.left = '88%';
+    card.style.top = '87%';
+    card.innerHTML = `
+      <div class="player-avatar">
+        <span class="player-num">${escapeHtml(MANAGER_DATA.num)}</span>
+        <span class="player-pos">${escapeHtml(MANAGER_DATA.posLabel)}</span>
+        ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
+      </div>
+      <div class="player-name">${escapeHtml(MANAGER_DATA.name)}</div>
+      <div class="player-role">${escapeHtml(MANAGER_DATA.role)}</div>
+    `;
+    pitch.appendChild(card);
+  }
 }
 
 function renderBench() {
+  // 始终按号码从小到大排列
+  SQUAD_DATA.bench.sort((a, b) => {
+    const na = Number.parseInt(a.num, 10);
+    const nb = Number.parseInt(b.num, 10);
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+    return Number.isFinite(na) ? -1 : Number.isFinite(nb) ? 1 : 0;
+  });
   benchGrid.innerHTML = '';
   SQUAD_DATA.bench.forEach((player, index) => {
     const avatar = getCurrentAvatar(player);
@@ -1674,12 +1950,47 @@ function renderBench() {
       </div>
       <div class="bench-name">${escapeHtml(player.name)}${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
       <div class="bench-role">${escapeHtml(player.role || player.pos || '替补')}</div>
+      ${(player.positions && player.positions.length) ? `<div class="bench-positions">${escapeHtml(player.positions.slice(0, 3).join(' · '))}</div>` : ''}
     `;
     item.addEventListener('dragstart', handleBenchDragStart);
     item.addEventListener('dragend', handleBenchDragEnd);
     item.addEventListener('pointerdown', handleBenchPointerDown);
     benchGrid.appendChild(item);
   });
+}
+
+function renderStaffSection() {
+  const section = document.getElementById('staff-section');
+  if (!section) return;
+  const staff = [];
+  if (COACH_DATA.show) staff.push(COACH_DATA);
+  if (MANAGER_DATA.show) staff.push(MANAGER_DATA);
+  if (!staff.length) { section.hidden = true; return; }
+  section.hidden = false;
+  section.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'staff-section-title';
+  title.textContent = '▌ 教练与领队 · COACH & MANAGER';
+  section.appendChild(title);
+  const grid = document.createElement('div');
+  grid.className = 'staff-grid';
+  staff.forEach(data => {
+    const avatar = getStaffAvatar(data);
+    const item = document.createElement('div');
+    item.className = 'staff-item';
+    item.innerHTML = `
+      <div class="staff-avatar">
+        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
+      </div>
+      <div class="staff-info">
+        <div class="staff-pos-tag">${escapeHtml(data.posLabel)}</div>
+        <div class="staff-name">${escapeHtml(data.name)}</div>
+        <div class="staff-role">${escapeHtml(data.role)}</div>
+      </div>
+    `;
+    grid.appendChild(item);
+  });
+  section.appendChild(grid);
 }
 
 function renderLegends() {
@@ -1692,8 +2003,8 @@ function renderLegends() {
     item.className = 'legend-item';
     item.innerHTML = `
       <div class="legend-avatar" data-legend-index="${index}" title="点击上传照片">
-        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : escapeHtml(normalized.name.charAt(0))}
-        ${normalized.num !== '' ? `<span class="legend-num-badge">${escapeHtml(normalized.num)}</span>` : ''}
+        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : escapeHtml(String(normalized.num !== '' ? normalized.num : normalized.name.charAt(0)))}
+        ${avatar && normalized.num !== '' ? `<span class="legend-num-badge">${escapeHtml(normalized.num)}</span>` : ''}
       </div>
       <div class="legend-name">${escapeHtml(normalized.name)}</div>
       <div class="legend-role">${escapeHtml(normalized.role || '绝版人物')}</div>
@@ -1747,7 +2058,7 @@ function renderPhotoManager() {
   });
   photoManager.innerHTML = `
     <div class="photo-header">
-      <div>成员（号 / 名 / 位 / 角色）</div>
+      <div>成员（号 / 名 / 擅长位置 / 角色）</div>
       <div>进球 / 助攻 / 出场</div>
       <div>状态</div>
       <div>主场/照片</div>
@@ -1758,14 +2069,14 @@ function renderPhotoManager() {
   rows.forEach(({ player, list, index }) => {
     const isLegend = list === 'legends';
     const row = document.createElement('div');
-    const hasHome = isLegend ? Boolean(player.avatar) : Boolean(player.avatarHome);
-    const hasAway = !isLegend && Boolean(player.avatarAway);
+    const hasHome = isLegend ? Boolean(player.avatarHome || player.avatar) : Boolean(player.avatarHome);
+    const hasAway = Boolean(player.avatarAway);
     row.className = 'photo-row';
     row.innerHTML = `
       <div class="player-fields ${isLegend ? 'legend-fields' : ''}">
         <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.num)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="num" aria-label="号码">
         <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.name)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="name" aria-label="姓名">
-        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(isLegend ? 'HOF' : (player.pos || ''))}" ${isLegend ? 'disabled' : ''} data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="pos" aria-label="位置">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(isLegend ? 'HOF' : (player.positions || []).join(', '))}" ${isLegend ? 'disabled' : ''} data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="positions" placeholder="${isLegend ? '' : 'LW, CAM...'}" aria-label="擅长位置（逗号分隔）">
         <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.role || '')}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="role" aria-label="角色">
       </div>
       ${isLegend ? '<div class="row-note">绝版人物</div>' : `<div class="stats-inputs" title="进球 / 助攻 / 出场">
@@ -1776,8 +2087,8 @@ function renderPhotoManager() {
       ${isLegend ? '<div class="row-note">金色卡</div>' : `<select class="ctrl-select status-select" data-action="update-status" data-list="${list}" data-index="${index}" aria-label="状态">
         ${renderStatusOptions(player.status)}
       </select>`}
-      <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="${isLegend ? 'avatar' : 'avatarHome'}">${hasHome ? '✓ 已上传' : (isLegend ? '上传照片' : '上传主场照')}</button>
-      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway" ${isLegend ? 'disabled' : ''}>${isLegend ? '—' : (hasAway ? '✓ 已上传客场' : '上传客场照')}</button>
+      <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarHome">${hasHome ? '✓ 已上传' : '上传主场照'}</button>
+      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway">${hasAway ? '✓ 已上传客场' : '上传客场照'}</button>
       <button class="ctrl-btn photo-btn" data-action="clear-photo" data-list="${list}" data-index="${index}" ${hasHome || hasAway ? '' : 'disabled'}>清除</button>
     `;
     photoManager.appendChild(row);
@@ -1789,6 +2100,7 @@ function renderAll() {
   renderTeamLogo();
   renderPitch();
   renderBench();
+  renderStaffSection();
   renderLegends();
   renderPhotoManager();
   renderReportQr();
@@ -1810,7 +2122,7 @@ function uploadPhoto(list, index, field) {
     if (!file) return;
     const reader = new FileReader();
     reader.addEventListener('load', () => {
-      item[list === 'legends' ? 'avatar' : field] = String(reader.result || '');
+      item[field] = String(reader.result || '');
       renderAll();
       saveLastState();
     });
@@ -1824,6 +2136,8 @@ function clearPhoto(list, index) {
   if (!item) return;
   if (list === 'legends') {
     item.avatar = '';
+    item.avatarHome = '';
+    item.avatarAway = '';
   } else {
     item.avatarHome = '';
     item.avatarAway = '';
@@ -1834,8 +2148,12 @@ function clearPhoto(list, index) {
 
 function updatePlayerField(list, index, field, value) {
   const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
-  if (!item || (list === 'legends' && field === 'pos')) return;
-  item[field] = value.trim();
+  if (!item || (list === 'legends' && (field === 'pos' || field === 'positions'))) return;
+  if (field === 'positions') {
+    item.positions = value.split(',').map(s => s.trim()).filter(Boolean);
+  } else {
+    item[field] = value.trim();
+  }
   if (field === 'name') item.name = normalizeName(item.name);
   renderPitch();
   renderBench();
@@ -1936,6 +2254,16 @@ function swapBenchToStarter(benchIndex, starterIndex) {
   saveLastState();
 }
 
+function swapStarterToStarter(fromIndex, toIndex) {
+  if (fromIndex === toIndex) return;
+  const tmp = SQUAD_DATA.starters[fromIndex];
+  SQUAD_DATA.starters[fromIndex] = SQUAD_DATA.starters[toIndex];
+  SQUAD_DATA.starters[toIndex] = tmp;
+  clearDragVisuals();
+  renderAll();
+  saveLastState();
+}
+
 function swapSelectedStarter() {
   const benchIndex = Number(benchPlayerSelect.value);
   const starterIndex = Number(starterSlotSelect.value);
@@ -1947,7 +2275,7 @@ function handleBenchDragStart(event) {
   html5DragBenchIndex = Number(event.currentTarget.dataset.benchIndex);
   event.currentTarget.classList.add('dragging-source');
   event.dataTransfer.effectAllowed = 'move';
-  event.dataTransfer.setData('text/plain', String(html5DragBenchIndex));
+  event.dataTransfer.setData('text/plain', 'bench:' + html5DragBenchIndex);
 }
 
 function handleBenchDragEnd() {
@@ -1955,15 +2283,28 @@ function handleBenchDragEnd() {
   clearDragVisuals();
 }
 
+function handleStarterDragStart(event) {
+  if (event.target.isContentEditable) { event.preventDefault(); return; }
+  html5DragStarterIndex = Number(event.currentTarget.dataset.starterIndex);
+  event.currentTarget.classList.add('dragging-source');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', 'starter:' + html5DragStarterIndex);
+}
+
+function handleStarterDragEnd() {
+  html5DragStarterIndex = null;
+  clearDragVisuals();
+}
+
 function handleStarterDragOver(event) {
-  if (html5DragBenchIndex === null) return;
+  if (html5DragBenchIndex === null && html5DragStarterIndex === null) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
   setDropTarget(event.currentTarget);
 }
 
 function handleStarterDragEnter(event) {
-  if (html5DragBenchIndex === null) return;
+  if (html5DragBenchIndex === null && html5DragStarterIndex === null) return;
   event.preventDefault();
   setDropTarget(event.currentTarget);
 }
@@ -1975,12 +2316,18 @@ function handleStarterDragLeave(event) {
 }
 
 function handleStarterDrop(event) {
-  if (html5DragBenchIndex === null) return;
   event.preventDefault();
-  const benchIndex = Number(event.dataTransfer.getData('text/plain'));
-  const starterIndex = Number(event.currentTarget.dataset.starterIndex);
-  html5DragBenchIndex = null;
-  swapBenchToStarter(benchIndex, starterIndex);
+  const raw = event.dataTransfer.getData('text/plain');
+  const toIndex = Number(event.currentTarget.dataset.starterIndex);
+  if (raw.startsWith('starter:')) {
+    const fromIndex = Number(raw.slice(8));
+    html5DragStarterIndex = null;
+    swapStarterToStarter(fromIndex, toIndex);
+  } else if (raw.startsWith('bench:')) {
+    const benchIndex = Number(raw.slice(6));
+    html5DragBenchIndex = null;
+    swapBenchToStarter(benchIndex, toIndex);
+  }
 }
 
 function createDragGhost(source) {
@@ -2053,6 +2400,54 @@ function handleBenchPointerDown(event) {
   window.addEventListener('pointercancel', handlePointerCancel);
 }
 
+// 首发球员触摸拖拽（场上互换位置）
+function handleStarterPointerDown(event) {
+  if (event.pointerType === 'mouse' || event.button > 0) return;
+  if (event.target.isContentEditable) return;
+  event.preventDefault();
+  const card = event.currentTarget;
+  pointerDragStarter = {
+    starterIndex: Number(card.dataset.starterIndex),
+    source: card,
+    ghost: createDragGhost(card),
+    target: null
+  };
+  card.classList.add('dragging-source');
+  movePointerDragStarter(event);
+  window.addEventListener('pointermove', movePointerDragStarter, { passive: false });
+  window.addEventListener('pointerup', handleStarterPointerUp);
+  window.addEventListener('pointercancel', handleStarterPointerCancel);
+}
+
+function movePointerDragStarter(event) {
+  if (!pointerDragStarter) return;
+  event.preventDefault();
+  autoScrollForPointer(event.clientY);
+  pointerDragStarter.ghost.style.left = event.clientX + 'px';
+  pointerDragStarter.ghost.style.top = event.clientY + 'px';
+  const element = document.elementFromPoint(event.clientX, event.clientY);
+  const card = element?.closest?.('.player-card[data-starter-index]') || null;
+  pointerDragStarter.target = card;
+  setDropTarget(card);
+}
+
+function stopPointerDragStarter(event, shouldDrop) {
+  if (!pointerDragStarter) return;
+  const { starterIndex, target } = pointerDragStarter;
+  window.removeEventListener('pointermove', movePointerDragStarter);
+  window.removeEventListener('pointerup', handleStarterPointerUp);
+  window.removeEventListener('pointercancel', handleStarterPointerCancel);
+  pointerDragStarter = null;
+  if (shouldDrop && target) {
+    swapStarterToStarter(starterIndex, Number(target.dataset.starterIndex));
+  } else {
+    clearDragVisuals();
+  }
+}
+
+function handleStarterPointerUp(event) { stopPointerDragStarter(event, true); }
+function handleStarterPointerCancel(event) { stopPointerDragStarter(event, false); }
+
 // ============================================================
 // 战报二维码与教练设置
 // ============================================================
@@ -2080,7 +2475,7 @@ function clearTeamLogo() {
   saveLastState();
 }
 
-function uploadCoachPhoto() {
+function uploadCoachPhoto(field) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -2089,7 +2484,7 @@ function uploadCoachPhoto() {
     if (!file) return;
     const reader = new FileReader();
     reader.addEventListener('load', () => {
-      COACH_DATA.avatar = String(reader.result || '');
+      COACH_DATA[field] = String(reader.result || '');
       renderAll();
       saveLastState();
     });
@@ -2100,6 +2495,8 @@ function uploadCoachPhoto() {
 
 function clearCoachPhoto() {
   COACH_DATA.avatar = '';
+  COACH_DATA.avatarHome = '';
+  COACH_DATA.avatarAway = '';
   renderAll();
   saveLastState();
 }
@@ -2111,15 +2508,56 @@ function syncCoachFromControls() {
   COACH_DATA.name = coachNameInput.value.trim() || '陈炫';
   COACH_DATA.role = coachRoleInput.value.trim() || '教练';
   renderPitch();
+  renderStaffSection();
   updateControls();
   queueSaveLastState();
+}
+
+function syncManagerFromControls() {
+  MANAGER_DATA.show = managerShowInput.checked;
+  MANAGER_DATA.num = managerNumInput.value.trim() || '·';
+  MANAGER_DATA.posLabel = managerPosInput.value.trim() || 'MGR';
+  MANAGER_DATA.name = managerNameInput.value.trim() || '许俊秋';
+  MANAGER_DATA.role = managerRoleInput.value.trim() || '领队';
+  renderPitch();
+  renderStaffSection();
+  updateControls();
+  queueSaveLastState();
+}
+
+function uploadManagerPhoto(field) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      MANAGER_DATA[field] = String(reader.result || '');
+      renderAll();
+      saveLastState();
+    });
+    reader.readAsDataURL(file);
+  }, { once: true });
+  input.click();
+}
+
+function clearManagerPhoto() {
+  MANAGER_DATA.avatar = '';
+  MANAGER_DATA.avatarHome = '';
+  MANAGER_DATA.avatarAway = '';
+  renderAll();
+  saveLastState();
 }
 
 function getAllCardPlayers() {
   return [
     ...SQUAD_DATA.starters.map(player => ({ ...normalizePlayer(player), cardType: 'player' })),
     ...SQUAD_DATA.bench.map(player => ({ ...normalizePlayer(player), cardType: 'player' })),
-    ...LEGENDS_DATA.map(legend => ({ ...normalizeLegend(legend), cardType: 'legend' }))
+    ...LEGENDS_DATA.map(legend => ({ ...normalizeLegend(legend), cardType: 'legend' })),
+    ...(COACH_DATA.show ? [{ ...COACH_DATA, cardType: 'staff' }] : []),
+    ...(MANAGER_DATA.show ? [{ ...MANAGER_DATA, cardType: 'staff' }] : [])
   ];
 }
 
@@ -2128,23 +2566,43 @@ function getCardIntro(player) {
   if (player.cardType === 'legend') {
     return `${player.num}号，绝版人物。时间不一定记得每一场比赛，但老和山之翼会记得这个名字。`;
   }
+  if (player.cardType === 'staff') {
+    return `${player.role || '教练与领队'}。幕后一站，比谁都清楚场上发生了什么；这张卡抽到了，说明今天队伍的凝聚力值满格。`;
+  }
   const role = player.role || player.pos || '万能替补';
   return `${player.num}号，${role}。这张卡的隐藏属性是：上场前看起来很冷静，上场后让对手也开始不冷静。`;
 }
 
 function renderDrawCard(player) {
   const isLegend = player.cardType === 'legend';
-  const avatar = isLegend ? getLegendAvatar(player) : getCurrentAvatar(player);
-  drawCard.className = `draw-card${isLegend ? ' legend-draw' : ''}`;
+  const isStaff = player.cardType === 'staff';
+  const avatar = isLegend
+    ? getLegendAvatar(player)
+    : isStaff
+      ? getStaffAvatar(player)
+      : getCurrentAvatar(player);
+  drawCard.className = `draw-card${isLegend ? ' legend-draw' : isStaff ? ' staff-draw' : ''}`;
+  const numLabel = isStaff ? escapeHtml(player.posLabel || '') : escapeHtml(player.num);
+  const fallbackAvatar = isLegend
+    ? '<span class="legend-star-fallback">★</span>'
+    : isStaff
+      ? '<span class="staff-star-fallback">⚙</span>'
+      : SVG_AVATAR;
+  const metaText = isLegend
+    ? `${player.role || '绝版人物'} · 金色卡`
+    : isStaff
+      ? `${player.role || '教练与领队'} · 紫卡`
+      : (player.role || player.pos || '老和山之翼');
   drawCard.innerHTML = `
     <div class="draw-avatar">
-      <span class="player-num">${escapeHtml(player.num)}</span>
-      ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : (isLegend ? '<span class="legend-star-fallback">★</span>' : SVG_AVATAR)}
+      <span class="player-num">${numLabel}</span>
+      ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : fallbackAvatar}
     </div>
     <div>
       ${isLegend ? '<div class="draw-tag">HALL OF FAME</div>' : ''}
+      ${isStaff ? '<div class="draw-tag staff-tag">COACH & MANAGER</div>' : ''}
       <div class="draw-name">${escapeHtml(player.name)}</div>
-      <div class="draw-meta">#${escapeHtml(player.num)} · ${escapeHtml(isLegend ? `${player.role || '绝版人物'} · 金色卡` : (player.role || player.pos || '老和山之翼'))}</div>
+      <div class="draw-meta">${isStaff ? '' : `#${escapeHtml(player.num)} · `}${escapeHtml(metaText)}</div>
       <div class="draw-intro">${escapeHtml(getCardIntro(player))}</div>
     </div>
   `;
@@ -2294,8 +2752,16 @@ function bindControls() {
   [coachNumInput, coachPosInput, coachNameInput, coachRoleInput].forEach(input => {
     input.addEventListener('input', syncCoachFromControls);
   });
-  coachUploadBtn.addEventListener('click', uploadCoachPhoto);
+  coachUploadHomeBtn.addEventListener('click', () => uploadCoachPhoto('avatarHome'));
+  coachUploadAwayBtn.addEventListener('click', () => uploadCoachPhoto('avatarAway'));
   coachClearBtn.addEventListener('click', clearCoachPhoto);
+  managerShowInput.addEventListener('change', syncManagerFromControls);
+  [managerNumInput, managerPosInput, managerNameInput, managerRoleInput].forEach(input => {
+    input.addEventListener('input', syncManagerFromControls);
+  });
+  managerUploadHomeBtn.addEventListener('click', () => uploadManagerPhoto('avatarHome'));
+  managerUploadAwayBtn.addEventListener('click', () => uploadManagerPhoto('avatarAway'));
+  managerClearBtn.addEventListener('click', clearManagerPhoto);
   randomDrawBtn.addEventListener('click', drawRandomPlayer);
 
   savePresetBtn.addEventListener('click', saveCurrentAsPreset);
@@ -2331,6 +2797,20 @@ async function exportPoster() {
   }
 }
 
+// 把 INLINE_PLAYER_DATA 里有、但 localStorage 旧状态里没有的替补球员补进来
+// 注意：已经在首发里的球员也要排除，防止换人后重复出现
+function mergeMissingBenchPlayers() {
+  const existingNums = new Set([
+    ...SQUAD_DATA.bench.map(p => String(p.num)),
+    ...SQUAD_DATA.starters.map(p => String(p.num))
+  ]);
+  const newPlayers = (INLINE_PLAYER_DATA.bench || []).filter(p => !existingNums.has(String(p.num)));
+  if (newPlayers.length === 0) return;
+  SQUAD_DATA.bench.push(...newPlayers.map(normalizePlayer));
+  renderAll();
+  saveLastState();
+}
+
 async function init() {
   await loadPlayerData();
   normalizeSquadData();
@@ -2343,6 +2823,13 @@ async function init() {
     renderAll();
     saveLastState();
     ensureDefaultPreset();
+  } else {
+    mergeMissingBenchPlayers();
+    // 兼容旧存档：补上替补卡片的英文副标题
+    const benchTitleEl = document.querySelector('[data-edit-key="benchTitle"]');
+    if (benchTitleEl && !benchTitleEl.textContent.includes('BENCH')) {
+      benchTitleEl.textContent = '▌ 替补卡片 · BENCH';
+    }
   }
   renderPresetSelect(initialState ? '' : DEFAULT_PRESET_NAME);
 }
