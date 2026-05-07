@@ -403,7 +403,7 @@
   /* 球场 */
   .pitch {
     position: relative;
-    height: 700px;
+    height: 760px;
     background:
       linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.04) 100%),
       repeating-linear-gradient(0deg, #1a4a1a 0px, #1a4a1a 50px, #185018 50px, #185018 100px);
@@ -1285,33 +1285,33 @@ const FORMATIONS = {
   '352': {
     label: '3-5-2',
     slots: [
-      { playerIndex: 0, coord: [35, 18], pos: 'ST', role: '前锋' },
-      { playerIndex: 1, coord: [65, 18], pos: 'ST', role: '前锋' },
-      { playerIndex: 2, coord: [10, 42], pos: 'LWB', role: '左翼卫' },
-      { playerIndex: 3, coord: [30, 44], pos: 'CM', role: '中场' },
-      { playerIndex: 4, coord: [50, 40], pos: 'CAM', role: '前腰' },
-      { playerIndex: 5, coord: [70, 44], pos: 'CM', role: '中场' },
-      { playerIndex: 9, coord: [90, 42], pos: 'RWB', role: '右翼卫' },
-      { playerIndex: 6, coord: [25, 66], pos: 'LCB', role: '左中卫' },
-      { playerIndex: 7, coord: [50, 68], pos: 'CB', role: '中后卫' },
-      { playerIndex: 8, coord: [75, 66], pos: 'RCB', role: '右中卫' },
-      { playerIndex: 10, coord: [50, 87], pos: 'GK', role: '门将' }
+      { playerIndex: 0, coord: [35, 16], pos: 'ST', role: '前锋' },
+      { playerIndex: 1, coord: [65, 16], pos: 'ST', role: '前锋' },
+      { playerIndex: 2, coord: [10, 40], pos: 'LWB', role: '左翼卫' },
+      { playerIndex: 3, coord: [30, 41], pos: 'CM', role: '中场' },
+      { playerIndex: 4, coord: [50, 39], pos: 'CAM', role: '前腰' },
+      { playerIndex: 5, coord: [70, 41], pos: 'CM', role: '中场' },
+      { playerIndex: 9, coord: [90, 40], pos: 'RWB', role: '右翼卫' },
+      { playerIndex: 6, coord: [25, 64], pos: 'LCB', role: '左中卫' },
+      { playerIndex: 7, coord: [50, 64], pos: 'CB', role: '中后卫' },
+      { playerIndex: 8, coord: [75, 64], pos: 'RCB', role: '右中卫' },
+      { playerIndex: 10, coord: [50, 90], pos: 'GK', role: '门将' }
     ]
   },
   '4231': {
     label: '4-2-3-1',
     slots: [
-      { playerIndex: 1, coord: [50, 10], pos: 'ST', role: '中锋' },
-      { playerIndex: 0, coord: [20, 29], pos: 'LW', role: '左边锋' },
-      { playerIndex: 4, coord: [50, 29], pos: 'CAM', role: '前腰' },
-      { playerIndex: 2, coord: [80, 29], pos: 'RW', role: '右边锋' },
-      { playerIndex: 3, coord: [35, 47], pos: 'DM', role: '后腰（左）' },
-      { playerIndex: 5, coord: [65, 47], pos: 'DM', role: '后腰（右）' },
-      { playerIndex: 6, coord: [13, 66], pos: 'LB', role: '左边卫' },
-      { playerIndex: 7, coord: [37, 66], pos: 'CB', role: '中后卫（左）' },
-      { playerIndex: 8, coord: [63, 66], pos: 'CB', role: '中后卫（右）' },
-      { playerIndex: 9, coord: [87, 66], pos: 'RB', role: '右边卫' },
-      { playerIndex: 10, coord: [50, 87], pos: 'GK', role: '门将' }
+      { playerIndex: 1, coord: [50, 11], pos: 'ST', role: '中锋' },
+      { playerIndex: 0, coord: [20, 33], pos: 'LW', role: '左边锋' },
+      { playerIndex: 4, coord: [50, 33], pos: 'CAM', role: '前腰' },
+      { playerIndex: 2, coord: [80, 33], pos: 'RW', role: '右边锋' },
+      { playerIndex: 3, coord: [35, 51], pos: 'DM', role: '后腰（左）' },
+      { playerIndex: 5, coord: [65, 51], pos: 'DM', role: '后腰（右）' },
+      { playerIndex: 6, coord: [13, 71], pos: 'LB', role: '左边卫' },
+      { playerIndex: 7, coord: [37, 71], pos: 'CB', role: '中后卫（左）' },
+      { playerIndex: 8, coord: [63, 71], pos: 'CB', role: '中后卫（右）' },
+      { playerIndex: 9, coord: [87, 71], pos: 'RB', role: '右边卫' },
+      { playerIndex: 10, coord: [50, 91], pos: 'GK', role: '门将' }
     ]
   }
 };
@@ -1603,6 +1603,22 @@ function setEditableTexts(values = {}) {
   });
 }
 
+function syncFormationMetaText() {
+  const metaEl = document.querySelector('[data-edit-key="meta"]');
+  const formation = FORMATIONS[currentFormation];
+  if (!metaEl || !formation) return;
+  const currentText = metaEl.textContent.trim();
+  const defaultText = `老和山之翼 · ${formation.label} 本场名单`;
+  if (!currentText) {
+    metaEl.textContent = defaultText;
+    return;
+  }
+  const formationMetaPattern = /^(.*?·\s*)\d-\d(?:-\d){1,2}(\s*本场名单)$/;
+  if (formationMetaPattern.test(currentText)) {
+    metaEl.textContent = currentText.replace(formationMetaPattern, `$1${formation.label}$2`);
+  }
+}
+
 function createSnapshot() {
   return {
     version: 9,
@@ -1799,6 +1815,7 @@ function updateControls() {
   });
   poster.dataset.kit = currentKit;
   formationDisplay.textContent = FORMATIONS[currentFormation].label;
+  syncFormationMetaText();
   document.querySelectorAll('.stats-toggle-btn').forEach(btn => {
     btn.classList.toggle('active', String(currentShowStats) === btn.dataset.statsVisible);
   });
