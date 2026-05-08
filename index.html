@@ -264,6 +264,11 @@
   .help code { background: #1a1a1a; padding: 1px 5px; border-radius: 3px; color: #dc2626; }
 
   /* === 海报本体 === */
+  .poster-stage {
+    width: 760px;
+    max-width: 100%;
+    overflow: visible;
+  }
   .poster {
     width: 760px;
     background:
@@ -986,6 +991,176 @@
     font-size: 13px;
     line-height: 1.6;
   }
+
+  body.exporting-poster .poster-stage {
+    width: 760px !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body.exporting-poster .poster {
+    transform: none !important;
+  }
+
+  @media (max-width: 820px) {
+    body {
+      align-items: stretch;
+      gap: 12px;
+      padding: 10px;
+      overflow-x: hidden;
+    }
+    .control-panel,
+    .side-tools {
+      max-width: none;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .control-row {
+      align-items: stretch;
+      gap: 8px;
+    }
+    .control-row > label {
+      flex: 0 0 100%;
+      min-width: 0;
+      color: #c8c8c8;
+      font-weight: 700;
+    }
+    .control-row > label:empty {
+      display: none;
+    }
+    .ctrl-btn,
+    .ctrl-select,
+    .ctrl-input {
+      min-height: 40px;
+      min-width: 0;
+      padding: 9px 12px;
+      font-size: 14px;
+    }
+    .ctrl-btn {
+      flex: 1 1 auto;
+    }
+    .ctrl-btn.export {
+      width: 100%;
+      padding: 11px 14px;
+    }
+    .ctrl-select,
+    .ctrl-input {
+      width: 100%;
+    }
+    .lineup-switcher {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .coach-settings {
+      grid-template-columns: 1fr;
+      padding: 10px;
+    }
+    .coach-actions {
+      align-items: stretch;
+    }
+    .coach-actions .ctrl-btn {
+      flex: 1 1 120px;
+    }
+    .help {
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .poster-stage {
+      width: 100%;
+      overflow: hidden;
+      align-self: center;
+    }
+    .poster {
+      transform: scale(var(--poster-scale, 1));
+      transform-origin: top left;
+    }
+
+    .photo-manager {
+      max-height: none;
+      overflow: visible;
+      padding: 10px;
+    }
+    .photo-header {
+      display: none;
+    }
+    .photo-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        "fields fields fields"
+        "stats status status"
+        "home away clear";
+      gap: 8px;
+      min-width: 0;
+      margin-bottom: 10px;
+      padding: 12px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #181818;
+    }
+    .photo-row:last-child {
+      margin-bottom: 0;
+    }
+    .photo-row > :nth-child(1) { grid-area: fields; }
+    .photo-row > :nth-child(2) { grid-area: stats; }
+    .photo-row > :nth-child(3) { grid-area: status; }
+    .photo-row > :nth-child(4) { grid-area: home; }
+    .photo-row > :nth-child(5) { grid-area: away; }
+    .photo-row > :nth-child(6) { grid-area: clear; }
+    .player-fields,
+    .legend-fields {
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 7px;
+    }
+    .player-fields .player-field-input:nth-child(3),
+    .player-fields .player-field-input:nth-child(4) {
+      grid-column: 1 / -1;
+    }
+    .stats-inputs {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      width: 100%;
+    }
+    .stat-input,
+    .status-select,
+    .photo-btn {
+      width: 100%;
+      min-width: 0;
+      font-size: 12px;
+    }
+    .row-note {
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      white-space: normal;
+    }
+    .draw-card {
+      grid-template-columns: 92px 1fr;
+      gap: 12px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .control-panel h2,
+    .side-tools h2 {
+      font-size: 15px;
+    }
+    .ctrl-btn,
+    .ctrl-select,
+    .ctrl-input {
+      font-size: 13px;
+    }
+    .photo-row {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "fields fields"
+        "stats status"
+        "home away"
+        "clear clear";
+    }
+    .draw-card {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1121,6 +1296,7 @@
 </div>
 
 <!-- 海报本体 -->
+<div class="poster-stage" id="poster-stage">
 <div class="poster" id="poster" data-kit="home">
 
   <div class="poster-head">
@@ -1164,6 +1340,7 @@
   </div>
 
   <div class="poster-foot" contenteditable="true" data-edit-key="footer">L  A  O  H  E  　 W  I  N  G  S  　 F  O  O  T  B  A  L  L  　 C  L  U  B</div>
+</div>
 </div>
 
 <div class="side-tools" id="draw-panel">
@@ -1334,6 +1511,7 @@ let pointerDragStarter = null;
 let currentDrawnPlayer = null;
 
 const poster = document.getElementById('poster');
+const posterStage = document.getElementById('poster-stage');
 const pitch = document.getElementById('pitch');
 const benchGrid = document.getElementById('bench-grid');
 const legendsGrid = document.getElementById('legends-grid');
@@ -1820,6 +1998,19 @@ function updateControls() {
   renderLineupSwitcher();
 }
 
+function updatePosterPreviewScale() {
+  if (!poster || !posterStage) return;
+  if (window.matchMedia('(min-width: 821px)').matches || document.body.classList.contains('exporting-poster')) {
+    poster.style.setProperty('--poster-scale', '1');
+    posterStage.style.height = '';
+    return;
+  }
+
+  const scale = Math.min(1, posterStage.clientWidth / 760);
+  poster.style.setProperty('--poster-scale', String(scale));
+  posterStage.style.height = `${poster.offsetHeight * scale}px`;
+}
+
 // ============================================================
 // 渲染
 // ============================================================
@@ -2108,6 +2299,7 @@ function renderAll() {
   renderPhotoManager();
   renderReportQr();
   updateControls();
+  updatePosterPreviewScale();
 }
 
 // ============================================================
@@ -2755,6 +2947,7 @@ function bindControls() {
   reportLinkInput.addEventListener('input', () => {
     reportLink = reportLinkInput.value.trim();
     renderReportQr();
+    updatePosterPreviewScale();
     queueSaveLastState();
   });
 
@@ -2787,6 +2980,10 @@ function bindControls() {
     el.addEventListener('input', queueSaveLastState);
   });
 
+  window.addEventListener('resize', updatePosterPreviewScale);
+  window.addEventListener('orientationchange', () => setTimeout(updatePosterPreviewScale, 250));
+  window.addEventListener('load', updatePosterPreviewScale);
+  poster.addEventListener('load', updatePosterPreviewScale, true);
   window.addEventListener('beforeunload', saveLastState);
 }
 
@@ -2794,8 +2991,11 @@ async function exportPoster() {
   clearDragVisuals();
   const editables = document.querySelectorAll('[contenteditable="true"]');
   editables.forEach(el => el.contentEditable = 'false');
+  document.body.classList.add('exporting-poster');
+  updatePosterPreviewScale();
 
   try {
+    await new Promise(resolve => requestAnimationFrame(resolve));
     const canvas = await html2canvas(poster, {
       backgroundColor: null,
       scale: 2,
@@ -2807,6 +3007,8 @@ async function exportPoster() {
     link.click();
   } finally {
     editables.forEach(el => el.contentEditable = 'true');
+    document.body.classList.remove('exporting-poster');
+    updatePosterPreviewScale();
   }
 }
 
