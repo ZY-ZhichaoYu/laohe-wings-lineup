@@ -1,22 +1,83 @@
 # 老和山之翼阵容海报生成器
 
-一个纯前端的学院足球队阵容海报生成器，支持阵型切换、主客场切换、拖拽换人、球员卡照片、随机抽卡、二维码和 PNG 导出。
+浙江大学老和山之翼足球队阵容海报生成器。项目保持单页前端结构，同时接入腾讯云 CloudBase，用于国内访问、当前阵容同步和共享照片上传。
 
-在线访问地址：
+正式访问地址：
+
+https://laohe-wings-lineup-d3cz65831519b-1429692601.tcloudbaseapp.com/
+
+备用地址：
 
 https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 
-## 本地预览
+## 当前功能
 
-这个项目会用 `fetch` 读取 `data/players.json`，不要直接双击打开 `index.html`，请启动一个本地静态服务器。
+- 阵型查看与切换：`4-3-3`、`4-4-2`、`3-5-2`、`4-2-3-1`。
+- 主客场球衣、队徽和球员卡自动切换。
+- 首发、替补、教练与领队、绝版人物卡片展示。
+- 随机抽卡。
+- 海报文字、球员资料、照片、队徽在线编辑。
+- PNG 海报导出，手机端会打开图片预览页，可长按保存。
+- CloudBase 同步当前阵容：一人发布后，其他人刷新或实时监听后可看到同一版本。
+- CloudBase 云存储共享照片：电脑或手机上传后，其他设备也能看到。
 
-方式一：Python
+## 查看模式和编辑模式
 
-```bash
-python3 -m http.server 8000
+页面默认是只读模式。队友无需口令也可以：
+
+- 查看当前阵容。
+- 切换阵型查看不同站位。
+- 切换主客场。
+- 随机抽卡。
+- 导出 PNG 海报。
+
+需要改阵容、上传照片、编辑球员资料或发布到云端时，输入编辑口令：
+
+```text
+老和山无内鬼
 ```
 
-Windows 如果没有 `python3`，可以用：
+解锁后可以：
+
+- 换人和拖拽首发。
+- 上传球员、教练、领队、绝版人物照片。
+- 上传队徽。
+- 修改球员资料、状态和数据。
+- 点击 `发布到云端`，把当前阵容写入 CloudBase。
+
+## 数据同步说明
+
+当前同步分两层：
+
+- `lineups/current`：CloudBase 里的正式当前阵容，所有人共享。
+- 浏览器 `localStorage`：个人浏览器里的临时草稿和预设。
+
+在 CloudBase 正式地址打开时，页面会优先读取 `lineups/current`。编辑模式下修改后点击 `发布到云端`，其他人刷新页面即可看到新阵容。
+
+GitHub Pages 备用地址不连接 CloudBase 写入能力，主要用于静态备份和海外访问。
+
+## 照片同步说明
+
+CloudBase 正式地址下上传照片时，页面会：
+
+1. 把图片上传到 CloudBase 云存储。
+2. 获取图片 HTTPS 访问地址。
+3. 把这个地址保存到 `lineups/current`。
+
+这样手机上传的球员照片，电脑端刷新后也能看到。
+
+如果上传失败，通常需要检查：
+
+- CloudBase 匿名登录是否开启。
+- 云存储权限是否允许已登录用户上传。
+- 静态网站默认域名是否在安全来源里。
+- 浏览器是否强制拦截第三方或跨域请求。
+
+## 本地预览
+
+本地预览只适合看静态页面和做代码开发。由于 CloudBase 体验版不能添加 `127.0.0.1` 安全来源，本地不会连接云端同步。
+
+Python：
 
 ```bash
 python -m http.server 8000
@@ -28,133 +89,79 @@ python -m http.server 8000
 http://127.0.0.1:8000
 ```
 
-方式二：Node.js
+Node.js：
 
 ```bash
 npx serve .
 ```
 
-## 怎么用
-
-1. 打开页面后，顶部控制台可以切换 4 种阵型：`4-3-3`、`4-4-2`、`3-5-2`、`4-2-3-1`。
-2. 用“球衣”切换主场红色和客场蓝色。
-3. 海报上的队名、标题、比赛信息、战术风格、替补标题、绝版人物标题和页脚都可以直接点击编辑。
-4. 展开“球员管理”，可以修改号码、姓名、位置、角色、进球、助攻、出场、状态和队长标记。
-5. 替补球员可以拖到任意首发位置，完成换人；新上场球员会继承那个位置的标签。
-6. 可以上传队徽、球员主客场照片、教练照片和绝版人物照片；上传内容只保存在你自己的浏览器 `localStorage`。
-7. “保存当前为预设”可以在本机保存多套阵容；“导出 JSON”可以把当前阵容和上传照片导出成一个预设文件。
-8. 填入战报链接后，海报会显示二维码。
-9. 点击“导出 PNG 海报”下载海报图片。
-10. “随机抽卡”会从首发和替补里随机抽一张球员卡。
-
-## 怎么贡献你的球员卡
-
-### 方式一：发到球队群
-
-适合不会用 GitHub 的队友。
-
-把下面三样东西发到球队群或私发给领队：
-
-- 一张清晰头像或半身照。
-- 你的号码和姓名。
-- 一句球员卡介绍，风格可以参考页面里的随机抽卡文案，轻松一点、有梗一点。
-
-领队会帮你整理成图片文件和 `data/players.json` 里的介绍。
-
-### 方式二：自己提 Pull Request
-
-适合会用一点 GitHub 的队友。
-
-1. 打开仓库页面，点右上角 `Fork`，复制一份到自己的账号。
-2. 进入自己的 fork，点 `Add file` → `Upload files`。
-3. 把照片上传到 `assets/players/`，推荐命名：
+## 项目结构
 
 ```text
-10-张文杰-home.jpg
-10-张文杰-away.jpg
+index.html                         单页应用
+cloudbase-config.js                CloudBase 前端配置
+CLOUDBASE_SETUP.md                 CloudBase 控制台部署步骤
+data/players.json                  默认球员数据
+assets/players/                    球员照片
+assets/legends/                    绝版人物照片
+assets/staff/                      教练与领队照片
+assets/team/                       队徽
+cloudfunctions/publishLineup/      发布当前阵容的 CloudBase 云函数
 ```
 
-如果只有一张照片，也可以先只放：
+## CloudBase 部署
+
+静态网站托管需要上传：
 
 ```text
-10-张文杰.jpg
+index.html
+cloudbase-config.js
+assets/
+data/
 ```
 
-4. 打开 `data/players.json`，找到自己的名字，填写照片路径：
-
-```json
-{
-  "num": 10,
-  "name": "张文杰",
-  "avatarHome": "assets/players/10-张文杰-home.jpg",
-  "avatarAway": "assets/players/10-张文杰-away.jpg"
-}
-```
-
-5. 在 `intros` 里补上自己的介绍文案。
-6. 点 `Commit changes` 保存。
-7. 回到原仓库，点 `Contribute` → `Open pull request`。
-8. PR 标题写清楚，例如：`Add player card for 10 张文杰`。
-
-### 方式三：网页里上传后导出 JSON
-
-适合想自己调好照片和阵容、但不想改代码的队友。
-
-1. 打开网页。
-2. 展开“球员管理”，给自己上传主场照或客场照。
-3. 调整姓名、号码、角色、状态等信息。
-4. 点击“导出 JSON”。
-5. 把下载的 `.json` 文件发给领队。
-
-领队可以从这个文件里取出你的照片和介绍，再合并到仓库。
-
-## 数据和照片
-
-球员数据在：
+云函数需要部署：
 
 ```text
-data/players.json
+cloudfunctions/publishLineup/
 ```
 
-建议把球员照片放在：
+HTTP 访问服务需要配置路由：
 
 ```text
-assets/players/
+访问路径：/api/publishLineup
+关联资源：publishLineup
+身份认证：关闭
+方法：POST 或全部方法
 ```
 
-绝版人物照片放在：
+详细步骤见：
 
 ```text
-assets/legends/
+CLOUDBASE_SETUP.md
 ```
 
-页面兼容两种图片来源：
+## GitHub Pages
 
-- `data:` 开头的 base64 图片：来自网页上传，只保存在个人浏览器或导出的 JSON 预设里。
-- 相对路径图片：来自仓库文件，例如 `assets/players/10-张文杰-home.jpg`。
+GitHub Pages 保留为备用静态地址。它可以展示仓库里的默认数据和图片，但不作为正式多人同步入口。
 
-## GitHub Pages 部署
+如果需要更新 GitHub Pages：
 
-默认部署方式：
+1. 合并或推送到 `main` 分支。
+2. 仓库 `Settings` → `Pages`。
+3. 使用 GitHub Actions 或 `Deploy from a branch` 部署。
 
-1. 新建 GitHub 仓库，名字建议用 `laohe-wings-lineup`。
-2. 把本项目推到 `main` 分支。
-3. 打开仓库 `Settings` → `Pages`。
-4. `Source` 选择 `Deploy from a branch`。
-5. `Branch` 选择 `main`，目录选择 `/root`。
-6. 保存后等待 GitHub 生成地址。
+## 维护流程
 
-如果使用本仓库里的 `.github/workflows/pages.yml`，也可以在 Pages 里选择 `GitHub Actions` 作为部署来源。
+常规更新顺序：
 
-## Cloudflare Pages 部署
-
-1. 登录 Cloudflare，进入 `Workers & Pages`。
-2. 选择 `Create application` → `Pages` → `Connect to Git`。
-3. 选择这个仓库。
-4. 构建命令留空。
-5. 输出目录填 `/`。
-6. 部署完成后，Cloudflare 会给一个 pages.dev 地址。
+1. 在本地 `cloudbase-sync` 分支修改。
+2. 测试 `index.html` 语法和基础功能。
+3. 提交并推送到 GitHub。
+4. 覆盖上传 CloudBase 静态网站文件。
+5. 如云函数有变化，重新部署 `publishLineup`。
+6. 在正式地址用电脑和手机分别验证。
 
 ## 致谢
 
-感谢浙江大学老和山之翼的每一位队员、领队、教练和绝版人物。这个页面保留了原版单文件海报生成器的核心体验，并把数据和图片拆出来，方便大家一起维护球员卡。
+感谢浙江大学老和山之翼的每一位队员、领队、教练和绝版人物。这个页面的目标是让大家能方便地生成阵容海报、维护球员卡，也能把球队内部的小故事留在卡片里。

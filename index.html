@@ -1347,7 +1347,7 @@
 
   <div class="control-row">
     <label></label>
-    <button class="ctrl-btn export" onclick="exportPoster()">📷 导出 PNG 海报</button>
+    <button class="ctrl-btn export" id="export-png-btn" type="button">📷 导出 PNG 海报</button>
   </div>
 
   <div class="help">
@@ -1625,6 +1625,7 @@ const lockEditBtn = document.getElementById('lock-edit-btn');
 const editStatus = document.getElementById('edit-status');
 const syncStatus = document.getElementById('sync-status');
 const publishCloudBtn = document.getElementById('publish-cloud-btn');
+const exportPngBtn = document.getElementById('export-png-btn');
 const starterSlotSelect = document.getElementById('starter-slot-select');
 const benchPlayerSelect = document.getElementById('bench-player-select');
 const swapStarterBtn = document.getElementById('swap-starter-btn');
@@ -1841,6 +1842,11 @@ function getCloudErrorMessage(error) {
   if (error.requestId) parts.push(`requestId=${error.requestId}`);
   if (!parts.length && error.errMsg) parts.push(error.errMsg);
   return parts.join(' · ') || String(error);
+}
+
+function isMobileExportContext() {
+  return window.matchMedia('(max-width: 820px)').matches ||
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
 }
 
 function compactStatusMessage(prefix, detail) {
@@ -3755,6 +3761,7 @@ function bindControls() {
   deletePresetBtn.addEventListener('click', deleteSelectedPreset);
   exportJsonBtn.addEventListener('click', exportCurrentPresetJson);
   publishCloudBtn?.addEventListener('click', () => publishCloudSnapshot(createSnapshot()));
+  exportPngBtn?.addEventListener('click', exportPoster);
   swapStarterBtn.addEventListener('click', swapSelectedStarter);
 
   document.querySelectorAll('[contenteditable="true"]').forEach(el => {
@@ -3768,7 +3775,57 @@ function bindControls() {
   window.addEventListener('beforeunload', saveLastState);
 }
 
+function canvasToBlob(canvas) {
+  return new Promise(resolve => {
+    if (canvas.toBlob) {
+      canvas.toBlob(blob => resolve(blob), 'image/png');
+    } else {
+      const dataUrl = canvas.toDataURL('image/png');
+      const binary = atob(dataUrl.split(',')[1]);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      resolve(new Blob([bytes], { type: 'image/png' }));
+    }
+  });
+}
+
+function showExportPreview(targetWindow, imageUrl) {
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老和山之翼海报</title>
+<style>
+  body { margin: 0; padding: 16px; background: #111; color: #eee; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+  img { display: block; width: 100%; max-width: 760px; height: auto; margin: 0 auto; border-radius: 8px; }
+  p { max-width: 760px; margin: 12px auto 0; color: #bbb; font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <img src="${imageUrl}" alt="老和山之翼阵容海报">
+  <p>手机端可长按图片保存；如果浏览器支持下载，也可以返回页面再次点击导出。</p>
+</body>
+</html>`;
+  if (targetWindow && !targetWindow.closed) {
+    targetWindow.document.open();
+    targetWindow.document.write(html);
+    targetWindow.document.close();
+    return true;
+  }
+  return false;
+}
+
 async function exportPoster() {
+  const mobileExport = isMobileExportContext();
+  const previewWindow = mobileExport ? window.open('', '_blank') : null;
+  if (previewWindow) {
+    previewWindow.document.write('<!DOCTYPE html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;padding:24px;background:#111;color:#eee;font-family:sans-serif;">正在生成海报...</body>');
+  }
+  if (exportPngBtn) {
+    exportPngBtn.disabled = true;
+    exportPngBtn.textContent = '正在导出...';
+  }
   clearDragVisuals();
   const editables = document.querySelectorAll('[contenteditable="true"]');
   editables.forEach(el => el.contentEditable = 'false');
@@ -3780,16 +3837,40 @@ async function exportPoster() {
     const canvas = await html2canvas(poster, {
       backgroundColor: null,
       scale: 2,
-      logging: false
+      logging: false,
+      useCORS: true,
+      imageTimeout: 15000,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 760
     });
+    const blob = await canvasToBlob(canvas);
+    if (!blob) throw new Error('PNG 生成失败');
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.download = `LAOHE_lineup_${new Date().toISOString().slice(0,10)}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    link.href = url;
+    document.body.appendChild(link);
+    if (mobileExport) {
+      const opened = showExportPreview(previewWindow, url);
+      if (!opened) window.location.href = url;
+    } else {
+      link.click();
+    }
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), mobileExport ? 600000 : 60000);
+  } catch (error) {
+    console.warn('export poster failed:', error);
+    if (previewWindow && !previewWindow.closed) previewWindow.close();
+    alert(`导出失败：${error?.message || error}`);
   } finally {
     editables.forEach(el => el.contentEditable = canEdit() ? 'true' : 'false');
     document.body.classList.remove('exporting-poster');
     updatePosterPreviewScale();
+    if (exportPngBtn) {
+      exportPngBtn.disabled = false;
+      exportPngBtn.textContent = '📷 导出 PNG 海报';
+    }
   }
 }
 
