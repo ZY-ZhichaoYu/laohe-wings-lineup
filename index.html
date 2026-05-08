@@ -6,6 +6,7 @@
 <title>LAOHE WINGS · 阵容生成器</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="./cloudbase-config.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -93,6 +94,35 @@
   .ctrl-select:focus {
     border-color: #666;
     color: #fff;
+  }
+  .sync-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 5px 10px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #1a1a1a;
+    color: #aaa;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .sync-status[data-state="ready"],
+  .sync-status[data-state="synced"] {
+    border-color: #15803d;
+    color: #bbf7d0;
+    background: #12351e;
+  }
+  .sync-status[data-state="saving"],
+  .sync-status[data-state="loading"] {
+    border-color: #a16207;
+    color: #fde68a;
+    background: #332407;
+  }
+  .sync-status[data-state="error"] {
+    border-color: #991b1b;
+    color: #fecaca;
+    background: #3a1212;
   }
   .inline-check {
     display: inline-flex;
@@ -1219,6 +1249,12 @@
     <button class="ctrl-btn" id="export-json-btn">导出 JSON</button>
   </div>
 
+  <div class="control-row sync-row">
+    <label>同步</label>
+    <span class="sync-status" id="sync-status" data-state="local">本地模式</span>
+    <button class="ctrl-btn" id="publish-cloud-btn" type="button" hidden>发布到云端</button>
+  </div>
+
   <details class="control-section">
     <summary>球员管理</summary>
     <div class="photo-manager" id="photo-manager"></div>
@@ -1499,6 +1535,31 @@ const STORAGE_KEYS = {
   legacyPresetsV3: 'laohe-lineup-v3-presets'
 };
 
+const CLOUDBASE_CONFIG = {
+  enabled: false,
+  envId: '',
+  region: 'ap-shanghai',
+  collection: 'lineups',
+  currentDocId: 'current',
+  publishFunction: 'publishLineup',
+  sdkUrl: 'https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js',
+  cloudHosts: [],
+  ...(window.LAOHE_CLOUDBASE_CONFIG || {})
+};
+
+const cloudSyncState = {
+  initialized: false,
+  initializing: false,
+  applyingRemote: false,
+  app: null,
+  db: null,
+  documentRef: null,
+  watcher: null,
+  remoteSnapshot: null,
+  publishTimer: null,
+  lastError: ''
+};
+
 let currentFormation = '4231';
 let currentKit = 'home';
 let currentShowStats = true;
@@ -1524,6 +1585,8 @@ const presetSelect = document.getElementById('preset-select');
 const savePresetBtn = document.getElementById('save-preset-btn');
 const deletePresetBtn = document.getElementById('delete-preset-btn');
 const exportJsonBtn = document.getElementById('export-json-btn');
+const syncStatus = document.getElementById('sync-status');
+const publishCloudBtn = document.getElementById('publish-cloud-btn');
 const starterSlotSelect = document.getElementById('starter-slot-select');
 const benchPlayerSelect = document.getElementById('bench-player-select');
 const swapStarterBtn = document.getElementById('swap-starter-btn');
@@ -1601,33 +1664,28 @@ const localStorageAdapter = {
 };
 
 const cloudStorageAdapter = {
-  name: 'cloud-placeholder',
+  name: 'cloudbase',
   readJson(key, fallback) {
-    console.info('cloudStorageAdapter is not connected yet; using local storage for', key);
     return localStorageAdapter.readJson(key, fallback);
   },
   writeJson(key, value) {
-    console.info('cloudStorageAdapter is not connected yet; using local storage for', key);
     return localStorageAdapter.writeJson(key, value);
   },
   readLastState() {
-    console.info('cloudStorageAdapter is not connected yet; using local last state');
-    return localStorageAdapter.readLastState();
+    return cloudSyncState.remoteSnapshot || localStorageAdapter.readLastState();
   },
   writeLastState(snapshot) {
-    console.info('cloudStorageAdapter is not connected yet; writing local last state');
-    return localStorageAdapter.writeLastState(snapshot);
+    const saved = localStorageAdapter.writeLastState(snapshot);
+    queueCloudPublish(snapshot);
+    return saved;
   },
   readPresets() {
-    console.info('cloudStorageAdapter is not connected yet; using local presets');
     return localStorageAdapter.readPresets();
   },
   readWritablePresets() {
-    console.info('cloudStorageAdapter is not connected yet; using local writable presets');
     return localStorageAdapter.readWritablePresets();
   },
   writePresets(presets) {
-    console.info('cloudStorageAdapter is not connected yet; writing local presets');
     return localStorageAdapter.writePresets(presets);
   }
 };
@@ -1636,6 +1694,230 @@ let activeStorageAdapter = localStorageAdapter;
 
 function setStorageAdapter(adapter = localStorageAdapter) {
   activeStorageAdapter = adapter || localStorageAdapter;
+}
+
+function isCloudBaseSyncHost() {
+  const hosts = Array.isArray(CLOUDBASE_CONFIG.cloudHosts) ? CLOUDBASE_CONFIG.cloudHosts : [];
+  return Boolean(
+    CLOUDBASE_CONFIG.enabled &&
+    CLOUDBASE_CONFIG.envId &&
+    location.protocol !== 'file:' &&
+    hosts.includes(location.hostname)
+  );
+}
+
+function updateSyncStatus(state = 'local', message = '') {
+  if (!syncStatus) return;
+  const text = message || (state === 'local' ? '本地模式' : '云端同步');
+  syncStatus.dataset.state = state;
+  syncStatus.textContent = text;
+  if (publishCloudBtn) {
+    publishCloudBtn.hidden = !(cloudSyncState.initialized && isCloudBaseSyncHost());
+    publishCloudBtn.disabled = state === 'loading' || state === 'saving';
+  }
+}
+
+function loadCloudBaseSdk() {
+  if (window.cloudbase) return Promise.resolve(window.cloudbase);
+  return new Promise((resolve, reject) => {
+    const existingScript = document.querySelector('script[data-cloudbase-sdk="true"]');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.cloudbase), { once: true });
+      existingScript.addEventListener('error', reject, { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = CLOUDBASE_CONFIG.sdkUrl;
+    script.async = true;
+    script.dataset.cloudbaseSdk = 'true';
+    script.onload = () => window.cloudbase ? resolve(window.cloudbase) : reject(new Error('CloudBase SDK loaded without global cloudbase'));
+    script.onerror = () => reject(new Error('CloudBase SDK 加载失败'));
+    document.head.appendChild(script);
+  });
+}
+
+async function signInCloudBase(app) {
+  const authApi = app && app.auth;
+  if (!authApi) return null;
+  if (typeof authApi.signInAnonymously === 'function') {
+    const result = await authApi.signInAnonymously();
+    if (result && result.error) throw new Error(result.error.message || result.error.code || '匿名登录失败');
+    return result;
+  }
+  if (typeof authApi === 'function') {
+    let auth;
+    try {
+      auth = authApi.call(app, { persistence: 'local' });
+    } catch (error) {
+      auth = authApi.call(app);
+    }
+    if (auth && typeof auth.signInAnonymously === 'function') {
+      return auth.signInAnonymously();
+    }
+    if (auth && typeof auth.anonymousAuthProvider === 'function') {
+      return auth.anonymousAuthProvider().signIn();
+    }
+  }
+  return null;
+}
+
+function normalizeCloudRecord(record) {
+  if (!record) return null;
+  if (typeof record.data === 'function') return record.data();
+  return record;
+}
+
+function extractCloudRecord(response) {
+  if (!response) return null;
+  if (Array.isArray(response.data)) return normalizeCloudRecord(response.data[0]);
+  if (response.data && typeof response.data === 'object') return normalizeCloudRecord(response.data);
+  if (Array.isArray(response.docs)) return normalizeCloudRecord(response.docs[0]);
+  if (Array.isArray(response.docChanges)) {
+    const change = response.docChanges.find(item => item && (item.doc || item.data));
+    return normalizeCloudRecord(change && (change.doc || change.data));
+  }
+  if (response.snapshot && Array.isArray(response.snapshot.docs)) {
+    return normalizeCloudRecord(response.snapshot.docs[0]);
+  }
+  return normalizeCloudRecord(response);
+}
+
+function extractCloudSnapshot(record) {
+  const source = normalizeCloudRecord(record);
+  if (!source || typeof source !== 'object') return null;
+  const candidate = source.snapshot && typeof source.snapshot === 'object' ? source.snapshot : source;
+  if (!candidate || typeof candidate !== 'object') return null;
+  return candidate.squadData && candidate.formation ? candidate : null;
+}
+
+function shouldApplyRemoteSnapshot(nextSnapshot) {
+  if (!nextSnapshot) return false;
+  const current = JSON.stringify(cloudSyncState.remoteSnapshot || null);
+  return JSON.stringify(nextSnapshot) !== current;
+}
+
+async function readCloudSnapshot() {
+  if (!cloudSyncState.documentRef) return null;
+  const result = await cloudSyncState.documentRef.get();
+  const snapshot = extractCloudSnapshot(extractCloudRecord(result));
+  if (!snapshot) return null;
+  cloudSyncState.remoteSnapshot = snapshot;
+  localStorageAdapter.writeLastState(snapshot);
+  return snapshot;
+}
+
+async function publishCloudSnapshot(snapshot) {
+  if (!cloudSyncState.initialized || !cloudSyncState.app || cloudSyncState.applyingRemote) return;
+  if (!CLOUDBASE_CONFIG.publishFunction || typeof cloudSyncState.app.callFunction !== 'function') {
+    updateSyncStatus('error', '云函数未就绪，本地已保存');
+    return;
+  }
+  try {
+    updateSyncStatus('saving', '保存到云端...');
+    const response = await cloudSyncState.app.callFunction({
+      name: CLOUDBASE_CONFIG.publishFunction,
+      data: {
+        docId: CLOUDBASE_CONFIG.currentDocId,
+        snapshot,
+        clientUpdatedAt: new Date().toISOString()
+      },
+      parse: true
+    });
+    const result = response && response.result ? response.result : response;
+    if (result && result.ok === false) {
+      throw new Error(result.message || '云函数保存失败');
+    }
+    cloudSyncState.remoteSnapshot = clone(snapshot);
+    cloudSyncState.lastError = '';
+    updateSyncStatus('synced', '已同步到云端');
+  } catch (error) {
+    cloudSyncState.lastError = error && error.message ? error.message : String(error);
+    console.warn('CloudBase publish failed:', error);
+    updateSyncStatus('error', '云端保存失败，本地已保存');
+  }
+}
+
+function queueCloudPublish(snapshot) {
+  if (!cloudSyncState.initialized || cloudSyncState.applyingRemote) return;
+  window.clearTimeout(cloudSyncState.publishTimer);
+  const snapshotCopy = clone(snapshot);
+  updateSyncStatus('saving', '本地已保存，等待云端...');
+  cloudSyncState.publishTimer = window.setTimeout(() => {
+    publishCloudSnapshot(snapshotCopy);
+  }, 900);
+}
+
+function applyCloudSnapshot(snapshot) {
+  if (!snapshot) return;
+  cloudSyncState.applyingRemote = true;
+  try {
+    if (applySnapshot(snapshot, false)) {
+      mergeMissingBenchPlayers(false);
+      localStorageAdapter.writeLastState(snapshot);
+      renderPresetSelect('');
+      updateSyncStatus('synced', '收到云端更新');
+    }
+  } finally {
+    cloudSyncState.applyingRemote = false;
+  }
+}
+
+function startCloudWatch() {
+  if (!cloudSyncState.documentRef || typeof cloudSyncState.documentRef.watch !== 'function') return;
+  if (cloudSyncState.watcher && typeof cloudSyncState.watcher.close === 'function') {
+    cloudSyncState.watcher.close();
+  }
+  try {
+    cloudSyncState.watcher = cloudSyncState.documentRef.watch({
+      onChange(snapshot) {
+        const nextSnapshot = extractCloudSnapshot(extractCloudRecord(snapshot));
+        if (!shouldApplyRemoteSnapshot(nextSnapshot)) return;
+        cloudSyncState.remoteSnapshot = clone(nextSnapshot);
+        applyCloudSnapshot(nextSnapshot);
+      },
+      onError(error) {
+        console.warn('CloudBase watch failed:', error);
+        updateSyncStatus('error', '云端监听断开，本地可用');
+      }
+    });
+  } catch (error) {
+    console.warn('CloudBase watch init failed:', error);
+    updateSyncStatus('error', '云端监听不可用，本地可用');
+  }
+}
+
+async function initCloudBaseSync() {
+  if (!isCloudBaseSyncHost()) {
+    updateSyncStatus('local', '本地模式（未连接云端）');
+    return false;
+  }
+  if (cloudSyncState.initialized || cloudSyncState.initializing) return cloudSyncState.initialized;
+  cloudSyncState.initializing = true;
+  updateSyncStatus('loading', '连接 CloudBase...');
+  try {
+    const cloudbase = await loadCloudBaseSdk();
+    const app = cloudbase.init({
+      env: CLOUDBASE_CONFIG.envId,
+      region: CLOUDBASE_CONFIG.region
+    });
+    await signInCloudBase(app);
+    const db = app.database();
+    cloudSyncState.app = app;
+    cloudSyncState.db = db;
+    cloudSyncState.documentRef = db.collection(CLOUDBASE_CONFIG.collection).doc(CLOUDBASE_CONFIG.currentDocId);
+    cloudSyncState.initialized = true;
+    setStorageAdapter(cloudStorageAdapter);
+    updateSyncStatus('ready', '云端已连接');
+    return true;
+  } catch (error) {
+    cloudSyncState.lastError = error && error.message ? error.message : String(error);
+    console.warn('CloudBase init failed:', error);
+    setStorageAdapter(localStorageAdapter);
+    updateSyncStatus('error', '云端连接失败，使用本地');
+    return false;
+  } finally {
+    cloudSyncState.initializing = false;
+  }
 }
 
 function toNonNegativeInt(value) {
@@ -1878,12 +2160,35 @@ function mergeSavedPlayerFields(basePlayer, savedPlayer) {
 
 function replaceSquadData(nextSquadData) {
   if (!nextSquadData || !Array.isArray(nextSquadData.starters) || !Array.isArray(nextSquadData.bench)) return;
-  const savedByNum = new Map([
-    ...nextSquadData.starters,
-    ...nextSquadData.bench
-  ].filter(Boolean).map(player => [String(player.num), player]));
-  SQUAD_DATA.starters = SQUAD_DATA.starters.map(player => mergeSavedPlayerFields(player, savedByNum.get(String(player.num)))).slice(0, 11);
-  SQUAD_DATA.bench = SQUAD_DATA.bench.map(player => mergeSavedPlayerFields(player, savedByNum.get(String(player.num))));
+  const basePlayers = [
+    ...SQUAD_DATA.starters.map(normalizePlayer),
+    ...SQUAD_DATA.bench.map(normalizePlayer)
+  ];
+  const baseByNum = new Map(basePlayers.map(player => [String(player.num), player]));
+  const seenNums = new Set();
+  const mergeSavedList = savedPlayers => savedPlayers
+    .filter(Boolean)
+    .map(savedPlayer => {
+      const saved = normalizePlayer(savedPlayer);
+      const key = String(saved.num);
+      if (seenNums.has(key)) return null;
+      seenNums.add(key);
+      return mergeSavedPlayerFields(baseByNum.get(key) || saved, saved);
+    })
+    .filter(Boolean);
+  const nextStarters = mergeSavedList(nextSquadData.starters).slice(0, 11);
+  const nextBench = mergeSavedList(nextSquadData.bench);
+  basePlayers.forEach(player => {
+    const key = String(player.num);
+    if (!seenNums.has(key)) {
+      seenNums.add(key);
+      nextBench.push(player);
+    }
+  });
+  if (nextStarters.length === 11) {
+    SQUAD_DATA.starters = nextStarters;
+    SQUAD_DATA.bench = nextBench;
+  }
 }
 
 function mergeSavedStaffFields(baseData, savedData) {
@@ -2905,12 +3210,28 @@ function ensureDefaultPreset() {
   setPresets(presets, false);
 }
 
-function readInitialState() {
+async function readInitialState() {
   try {
+    if (cloudSyncState.initialized) {
+      const cloudSnapshot = await readCloudSnapshot();
+      if (cloudSnapshot) {
+        updateSyncStatus('synced', '已读取云端阵容');
+        return cloudSnapshot;
+      }
+      updateSyncStatus('ready', '云端暂无阵容，使用本地');
+    }
     return activeStorageAdapter.readLastState();
   } catch (error) {
     console.warn(`读取当前阵容失败（${activeStorageAdapter.name}）：`, error);
-    return null;
+    if (cloudSyncState.initialized) {
+      updateSyncStatus('error', '读取云端失败，使用本地');
+    }
+    try {
+      return localStorageAdapter.readLastState();
+    } catch (fallbackError) {
+      console.warn('读取本地阵容也失败：', fallbackError);
+      return null;
+    }
   }
 }
 
@@ -3043,6 +3364,7 @@ function bindControls() {
   presetSelect.addEventListener('change', loadSelectedPreset);
   deletePresetBtn.addEventListener('click', deleteSelectedPreset);
   exportJsonBtn.addEventListener('click', exportCurrentPresetJson);
+  publishCloudBtn?.addEventListener('click', () => publishCloudSnapshot(createSnapshot()));
   swapStarterBtn.addEventListener('click', swapSelectedStarter);
 
   document.querySelectorAll('[contenteditable="true"]').forEach(el => {
@@ -3083,7 +3405,7 @@ async function exportPoster() {
 
 // 把 INLINE_PLAYER_DATA 里有、但 localStorage 旧状态里没有的替补球员补进来
 // 注意：已经在首发里的球员也要排除，防止换人后重复出现
-function mergeMissingBenchPlayers() {
+function mergeMissingBenchPlayers(shouldSave = true) {
   const existingNums = new Set([
     ...SQUAD_DATA.bench.map(p => String(p.num)),
     ...SQUAD_DATA.starters.map(p => String(p.num))
@@ -3092,15 +3414,16 @@ function mergeMissingBenchPlayers() {
   if (newPlayers.length === 0) return;
   SQUAD_DATA.bench.push(...newPlayers.map(normalizePlayer));
   renderAll();
-  saveLastState();
+  if (shouldSave) saveLastState();
 }
 
 async function init() {
   await loadPlayerData();
   normalizeSquadData();
   bindControls();
+  await initCloudBaseSync();
 
-  const initialState = readInitialState();
+  const initialState = await readInitialState();
   if (!applySnapshot(initialState, false)) {
     applyCurrentFormationLabels();
     updateControls();
@@ -3116,6 +3439,7 @@ async function init() {
     }
   }
   renderPresetSelect(initialState ? '' : DEFAULT_PRESET_NAME);
+  startCloudWatch();
 }
 
 init();
