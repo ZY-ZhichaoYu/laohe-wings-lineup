@@ -1331,6 +1331,7 @@ let html5DragBenchIndex = null;
 let html5DragStarterIndex = null;
 let pointerDrag = null;
 let pointerDragStarter = null;
+let currentDrawnPlayer = null;
 
 const poster = document.getElementById('poster');
 const pitch = document.getElementById('pitch');
@@ -2583,6 +2584,7 @@ function getCardIntro(player) {
 }
 
 function renderDrawCard(player) {
+  currentDrawnPlayer = player;
   const isLegend = player.cardType === 'legend';
   const isStaff = player.cardType === 'staff';
   const avatar = isLegend
@@ -2734,6 +2736,9 @@ function bindControls() {
       renderTeamLogo();
       renderPitch();
       renderBench();
+      renderStaffSection();
+      renderLegends();
+      if (currentDrawnPlayer) renderDrawCard(currentDrawnPlayer);
       queueSaveLastState();
     });
   });
