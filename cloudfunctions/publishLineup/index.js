@@ -24,13 +24,34 @@ function validateSnapshot(snapshot) {
   return '';
 }
 
+function parseBody(body) {
+  if (!body) return {};
+  if (isPlainObject(body)) return body;
+  if (Buffer.isBuffer(body)) return parseBody(body.toString('utf8'));
+  if (typeof body === 'string') {
+    try {
+      return JSON.parse(body);
+    } catch (error) {
+      return {};
+    }
+  }
+  return {};
+}
+
+function normalizeEvent(event = {}) {
+  if (isPlainObject(event.body)) return event.body;
+  if (typeof event.body === 'string' || Buffer.isBuffer(event.body)) return parseBody(event.body);
+  return event;
+}
+
 exports.main = async (event = {}, context = {}) => {
+  const input = normalizeEvent(event);
   const app = initCloudBaseApp(context);
   const db = app.database();
-  const docId = typeof event.docId === 'string' && event.docId.trim()
-    ? event.docId.trim()
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
     : DEFAULT_DOC_ID;
-  const snapshot = event.snapshot;
+  const snapshot = input.snapshot;
   const invalidReason = validateSnapshot(snapshot);
 
   if (invalidReason) {
@@ -52,7 +73,7 @@ exports.main = async (event = {}, context = {}) => {
       updatedAt: now,
       updatedAtText: now.toISOString(),
       updatedBy,
-      clientUpdatedAt: event.clientUpdatedAt || ''
+      clientUpdatedAt: input.clientUpdatedAt || ''
     });
 
     console.log('publishLineup saved', {

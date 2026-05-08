@@ -1542,6 +1542,7 @@ const CLOUDBASE_CONFIG = {
   collection: 'lineups',
   currentDocId: 'current',
   publishFunction: 'publishLineup',
+  publishHttpPath: '/api/publishLineup',
   publishFunctionType: 'auto',
   publishFunctionPath: '/',
   sdkUrl: 'https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js',
@@ -1840,6 +1841,44 @@ function getPublishCallOptions(payload, mode) {
   };
 }
 
+function normalizePublishResult(response) {
+  if (!response) return response;
+  const result = response.result ? response.result : response;
+  if (result && typeof result.body === 'string') {
+    try {
+      return JSON.parse(result.body);
+    } catch (error) {
+      return result;
+    }
+  }
+  return result;
+}
+
+async function callPublishHttp(payload) {
+  if (!CLOUDBASE_CONFIG.publishHttpPath) {
+    throw new Error('HTTP 发布路径未配置');
+  }
+  const response = await fetch(CLOUDBASE_CONFIG.publishHttpPath, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    data = { ok: false, code: `HTTP_${response.status}`, message: text.slice(0, 180) || response.statusText };
+  }
+  const result = normalizePublishResult(data);
+  if (!response.ok) {
+    throw new Error(`${result?.code || `HTTP_${response.status}`} · ${result?.message || response.statusText}`);
+  }
+  return result;
+}
+
 async function callPublishFunction(payload) {
   const preferredType = CLOUDBASE_CONFIG.publishFunctionType || 'auto';
   const modes = preferredType === 'cloudrun'
@@ -1848,6 +1887,15 @@ async function callPublishFunction(payload) {
       ? ['standard']
       : ['standard', 'cloudrun'];
   const errors = [];
+
+  try {
+    const response = await callPublishHttp(payload);
+    return { response, mode: 'http' };
+  } catch (error) {
+    errors.push(`http: ${getCloudErrorMessage(error)}`);
+    console.warn('CloudBase HTTP publish failed, retrying SDK function call:', error);
+    updateSyncStatus('saving', 'HTTP 发布失败，尝试云函数...');
+  }
 
   for (const mode of modes) {
     try {
@@ -1878,13 +1926,13 @@ async function publishCloudSnapshot(snapshot) {
       snapshot,
       clientUpdatedAt: new Date().toISOString()
     });
-    const result = response && response.result ? response.result : response;
+    const result = normalizePublishResult(response);
     if (result && result.ok === false) {
       throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '云函数保存失败'}`);
     }
     cloudSyncState.remoteSnapshot = clone(snapshot);
     cloudSyncState.lastError = '';
-    updateSyncStatus('synced', mode === 'cloudrun' ? '已同步到云端（cloudrun）' : '已同步到云端');
+    updateSyncStatus('synced', mode === 'http' ? '已同步到云端（HTTP）' : mode === 'cloudrun' ? '已同步到云端（cloudrun）' : '已同步到云端');
   } catch (error) {
     cloudSyncState.lastError = getCloudErrorMessage(error);
     console.warn('CloudBase publish failed:', error);

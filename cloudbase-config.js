@@ -5,6 +5,7 @@ window.LAOHE_CLOUDBASE_CONFIG = {
   collection: 'lineups',
   currentDocId: 'current',
   publishFunction: 'publishLineup',
+  publishHttpPath: '/api/publishLineup',
   publishFunctionType: 'auto',
   publishFunctionPath: '/',
   sdkUrl: 'https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js',
