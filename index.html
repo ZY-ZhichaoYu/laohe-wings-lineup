@@ -331,11 +331,16 @@
     box-shadow: 0 4px 16px rgba(0,0,0,0.5);
     overflow: hidden;
   }
+  .head-logo.has-image {
+    background: #fff;
+  }
   .head-logo-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+    transform: scale(1.06);
+    transform-origin: center;
   }
   .head-text {
     flex: 1;
@@ -483,17 +488,6 @@
     object-position: top center;
     display: block;
   }
-  .player-num {
-    position: absolute;
-    top: 5px; left: 5px;
-    background: rgba(0,0,0,0.8);
-    color: var(--shirt-text);
-    font-weight: 900;
-    font-size: 13px;
-    padding: 2px 5px;
-    border-radius: 3px;
-    z-index: 2;
-  }
   .player-pos {
     position: absolute;
     top: 5px; right: 5px;
@@ -595,7 +589,8 @@
     border-top: 1px dashed #2a2a2a;
   }
   .staff-grid {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
   .staff-item {
@@ -603,20 +598,20 @@
     flex-direction: row;
     align-items: center;
     gap: 12px;
+    min-height: 138px;
     background: rgba(99,102,241,0.08);
     border: 1px solid rgba(99,102,241,0.28);
     border-radius: 8px;
-    padding: 8px 18px 8px 10px;
-    flex: 0 0 auto;
+    padding: 10px 14px;
   }
   .staff-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
+    width: 92px;
+    height: 118px;
+    border-radius: 12px;
     background: linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 100%);
-    border: 1.5px solid rgba(99,102,241,0.4);
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.42), 0 4px 12px rgba(0,0,0,0.45);
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
     overflow: hidden;
     flex-shrink: 0;
@@ -630,6 +625,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: top center;
     display: block;
   }
   .staff-info { min-width: 0; }
@@ -675,17 +671,17 @@
   .bench-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 8px;
+    gap: 10px;
   }
   .bench-item {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 6px;
     background: #161616;
-    min-height: 78px;
-    padding: 8px 6px;
+    min-height: 142px;
+    padding: 8px 5px 10px;
     border-radius: 8px;
     border: 1px solid #2a2a2a;
     cursor: grab;
@@ -704,15 +700,15 @@
     filter: grayscale(0.7) opacity(0.7);
   }
   .bench-avatar {
-    width: 38px;
-    height: 38px;
+    width: 72px;
+    height: 92px;
     background: linear-gradient(180deg, var(--shirt-bg), var(--shirt-edge));
-    border: 1px solid rgba(0,0,0,0.5);
-    border-radius: 50%;
+    border-radius: 10px;
+    box-shadow: 0 0 0 1.5px rgba(0,0,0,0.65), 0 3px 10px rgba(0,0,0,0.38);
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 900;
     color: var(--shirt-text);
     flex-shrink: 0;
@@ -723,21 +719,8 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: top center;
     display: block;
-  }
-  .bench-avatar-num {
-    position: absolute;
-    right: -1px;
-    bottom: -1px;
-    min-width: 15px;
-    height: 15px;
-    padding: 0 3px;
-    border-radius: 8px;
-    background: rgba(0,0,0,0.78);
-    color: #fff;
-    font-size: 9px;
-    line-height: 15px;
-    text-align: center;
   }
   .bench-status-badge {
     position: absolute;
@@ -792,7 +775,7 @@
   }
   .legends-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
   }
   .legend-item {
@@ -805,7 +788,7 @@
     border: 1px solid #3a2c10;
     border-radius: 8px;
     padding: 10px 6px;
-    min-height: 90px;
+    min-height: 154px;
     position: relative;
   }
   .legend-item::before {
@@ -818,15 +801,15 @@
     opacity: 0.7;
   }
   .legend-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
+    width: 82px;
+    height: 105px;
+    border-radius: 10px;
     background: #2a1f08;
-    border: 1.5px solid #d4af37;
+    box-shadow: 0 0 0 2px rgba(212,175,55,0.72), 0 3px 10px rgba(0,0,0,0.38);
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 900;
     color: #d4af37;
     overflow: hidden;
@@ -838,22 +821,8 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: top center;
     display: block;
-  }
-  .legend-num-badge {
-    position: absolute;
-    right: -2px;
-    bottom: -2px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 4px;
-    border-radius: 10px;
-    background: rgba(0,0,0,0.82);
-    border: 1px solid #d4af37;
-    color: #f8e29a;
-    font-size: 9px;
-    line-height: 16px;
-    text-align: center;
   }
   .legend-name {
     font-size: 13px;
@@ -923,9 +892,9 @@
   }
   .draw-card {
     display: grid;
-    grid-template-columns: 92px 1fr;
+    grid-template-columns: 104px 1fr;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     margin-top: 12px;
     padding: 12px;
     background: #151515;
@@ -958,11 +927,11 @@
     text-shadow: 0 1px 0 rgba(255,255,255,0.2);
   }
   .draw-avatar {
-    width: 88px;
-    height: 100px;
+    width: 92px;
+    height: 118px;
     background: linear-gradient(180deg, var(--shirt-bg, #dc2626), var(--shirt-edge, #7f1d1d));
-    border: 2px solid rgba(0,0,0,0.6);
     border-radius: 12px;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.45);
     color: var(--shirt-bg, #dc2626);
     overflow: hidden;
     position: relative;
@@ -994,9 +963,12 @@
     text-shadow: 0 1px 0 rgba(255,255,255,0.36);
   }
   .draw-avatar img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: top center;
     display: block;
   }
   .draw-name {
@@ -1857,6 +1829,7 @@ function getCurrentTeamLogo() {
 
 function renderTeamLogo() {
   const logo = getCurrentTeamLogo();
+  teamLogo.classList.toggle('has-image', Boolean(logo));
   teamLogo.innerHTML = logo
     ? `<img class="head-logo-img" src="${escapeAttr(logo)}" alt="">`
     : '🦅';
@@ -1901,7 +1874,6 @@ function renderPitch() {
     card.style.top = coord[1] + '%';
     card.innerHTML = `
       <div class="player-avatar">
-        <span class="player-num" contenteditable="true" data-player-field="num" data-starter-index="${slot.playerIndex}">${escapeHtml(player.num)}</span>
         <span class="player-pos" contenteditable="true" data-player-field="pos" data-starter-index="${slot.playerIndex}">${escapeHtml(player.pos)}</span>
         ${statusIcon ? `<span class="status-badge">${statusIcon}</span>` : ''}
         ${statsBadge ? `<span class="stats-badge">${escapeHtml(statsBadge)}</span>` : ''}
@@ -1932,7 +1904,6 @@ function renderStaffCards() {
     card.style.top = '87%';
     card.innerHTML = `
       <div class="player-avatar">
-        <span class="player-num">${escapeHtml(COACH_DATA.num)}</span>
         <span class="player-pos">${escapeHtml(COACH_DATA.posLabel)}</span>
         ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
       </div>
@@ -1949,7 +1920,6 @@ function renderStaffCards() {
     card.style.top = '87%';
     card.innerHTML = `
       <div class="player-avatar">
-        <span class="player-num">${escapeHtml(MANAGER_DATA.num)}</span>
         <span class="player-pos">${escapeHtml(MANAGER_DATA.posLabel)}</span>
         ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
       </div>
@@ -1978,7 +1948,7 @@ function renderBench() {
     item.dataset.benchIndex = String(index);
     item.innerHTML = `
       <div class="bench-avatar">
-        ${avatar ? `<img class="bench-avatar-img" src="${escapeAttr(avatar)}" alt=""><span class="bench-avatar-num">${escapeHtml(player.num)}</span>` : escapeHtml(player.num)}
+        ${avatar ? `<img class="bench-avatar-img" src="${escapeAttr(avatar)}" alt="">` : escapeHtml(player.num)}
         ${statusIcon ? `<span class="bench-status-badge">${statusIcon}</span>` : ''}
       </div>
       <div class="bench-name">${escapeHtml(player.name)}${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
@@ -2037,7 +2007,6 @@ function renderLegends() {
     item.innerHTML = `
       <div class="legend-avatar" data-legend-index="${index}" title="点击上传照片">
         ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : escapeHtml(String(normalized.num !== '' ? normalized.num : normalized.name.charAt(0)))}
-        ${avatar && normalized.num !== '' ? `<span class="legend-num-badge">${escapeHtml(normalized.num)}</span>` : ''}
       </div>
       <div class="legend-name">${escapeHtml(normalized.name)}</div>
       <div class="legend-role">${escapeHtml(normalized.role || '绝版人物')}</div>
@@ -2622,7 +2591,6 @@ function renderDrawCard(player) {
       ? getStaffAvatar(player)
       : getCurrentAvatar(player);
   drawCard.className = `draw-card${isLegend ? ' legend-draw' : isStaff ? ' staff-draw' : ''}`;
-  const numLabel = isStaff ? escapeHtml(player.posLabel || '') : escapeHtml(player.num);
   const fallbackAvatar = isLegend
     ? '<span class="legend-star-fallback">★</span>'
     : isStaff
@@ -2635,7 +2603,6 @@ function renderDrawCard(player) {
       : (player.role || player.pos || '老和山之翼');
   drawCard.innerHTML = `
     <div class="draw-avatar">
-      <span class="player-num">${numLabel}</span>
       ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : fallbackAvatar}
     </div>
     <div>
