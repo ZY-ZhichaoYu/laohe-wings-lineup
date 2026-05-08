@@ -1,12 +1,15 @@
 const cloudbase = require('@cloudbase/node-sdk');
 
-const app = cloudbase.init({
-  env: cloudbase.SYMBOL_CURRENT_ENV
-});
-const db = app.database();
-
 const COLLECTION = 'lineups';
 const DEFAULT_DOC_ID = 'current';
+
+function initCloudBaseApp(context) {
+  try {
+    return cloudbase.init({ context });
+  } catch (error) {
+    return cloudbase.init({});
+  }
+}
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -22,6 +25,8 @@ function validateSnapshot(snapshot) {
 }
 
 exports.main = async (event = {}, context = {}) => {
+  const app = initCloudBaseApp(context);
+  const db = app.database();
   const docId = typeof event.docId === 'string' && event.docId.trim()
     ? event.docId.trim()
     : DEFAULT_DOC_ID;
@@ -40,18 +45,39 @@ exports.main = async (event = {}, context = {}) => {
   const auth = context.auth || context.userInfo || {};
   const updatedBy = auth.uid || auth.openId || auth.openid || 'anonymous-web';
 
-  await db.collection(COLLECTION).doc(docId).set({
-    snapshot,
-    schemaVersion: 1,
-    updatedAt: now,
-    updatedAtText: now.toISOString(),
-    updatedBy,
-    clientUpdatedAt: event.clientUpdatedAt || ''
-  });
+  try {
+    const result = await db.collection(COLLECTION).doc(docId).set({
+      snapshot,
+      schemaVersion: 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy,
+      clientUpdatedAt: event.clientUpdatedAt || ''
+    });
 
-  return {
-    ok: true,
-    docId,
-    updatedAt: now.toISOString()
-  };
+    console.log('publishLineup saved', {
+      docId,
+      updatedBy,
+      result
+    });
+
+    return {
+      ok: true,
+      docId,
+      updatedAt: now.toISOString()
+    };
+  } catch (error) {
+    console.error('publishLineup failed', {
+      code: error && error.code,
+      message: error && error.message,
+      requestId: error && error.requestId
+    });
+
+    return {
+      ok: false,
+      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
+      message: error && error.message ? error.message : String(error),
+      requestId: error && error.requestId ? error.requestId : ''
+    };
+  }
 };

@@ -5,6 +5,8 @@ window.LAOHE_CLOUDBASE_CONFIG = {
   collection: 'lineups',
   currentDocId: 'current',
   publishFunction: 'publishLineup',
+  publishFunctionType: 'auto',
+  publishFunctionPath: '/',
   sdkUrl: 'https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js',
   cloudHosts: [
     'laohe-wings-lineup-d3cz65831519b-1429692601.tcloudbaseapp.com',

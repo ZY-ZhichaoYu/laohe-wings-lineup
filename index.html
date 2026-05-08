@@ -1542,6 +1542,8 @@ const CLOUDBASE_CONFIG = {
   collection: 'lineups',
   currentDocId: 'current',
   publishFunction: 'publishLineup',
+  publishFunctionType: 'auto',
+  publishFunctionPath: '/',
   sdkUrl: 'https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js',
   cloudHosts: [],
   ...(window.LAOHE_CLOUDBASE_CONFIG || {})
@@ -1717,6 +1719,23 @@ function updateSyncStatus(state = 'local', message = '') {
   }
 }
 
+function getCloudErrorMessage(error) {
+  if (!error) return '未知错误';
+  if (typeof error === 'string') return error;
+  const parts = [];
+  if (error.code) parts.push(error.code);
+  if (error.message) parts.push(error.message);
+  if (error.requestId) parts.push(`requestId=${error.requestId}`);
+  if (!parts.length && error.errMsg) parts.push(error.errMsg);
+  return parts.join(' · ') || String(error);
+}
+
+function compactStatusMessage(prefix, detail) {
+  const text = String(detail || '').trim();
+  if (!text) return prefix;
+  return `${prefix}：${text.length > 42 ? `${text.slice(0, 42)}...` : text}`;
+}
+
 function loadCloudBaseSdk() {
   if (window.cloudbase) return Promise.resolve(window.cloudbase);
   return new Promise((resolve, reject) => {
@@ -1806,6 +1825,46 @@ async function readCloudSnapshot() {
   return snapshot;
 }
 
+function getPublishCallOptions(payload, mode) {
+  const base = {
+    name: CLOUDBASE_CONFIG.publishFunction,
+    data: payload,
+    parse: true
+  };
+  if (mode !== 'cloudrun') return base;
+  return {
+    ...base,
+    type: 'cloudrun',
+    method: 'POST',
+    path: CLOUDBASE_CONFIG.publishFunctionPath || '/'
+  };
+}
+
+async function callPublishFunction(payload) {
+  const preferredType = CLOUDBASE_CONFIG.publishFunctionType || 'auto';
+  const modes = preferredType === 'cloudrun'
+    ? ['cloudrun', 'standard']
+    : preferredType === 'standard'
+      ? ['standard']
+      : ['standard', 'cloudrun'];
+  const errors = [];
+
+  for (const mode of modes) {
+    try {
+      const response = await cloudSyncState.app.callFunction(getPublishCallOptions(payload, mode));
+      return { response, mode };
+    } catch (error) {
+      errors.push(`${mode}: ${getCloudErrorMessage(error)}`);
+      if (mode === 'standard' && modes.includes('cloudrun')) {
+        console.warn('CloudBase standard function call failed, retrying as cloudrun:', error);
+        updateSyncStatus('saving', '普通云函数失败，尝试 cloudrun...');
+      }
+    }
+  }
+
+  throw new Error(errors.join(' | '));
+}
+
 async function publishCloudSnapshot(snapshot) {
   if (!cloudSyncState.initialized || !cloudSyncState.app || cloudSyncState.applyingRemote) return;
   if (!CLOUDBASE_CONFIG.publishFunction || typeof cloudSyncState.app.callFunction !== 'function') {
@@ -1814,26 +1873,22 @@ async function publishCloudSnapshot(snapshot) {
   }
   try {
     updateSyncStatus('saving', '保存到云端...');
-    const response = await cloudSyncState.app.callFunction({
-      name: CLOUDBASE_CONFIG.publishFunction,
-      data: {
-        docId: CLOUDBASE_CONFIG.currentDocId,
-        snapshot,
-        clientUpdatedAt: new Date().toISOString()
-      },
-      parse: true
+    const { response, mode } = await callPublishFunction({
+      docId: CLOUDBASE_CONFIG.currentDocId,
+      snapshot,
+      clientUpdatedAt: new Date().toISOString()
     });
     const result = response && response.result ? response.result : response;
     if (result && result.ok === false) {
-      throw new Error(result.message || '云函数保存失败');
+      throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '云函数保存失败'}`);
     }
     cloudSyncState.remoteSnapshot = clone(snapshot);
     cloudSyncState.lastError = '';
-    updateSyncStatus('synced', '已同步到云端');
+    updateSyncStatus('synced', mode === 'cloudrun' ? '已同步到云端（cloudrun）' : '已同步到云端');
   } catch (error) {
-    cloudSyncState.lastError = error && error.message ? error.message : String(error);
+    cloudSyncState.lastError = getCloudErrorMessage(error);
     console.warn('CloudBase publish failed:', error);
-    updateSyncStatus('error', '云端保存失败，本地已保存');
+    updateSyncStatus('error', compactStatusMessage('云端保存失败', cloudSyncState.lastError));
   }
 }
 

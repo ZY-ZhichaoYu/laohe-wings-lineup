@@ -40,6 +40,14 @@
 3. 调整一次阵容或点击 `发布到云端`。
 4. 回到文档型数据库的 `lineups` 集合，确认出现 `_id = current` 的文档。
 
+如果发布失败，请先重新上传这 3 个文件：
+
+- `index.html`
+- `cloudbase-config.js`
+- `cloudfunctions/publishLineup/index.js`
+
+新版 CloudBase 可能创建的是函数型云托管函数，前端会先按普通云函数调用，失败后自动按 `cloudrun` 再试。重新上传后，失败状态会显示更具体的错误码；也可以在 `publishLineup` 函数详情的 `日志` 页查看 `publishLineup failed`。
+
 ## 4. 验证多人同步
 
 1. 用电脑打开 CloudBase 默认域名。
