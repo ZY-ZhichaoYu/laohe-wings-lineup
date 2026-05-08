@@ -1566,6 +1566,78 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+const localStorageAdapter = {
+  name: 'local',
+  readJson(key, fallback) {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  },
+  writeJson(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  },
+  readLastState() {
+    return this.readJson(STORAGE_KEYS.lastState, null);
+  },
+  writeLastState(snapshot) {
+    return this.writeJson(STORAGE_KEYS.lastState, snapshot);
+  },
+  readPresets() {
+    return {
+      ...this.readJson(STORAGE_KEYS.legacyPresetsV3, {}),
+      ...this.readJson(STORAGE_KEYS.legacyPresets, {}),
+      ...this.readJson(STORAGE_KEYS.legacyPresetsV5, {}),
+      ...this.readJson(STORAGE_KEYS.legacyPresetsV6, {}),
+      ...this.readJson(STORAGE_KEYS.legacyPresetsV7, {}),
+      ...this.readJson(STORAGE_KEYS.presets, {})
+    };
+  },
+  readWritablePresets() {
+    return this.readJson(STORAGE_KEYS.presets, {});
+  },
+  writePresets(presets) {
+    return this.writeJson(STORAGE_KEYS.presets, presets);
+  }
+};
+
+const cloudStorageAdapter = {
+  name: 'cloud-placeholder',
+  readJson(key, fallback) {
+    console.info('cloudStorageAdapter is not connected yet; using local storage for', key);
+    return localStorageAdapter.readJson(key, fallback);
+  },
+  writeJson(key, value) {
+    console.info('cloudStorageAdapter is not connected yet; using local storage for', key);
+    return localStorageAdapter.writeJson(key, value);
+  },
+  readLastState() {
+    console.info('cloudStorageAdapter is not connected yet; using local last state');
+    return localStorageAdapter.readLastState();
+  },
+  writeLastState(snapshot) {
+    console.info('cloudStorageAdapter is not connected yet; writing local last state');
+    return localStorageAdapter.writeLastState(snapshot);
+  },
+  readPresets() {
+    console.info('cloudStorageAdapter is not connected yet; using local presets');
+    return localStorageAdapter.readPresets();
+  },
+  readWritablePresets() {
+    console.info('cloudStorageAdapter is not connected yet; using local writable presets');
+    return localStorageAdapter.readWritablePresets();
+  },
+  writePresets(presets) {
+    console.info('cloudStorageAdapter is not connected yet; writing local presets');
+    return localStorageAdapter.writePresets(presets);
+  }
+};
+
+let activeStorageAdapter = localStorageAdapter;
+
+function setStorageAdapter(adapter = localStorageAdapter) {
+  activeStorageAdapter = adapter || localStorageAdapter;
+}
+
 function toNonNegativeInt(value) {
   const number = Number.parseInt(value, 10);
   return Number.isFinite(number) && number > 0 ? number : 0;
@@ -1870,31 +1942,12 @@ async function loadPlayerData() {
   }
 }
 
-function readJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch (error) {
-    console.warn('读取本地存储失败：', error);
-    return fallback;
-  }
-}
-
-function writeJson(key, value, notify = false) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch (error) {
-    console.warn('写入本地存储失败：', error);
-    if (notify) {
-      alert('保存失败：浏览器本地存储空间不足。请尝试压缩照片后再保存。');
-    }
-    return false;
-  }
-}
-
 function saveLastState() {
-  writeJson(STORAGE_KEYS.lastState, createSnapshot(), false);
+  try {
+    activeStorageAdapter.writeLastState(createSnapshot());
+  } catch (error) {
+    console.warn(`写入当前阵容失败（${activeStorageAdapter.name}）：`, error);
+  }
 }
 
 function queueSaveLastState() {
@@ -2820,29 +2873,45 @@ function drawRandomPlayer() {
 // 预设与自动恢复
 // ============================================================
 function getPresets() {
-  return {
-    ...readJson(STORAGE_KEYS.legacyPresetsV3, {}),
-    ...readJson(STORAGE_KEYS.legacyPresets, {}),
-    ...readJson(STORAGE_KEYS.legacyPresetsV5, {}),
-    ...readJson(STORAGE_KEYS.legacyPresetsV6, {}),
-    ...readJson(STORAGE_KEYS.legacyPresetsV7, {}),
-    ...readJson(STORAGE_KEYS.presets, {})
-  };
+  try {
+    return activeStorageAdapter.readPresets();
+  } catch (error) {
+    console.warn(`读取预设失败（${activeStorageAdapter.name}）：`, error);
+    return {};
+  }
 }
 
 function setPresets(presets, notify = false) {
-  return writeJson(STORAGE_KEYS.presets, presets, notify);
+  try {
+    return activeStorageAdapter.writePresets(presets);
+  } catch (error) {
+    console.warn(`写入预设失败（${activeStorageAdapter.name}）：`, error);
+    if (notify) {
+      alert('保存失败：浏览器本地存储空间不足。请尝试压缩照片后再保存。');
+    }
+    return false;
+  }
 }
 
 function ensureDefaultPreset() {
-  const presets = readJson(STORAGE_KEYS.presets, {});
+  let presets = {};
+  try {
+    presets = activeStorageAdapter.readWritablePresets();
+  } catch (error) {
+    console.warn(`读取当前预设失败（${activeStorageAdapter.name}）：`, error);
+  }
   if (presets[DEFAULT_PRESET_NAME]) return;
   presets[DEFAULT_PRESET_NAME] = createSnapshot();
   setPresets(presets, false);
 }
 
 function readInitialState() {
-  return readJson(STORAGE_KEYS.lastState, null);
+  try {
+    return activeStorageAdapter.readLastState();
+  } catch (error) {
+    console.warn(`读取当前阵容失败（${activeStorageAdapter.name}）：`, error);
+    return null;
+  }
 }
 
 function renderPresetSelect(selectedName = '') {
