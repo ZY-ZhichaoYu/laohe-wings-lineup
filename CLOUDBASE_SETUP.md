@@ -59,6 +59,12 @@
 
 配置后前端会优先通过同域 HTTP 路径发布阵容，成功状态会显示 `已同步到云端（HTTP）`。
 
+注意：静态网站域名是 `tcloudbaseapp.com`，HTTP 路由域名是 `ap-shanghai.app.tcloudbase.com`。前端配置里的 `publishHttpPath` 必须使用完整的 HTTP 路由域名：
+
+`https://laohe-wings-lineup-d3cz65831519b-1429692601.ap-shanghai.app.tcloudbase.com/api/publishLineup`
+
+如果继续使用相对路径 `/api/publishLineup`，请求会打到静态网站域名并返回 404，函数日志不会有记录。
+
 ## 4. 验证多人同步
 
 1. 用电脑打开 CloudBase 默认域名。
