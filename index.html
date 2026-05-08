@@ -124,6 +124,25 @@
     color: #fecaca;
     background: #3a1212;
   }
+  .edit-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 5px 10px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #1a1a1a;
+    color: #aaa;
+    font-size: 12px;
+  }
+  .edit-status.is-unlocked {
+    border-color: #15803d;
+    color: #bbf7d0;
+    background: #12351e;
+  }
+  body.readonly-mode [contenteditable="false"] {
+    cursor: default;
+  }
   .inline-check {
     display: inline-flex;
     align-items: center;
@@ -1213,6 +1232,14 @@
     <button class="ctrl-btn kit-btn" data-kit="away">🔵 客场（蓝）</button>
   </div>
 
+  <div class="control-row edit-row">
+    <label>编辑</label>
+    <input class="ctrl-input" id="edit-password-input" type="password" placeholder="输入编辑口令">
+    <button class="ctrl-btn" id="unlock-edit-btn" type="button">解锁编辑</button>
+    <button class="ctrl-btn" id="lock-edit-btn" type="button" hidden>退出编辑</button>
+    <span class="edit-status" id="edit-status">只读模式</span>
+  </div>
+
   <div class="control-row">
     <label>队徽</label>
     <button class="ctrl-btn" id="team-logo-upload-btn">上传队徽</button>
@@ -1550,6 +1577,9 @@ const CLOUDBASE_CONFIG = {
   ...(window.LAOHE_CLOUDBASE_CONFIG || {})
 };
 
+const EDIT_PASSWORD = '老和山无内鬼';
+const EDIT_SESSION_KEY = 'laohe-lineup-edit-unlocked';
+
 const cloudSyncState = {
   initialized: false,
   initializing: false,
@@ -1573,6 +1603,7 @@ let html5DragStarterIndex = null;
 let pointerDrag = null;
 let pointerDragStarter = null;
 let currentDrawnPlayer = null;
+let editUnlocked = sessionStorage.getItem(EDIT_SESSION_KEY) === 'true';
 
 const poster = document.getElementById('poster');
 const posterStage = document.getElementById('poster-stage');
@@ -1588,6 +1619,10 @@ const presetSelect = document.getElementById('preset-select');
 const savePresetBtn = document.getElementById('save-preset-btn');
 const deletePresetBtn = document.getElementById('delete-preset-btn');
 const exportJsonBtn = document.getElementById('export-json-btn');
+const editPasswordInput = document.getElementById('edit-password-input');
+const unlockEditBtn = document.getElementById('unlock-edit-btn');
+const lockEditBtn = document.getElementById('lock-edit-btn');
+const editStatus = document.getElementById('edit-status');
 const syncStatus = document.getElementById('sync-status');
 const publishCloudBtn = document.getElementById('publish-cloud-btn');
 const starterSlotSelect = document.getElementById('starter-slot-select');
@@ -1699,6 +1734,83 @@ function setStorageAdapter(adapter = localStorageAdapter) {
   activeStorageAdapter = adapter || localStorageAdapter;
 }
 
+function canEdit() {
+  return editUnlocked === true;
+}
+
+function lockEditing() {
+  editUnlocked = false;
+  sessionStorage.removeItem(EDIT_SESSION_KEY);
+  if (editPasswordInput) editPasswordInput.value = '';
+  renderPhotoManager();
+  updateControls();
+}
+
+function unlockEditing() {
+  const value = editPasswordInput?.value.trim() || '';
+  if (value !== EDIT_PASSWORD) {
+    if (editStatus) {
+      editStatus.textContent = '口令不对';
+      editStatus.classList.remove('is-unlocked');
+    }
+    return;
+  }
+  editUnlocked = true;
+  sessionStorage.setItem(EDIT_SESSION_KEY, 'true');
+  if (editPasswordInput) editPasswordInput.value = '';
+  renderPhotoManager();
+  updateControls();
+}
+
+function updateEditMode() {
+  const unlocked = canEdit();
+  document.body.classList.toggle('readonly-mode', !unlocked);
+  if (editStatus) {
+    editStatus.textContent = unlocked ? '编辑模式已解锁' : '只读模式';
+    editStatus.classList.toggle('is-unlocked', unlocked);
+  }
+  if (editPasswordInput) editPasswordInput.hidden = unlocked;
+  if (unlockEditBtn) unlockEditBtn.hidden = unlocked;
+  if (lockEditBtn) lockEditBtn.hidden = !unlocked;
+  document.querySelectorAll('[contenteditable]').forEach(el => {
+    el.contentEditable = unlocked ? 'true' : 'false';
+  });
+  if (!unlocked) {
+    document.querySelectorAll('.photo-manager input, .photo-manager select, .photo-manager button').forEach(el => {
+      el.disabled = true;
+    });
+  }
+  [
+    teamLogoUploadBtn,
+    reportLinkInput,
+    savePresetBtn,
+    starterSlotSelect,
+    benchPlayerSelect,
+    swapStarterBtn,
+    coachShowInput,
+    coachNumInput,
+    coachPosInput,
+    coachNameInput,
+    coachRoleInput,
+    coachUploadHomeBtn,
+    coachUploadAwayBtn,
+    managerShowInput,
+    managerNumInput,
+    managerPosInput,
+    managerNameInput,
+    managerRoleInput,
+    managerUploadHomeBtn,
+    managerUploadAwayBtn
+  ].forEach(el => {
+    if (el) el.disabled = !unlocked;
+  });
+  if (deletePresetBtn) deletePresetBtn.disabled = !unlocked || !presetSelect.value;
+  if (teamLogoClearBtn) teamLogoClearBtn.disabled = !unlocked || (!TEAM_DATA.logo && !TEAM_DATA.logoHome && !TEAM_DATA.logoAway);
+  if (coachClearBtn) coachClearBtn.disabled = !unlocked || (!COACH_DATA.avatar && !COACH_DATA.avatarHome && !COACH_DATA.avatarAway);
+  if (managerClearBtn) managerClearBtn.disabled = !unlocked || (!MANAGER_DATA.avatar && !MANAGER_DATA.avatarHome && !MANAGER_DATA.avatarAway);
+  if (publishCloudBtn) publishCloudBtn.hidden = !(unlocked && cloudSyncState.initialized && isCloudBaseSyncHost());
+}
+
 function isCloudBaseSyncHost() {
   const hosts = Array.isArray(CLOUDBASE_CONFIG.cloudHosts) ? CLOUDBASE_CONFIG.cloudHosts : [];
   return Boolean(
@@ -1715,7 +1827,7 @@ function updateSyncStatus(state = 'local', message = '') {
   syncStatus.dataset.state = state;
   syncStatus.textContent = text;
   if (publishCloudBtn) {
-    publishCloudBtn.hidden = !(cloudSyncState.initialized && isCloudBaseSyncHost());
+    publishCloudBtn.hidden = !(canEdit() && cloudSyncState.initialized && isCloudBaseSyncHost());
     publishCloudBtn.disabled = state === 'loading' || state === 'saving';
   }
 }
@@ -1826,6 +1938,83 @@ async function readCloudSnapshot() {
   return snapshot;
 }
 
+function getFileExtension(file) {
+  const typeExt = String(file?.type || '').split('/')[1] || '';
+  const nameExt = String(file?.name || '').split('.').pop() || '';
+  const ext = (typeExt || nameExt || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return ext === 'jpeg' ? 'jpg' : (ext || 'jpg');
+}
+
+function sanitizeCloudPathSegment(value, fallback = 'image') {
+  const text = String(value || '').trim()
+    .replace(/[\\/:*?"<>|#%&{}$!@`'=+,\s]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return text.slice(0, 80) || fallback;
+}
+
+function buildCloudImagePath(file, context = {}) {
+  const ext = getFileExtension(file);
+  const kind = sanitizeCloudPathSegment(context.kind, 'misc');
+  const num = sanitizeCloudPathSegment(context.num, 'no-num');
+  const name = sanitizeCloudPathSegment(context.name, 'member');
+  const field = sanitizeCloudPathSegment(context.field, 'photo');
+  return `uploads/${kind}/${num}-${name}-${field}-${Date.now()}.${ext}`;
+}
+
+function getTempFileUrlFromResponse(response, fileID) {
+  const item = response?.fileList?.[0] || response?.data?.fileList?.[0] || null;
+  return item?.tempFileURL || item?.download_url || item?.url || fileID;
+}
+
+async function uploadImageToCloudStorage(file, context = {}) {
+  if (!cloudSyncState.initialized || !cloudSyncState.app || typeof cloudSyncState.app.uploadFile !== 'function') {
+    return '';
+  }
+  const cloudPath = buildCloudImagePath(file, context);
+  updateSyncStatus('saving', '上传图片到云存储...');
+  const result = await cloudSyncState.app.uploadFile({
+    cloudPath,
+    filePath: file
+  });
+  const fileID = result?.fileID;
+  if (!fileID) throw new Error('云存储没有返回 fileID');
+  if (typeof cloudSyncState.app.getTempFileURL !== 'function') {
+    throw new Error('当前 SDK 不能获取云存储访问链接');
+  }
+  const urlResult = await cloudSyncState.app.getTempFileURL({
+    fileList: [fileID]
+  });
+  const source = getTempFileUrlFromResponse(urlResult, fileID);
+  if (!source || source.startsWith('cloud://')) {
+    throw new Error('云存储没有返回可直接访问的 HTTPS 图片链接');
+  }
+  return source;
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result || '')));
+    reader.addEventListener('error', () => reject(reader.error || new Error('读取图片失败')));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function getUploadImageSource(file, context = {}) {
+  if (cloudSyncState.initialized && isCloudBaseSyncHost()) {
+    try {
+      const source = await uploadImageToCloudStorage(file, context);
+      if (source) return source;
+    } catch (error) {
+      console.warn('CloudBase image upload failed, falling back to local data URL:', error);
+      updateSyncStatus('error', compactStatusMessage('云存储上传失败', getCloudErrorMessage(error)));
+      alert('云存储上传失败：照片暂时只会保存在当前浏览器。请检查云存储权限后重试。');
+    }
+  }
+  return readFileAsDataUrl(file);
+}
+
 function getPublishCallOptions(payload, mode) {
   const base = {
     name: CLOUDBASE_CONFIG.publishFunction,
@@ -1914,6 +2103,10 @@ async function callPublishFunction(payload) {
 }
 
 async function publishCloudSnapshot(snapshot) {
+  if (!canEdit()) {
+    updateSyncStatus('local', '只读模式，输入口令后发布');
+    return;
+  }
   if (!cloudSyncState.initialized || !cloudSyncState.app || cloudSyncState.applyingRemote) return;
   if (!CLOUDBASE_CONFIG.publishFunction || typeof cloudSyncState.app.callFunction !== 'function') {
     updateSyncStatus('error', '云函数未就绪，本地已保存');
@@ -1941,6 +2134,7 @@ async function publishCloudSnapshot(snapshot) {
 }
 
 function queueCloudPublish(snapshot) {
+  if (!canEdit()) return;
   if (!cloudSyncState.initialized || cloudSyncState.applyingRemote) return;
   window.clearTimeout(cloudSyncState.publishTimer);
   const snapshotCopy = clone(snapshot);
@@ -2261,6 +2455,24 @@ function mergeSavedPlayerFields(basePlayer, savedPlayer) {
   };
 }
 
+function isSavedImageSource(value) {
+  const source = String(value || '').trim();
+  return Boolean(
+    source &&
+    (
+      source.startsWith('data:') ||
+      source.startsWith('http://') ||
+      source.startsWith('https://') ||
+      source.startsWith('cloud://') ||
+      source.startsWith('assets/')
+    )
+  );
+}
+
+function mergeSavedImageSource(savedValue, baseValue) {
+  return isSavedImageSource(savedValue) ? savedValue : baseValue;
+}
+
 function replaceSquadData(nextSquadData) {
   if (!nextSquadData || !Array.isArray(nextSquadData.starters) || !Array.isArray(nextSquadData.bench)) return;
   const basePlayers = [
@@ -2299,9 +2511,9 @@ function mergeSavedStaffFields(baseData, savedData) {
   return {
     ...baseData,
     show: saved.show !== false,
-    avatar: typeof saved.avatar === 'string' && saved.avatar.startsWith('data:') ? saved.avatar : baseData.avatar,
-    avatarHome: typeof saved.avatarHome === 'string' && saved.avatarHome.startsWith('data:') ? saved.avatarHome : baseData.avatarHome,
-    avatarAway: typeof saved.avatarAway === 'string' && saved.avatarAway.startsWith('data:') ? saved.avatarAway : baseData.avatarAway
+    avatar: mergeSavedImageSource(saved.avatar, baseData.avatar),
+    avatarHome: mergeSavedImageSource(saved.avatarHome, baseData.avatarHome),
+    avatarAway: mergeSavedImageSource(saved.avatarAway, baseData.avatarAway)
   };
 }
 
@@ -2317,9 +2529,9 @@ function replaceTeamData(nextTeamData) {
   const saved = normalizeTeamData(nextTeamData || {});
   Object.assign(TEAM_DATA, {
     ...TEAM_DATA,
-    logo: saved.logo && saved.logo.startsWith('data:') ? saved.logo : TEAM_DATA.logo,
-    logoHome: saved.logoHome && saved.logoHome.startsWith('data:') ? saved.logoHome : TEAM_DATA.logoHome,
-    logoAway: saved.logoAway && saved.logoAway.startsWith('data:') ? saved.logoAway : TEAM_DATA.logoAway
+    logo: mergeSavedImageSource(saved.logo, TEAM_DATA.logo),
+    logoHome: mergeSavedImageSource(saved.logoHome, TEAM_DATA.logoHome),
+    logoAway: mergeSavedImageSource(saved.logoAway, TEAM_DATA.logoAway)
   });
 }
 
@@ -2352,7 +2564,12 @@ async function loadPlayerData() {
 
 function saveLastState() {
   try {
-    activeStorageAdapter.writeLastState(createSnapshot());
+    const snapshot = createSnapshot();
+    if (!canEdit()) {
+      localStorageAdapter.writeLastState(snapshot);
+      return;
+    }
+    activeStorageAdapter.writeLastState(snapshot);
   } catch (error) {
     console.warn(`写入当前阵容失败（${activeStorageAdapter.name}）：`, error);
   }
@@ -2381,9 +2598,9 @@ function applySnapshot(snapshot, shouldSave = true) {
         if (nextLegends[index]) {
           nextLegends[index] = normalizeLegend({
             ...nextLegends[index],
-            avatar: typeof item.avatar === 'string' && item.avatar.startsWith('data:') ? item.avatar : nextLegends[index].avatar,
-            avatarHome: typeof item.avatarHome === 'string' && item.avatarHome.startsWith('data:') ? item.avatarHome : nextLegends[index].avatarHome,
-            avatarAway: typeof item.avatarAway === 'string' && item.avatarAway.startsWith('data:') ? item.avatarAway : nextLegends[index].avatarAway
+            avatar: mergeSavedImageSource(item.avatar, nextLegends[index].avatar),
+            avatarHome: mergeSavedImageSource(item.avatarHome, nextLegends[index].avatarHome),
+            avatarAway: mergeSavedImageSource(item.avatarAway, nextLegends[index].avatarAway)
           });
         }
       }
@@ -2423,7 +2640,7 @@ function renderLineupSwitcher() {
     benchPlayerSelect.appendChild(option);
   });
 
-  const disabled = !starterSlotSelect.options.length || !benchPlayerSelect.options.length;
+  const disabled = !canEdit() || !starterSlotSelect.options.length || !benchPlayerSelect.options.length;
   starterSlotSelect.disabled = disabled;
   benchPlayerSelect.disabled = disabled;
   swapStarterBtn.disabled = disabled;
@@ -2457,6 +2674,7 @@ function updateControls() {
   managerClearBtn.disabled = !MANAGER_DATA.avatar && !MANAGER_DATA.avatarHome && !MANAGER_DATA.avatarAway;
   teamLogoClearBtn.disabled = !TEAM_DATA.logo && !TEAM_DATA.logoHome && !TEAM_DATA.logoAway;
   renderLineupSwitcher();
+  updateEditMode();
 }
 
 function updatePosterPreviewScale() {
@@ -2525,17 +2743,17 @@ function renderPitch() {
     card.dataset.starterIndex = String(slot.playerIndex);
     card.style.left = coord[0] + '%';
     card.style.top = coord[1] + '%';
+    card.draggable = canEdit();
     card.innerHTML = `
       <div class="player-avatar">
-        <span class="player-pos" contenteditable="true" data-player-field="pos" data-starter-index="${slot.playerIndex}">${escapeHtml(player.pos)}</span>
+        <span class="player-pos" contenteditable="${canEdit() ? 'true' : 'false'}" data-player-field="pos" data-starter-index="${slot.playerIndex}">${escapeHtml(player.pos)}</span>
         ${statusIcon ? `<span class="status-badge">${statusIcon}</span>` : ''}
         ${statsBadge ? `<span class="stats-badge">${escapeHtml(statsBadge)}</span>` : ''}
         ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : SVG_AVATAR}
       </div>
-      <div class="player-name"><span contenteditable="true" data-player-field="name" data-starter-index="${slot.playerIndex}">${escapeHtml(player.name)}</span>${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
-      <div class="player-role" contenteditable="true" data-player-field="role" data-starter-index="${slot.playerIndex}">${escapeHtml(player.role)}</div>
+      <div class="player-name"><span contenteditable="${canEdit() ? 'true' : 'false'}" data-player-field="name" data-starter-index="${slot.playerIndex}">${escapeHtml(player.name)}</span>${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
+      <div class="player-role" contenteditable="${canEdit() ? 'true' : 'false'}" data-player-field="role" data-starter-index="${slot.playerIndex}">${escapeHtml(player.role)}</div>
     `;
-    card.draggable = true;
     card.addEventListener('dragstart', handleStarterDragStart);
     card.addEventListener('dragend', handleStarterDragEnd);
     card.addEventListener('dragover', handleStarterDragOver);
@@ -2597,7 +2815,7 @@ function renderBench() {
     const statusIcon = getStatusIcon(player.status);
     const item = document.createElement('div');
     item.className = `bench-item ${player.status === 'injured' || player.status === 'suspended' ? 'unavailable' : ''}`;
-    item.draggable = true;
+    item.draggable = canEdit();
     item.dataset.benchIndex = String(index);
     item.innerHTML = `
       <div class="bench-avatar">
@@ -2666,19 +2884,26 @@ function renderLegends() {
     `;
     const avatarEl = item.querySelector('.legend-avatar');
     avatarEl.addEventListener('click', () => {
+      if (!canEdit()) return;
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.addEventListener('change', () => {
+      input.addEventListener('change', async () => {
         const file = input.files && input.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          LEGENDS_DATA[index].avatar = reader.result;
+        try {
+          LEGENDS_DATA[index].avatar = await getUploadImageSource(file, {
+            kind: 'legends',
+            num: normalized.num,
+            name: normalized.name,
+            field: 'avatar'
+          });
           renderLegends();
           saveLastState();
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+          console.warn('legend upload failed:', error);
+          alert('照片上传失败，请稍后重试。');
+        }
       });
       input.click();
     });
@@ -2726,26 +2951,31 @@ function renderPhotoManager() {
     const row = document.createElement('div');
     const hasHome = isLegend ? Boolean(player.avatarHome || player.avatar) : Boolean(player.avatarHome);
     const hasAway = Boolean(player.avatarAway);
+    const disabledAttr = canEdit() ? '' : 'disabled';
     row.className = 'photo-row';
     row.innerHTML = `
       <div class="player-fields ${isLegend ? 'legend-fields' : ''}">
-        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.num)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="num" aria-label="号码">
-        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.name)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="name" aria-label="姓名">
-        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(isLegend ? 'HOF' : (player.positions || []).join(', '))}" ${isLegend ? 'disabled' : ''} data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="positions" placeholder="${isLegend ? '' : 'LW, CAM...'}" aria-label="擅长位置（逗号分隔）">
-        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.role || '')}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="role" aria-label="角色">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.num)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="num" aria-label="号码" ${disabledAttr}>
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.name)}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="name" aria-label="姓名" ${disabledAttr}>
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(isLegend ? 'HOF' : (player.positions || []).join(', '))}" ${isLegend || !canEdit() ? 'disabled' : ''} data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="positions" placeholder="${isLegend ? '' : 'LW, CAM...'}" aria-label="擅长位置（逗号分隔）">
+        <input class="ctrl-input player-field-input" type="text" value="${escapeAttr(player.role || '')}" data-action="update-player-field" data-list="${list}" data-index="${index}" data-field="role" aria-label="角色" ${disabledAttr}>
       </div>
       ${isLegend ? '<div class="row-note">绝版人物</div>' : `<div class="stats-inputs" title="进球 / 助攻 / 出场">
-        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.goals)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="goals" aria-label="进球">
-        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.assists)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="assists" aria-label="助攻">
-        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.appearances)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="appearances" aria-label="出场">
+        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.goals)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="goals" aria-label="进球" ${disabledAttr}>
+        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.assists)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="assists" aria-label="助攻" ${disabledAttr}>
+        <input class="ctrl-input stat-input" type="number" min="0" step="1" value="${escapeAttr(player.stats.appearances)}" data-action="update-stat" data-list="${list}" data-index="${index}" data-field="appearances" aria-label="出场" ${disabledAttr}>
       </div>`}
       ${isLegend ? '<div class="row-note">金色卡</div>' : `<select class="ctrl-select status-select" data-action="update-status" data-list="${list}" data-index="${index}" aria-label="状态">
         ${renderStatusOptions(player.status)}
       </select>`}
-      <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarHome">${hasHome ? '✓ 已上传' : '上传主场照'}</button>
-      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway">${hasAway ? '✓ 已上传客场' : '上传客场照'}</button>
-      <button class="ctrl-btn photo-btn" data-action="clear-photo" data-list="${list}" data-index="${index}" ${hasHome || hasAway ? '' : 'disabled'}>清除</button>
+      <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarHome" ${disabledAttr}>${hasHome ? '✓ 已上传' : '上传主场照'}</button>
+      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway" ${disabledAttr}>${hasAway ? '✓ 已上传客场' : '上传客场照'}</button>
+      <button class="ctrl-btn photo-btn" data-action="clear-photo" data-list="${list}" data-index="${index}" ${hasHome || hasAway ? disabledAttr : 'disabled'}>清除</button>
     `;
+    if (!isLegend && !canEdit()) {
+      const statusSelect = row.querySelector('select[data-action="update-status"]');
+      if (statusSelect) statusSelect.disabled = true;
+    }
     photoManager.appendChild(row);
   });
 }
@@ -2767,27 +2997,35 @@ function renderAll() {
 // 照片管理
 // ============================================================
 function uploadPhoto(list, index, field) {
+  if (!canEdit()) return;
   const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
   if (!item) return;
 
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.addEventListener('change', () => {
+  input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      item[field] = String(reader.result || '');
+    try {
+      item[field] = await getUploadImageSource(file, {
+        kind: list === 'legends' ? 'legends' : 'players',
+        num: item.num,
+        name: item.name,
+        field
+      });
       renderAll();
       saveLastState();
-    });
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.warn('photo upload failed:', error);
+      alert('照片上传失败，请稍后重试。');
+    }
   }, { once: true });
   input.click();
 }
 
 function clearPhoto(list, index) {
+  if (!canEdit()) return;
   const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
   if (!item) return;
   if (list === 'legends') {
@@ -2803,6 +3041,7 @@ function clearPhoto(list, index) {
 }
 
 function updatePlayerField(list, index, field, value) {
+  if (!canEdit()) return;
   const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
   if (!item || (list === 'legends' && (field === 'pos' || field === 'positions'))) return;
   if (field === 'positions') {
@@ -2819,6 +3058,7 @@ function updatePlayerField(list, index, field, value) {
 }
 
 function updatePlayerStat(list, index, field, value) {
+  if (!canEdit()) return;
   const player = SQUAD_DATA[list]?.[index];
   if (!player) return;
   player.stats = normalizeStats({
@@ -2830,6 +3070,7 @@ function updatePlayerStat(list, index, field, value) {
 }
 
 function updatePlayerStatus(list, index, status) {
+  if (!canEdit()) return;
   const player = SQUAD_DATA[list]?.[index];
   if (!player) return;
   player.status = status;
@@ -2865,6 +3106,7 @@ photoManager.addEventListener('change', event => {
 });
 
 pitch.addEventListener('input', event => {
+  if (!canEdit()) return;
   const target = event.target.closest('[data-player-field]');
   if (!target) return;
   const starterIndex = Number(target.dataset.starterIndex);
@@ -2892,6 +3134,7 @@ function clearDragVisuals() {
 }
 
 function swapBenchToStarter(benchIndex, starterIndex) {
+  if (!canEdit()) return;
   const benchPlayer = SQUAD_DATA.bench[benchIndex];
   const starterPlayer = SQUAD_DATA.starters[starterIndex];
   if (!benchPlayer || !starterPlayer) return;
@@ -2911,6 +3154,7 @@ function swapBenchToStarter(benchIndex, starterIndex) {
 }
 
 function swapStarterToStarter(fromIndex, toIndex) {
+  if (!canEdit()) return;
   if (fromIndex === toIndex) return;
   const tmp = SQUAD_DATA.starters[fromIndex];
   SQUAD_DATA.starters[fromIndex] = SQUAD_DATA.starters[toIndex];
@@ -2921,6 +3165,7 @@ function swapStarterToStarter(fromIndex, toIndex) {
 }
 
 function swapSelectedStarter() {
+  if (!canEdit()) return;
   const benchIndex = Number(benchPlayerSelect.value);
   const starterIndex = Number(starterSlotSelect.value);
   if (!Number.isFinite(benchIndex) || !Number.isFinite(starterIndex)) return;
@@ -2928,6 +3173,7 @@ function swapSelectedStarter() {
 }
 
 function handleBenchDragStart(event) {
+  if (!canEdit()) { event.preventDefault(); return; }
   html5DragBenchIndex = Number(event.currentTarget.dataset.benchIndex);
   event.currentTarget.classList.add('dragging-source');
   event.dataTransfer.effectAllowed = 'move';
@@ -2940,6 +3186,7 @@ function handleBenchDragEnd() {
 }
 
 function handleStarterDragStart(event) {
+  if (!canEdit()) { event.preventDefault(); return; }
   if (event.target.isContentEditable) { event.preventDefault(); return; }
   html5DragStarterIndex = Number(event.currentTarget.dataset.starterIndex);
   event.currentTarget.classList.add('dragging-source');
@@ -2953,6 +3200,7 @@ function handleStarterDragEnd() {
 }
 
 function handleStarterDragOver(event) {
+  if (!canEdit()) return;
   if (html5DragBenchIndex === null && html5DragStarterIndex === null) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
@@ -2960,6 +3208,7 @@ function handleStarterDragOver(event) {
 }
 
 function handleStarterDragEnter(event) {
+  if (!canEdit()) return;
   if (html5DragBenchIndex === null && html5DragStarterIndex === null) return;
   event.preventDefault();
   setDropTarget(event.currentTarget);
@@ -2972,6 +3221,7 @@ function handleStarterDragLeave(event) {
 }
 
 function handleStarterDrop(event) {
+  if (!canEdit()) return;
   event.preventDefault();
   const raw = event.dataTransfer.getData('text/plain');
   const toIndex = Number(event.currentTarget.dataset.starterIndex);
@@ -3040,6 +3290,7 @@ function handlePointerCancel(event) {
 }
 
 function handleBenchPointerDown(event) {
+  if (!canEdit()) return;
   if (event.pointerType === 'mouse' || event.button > 0) return;
   event.preventDefault();
   const source = event.currentTarget;
@@ -3058,6 +3309,7 @@ function handleBenchPointerDown(event) {
 
 // 首发球员触摸拖拽（场上互换位置）
 function handleStarterPointerDown(event) {
+  if (!canEdit()) return;
   if (event.pointerType === 'mouse' || event.button > 0) return;
   if (event.target.isContentEditable) return;
   event.preventDefault();
@@ -3108,27 +3360,35 @@ function handleStarterPointerCancel(event) { stopPointerDragStarter(event, false
 // 战报二维码与教练设置
 // ============================================================
 function uploadTeamLogo() {
+  if (!canEdit()) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.addEventListener('change', () => {
+  input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      const value = String(reader.result || '');
+    try {
+      const value = await getUploadImageSource(file, {
+        kind: 'team',
+        num: 'logo',
+        name: currentKit,
+        field: 'logo'
+      });
       TEAM_DATA.logo = value;
       TEAM_DATA.logoHome = value;
       TEAM_DATA.logoAway = value;
       renderAll();
       saveLastState();
-    });
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.warn('team logo upload failed:', error);
+      alert('队徽上传失败，请稍后重试。');
+    }
   }, { once: true });
   input.click();
 }
 
 function clearTeamLogo() {
+  if (!canEdit()) return;
   TEAM_DATA.logo = '';
   TEAM_DATA.logoHome = '';
   TEAM_DATA.logoAway = '';
@@ -3137,24 +3397,32 @@ function clearTeamLogo() {
 }
 
 function uploadCoachPhoto(field) {
+  if (!canEdit()) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.addEventListener('change', () => {
+  input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      COACH_DATA[field] = String(reader.result || '');
+    try {
+      COACH_DATA[field] = await getUploadImageSource(file, {
+        kind: 'staff',
+        num: COACH_DATA.num || 'coach',
+        name: COACH_DATA.name || 'coach',
+        field
+      });
       renderAll();
       saveLastState();
-    });
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.warn('coach photo upload failed:', error);
+      alert('教练照片上传失败，请稍后重试。');
+    }
   }, { once: true });
   input.click();
 }
 
 function clearCoachPhoto() {
+  if (!canEdit()) return;
   COACH_DATA.avatar = '';
   COACH_DATA.avatarHome = '';
   COACH_DATA.avatarAway = '';
@@ -3163,6 +3431,7 @@ function clearCoachPhoto() {
 }
 
 function syncCoachFromControls() {
+  if (!canEdit()) return;
   COACH_DATA.show = coachShowInput.checked;
   COACH_DATA.num = coachNumInput.value.trim() || '3';
   COACH_DATA.posLabel = coachPosInput.value.trim() || 'COACH';
@@ -3175,6 +3444,7 @@ function syncCoachFromControls() {
 }
 
 function syncManagerFromControls() {
+  if (!canEdit()) return;
   MANAGER_DATA.show = managerShowInput.checked;
   MANAGER_DATA.num = managerNumInput.value.trim() || '·';
   MANAGER_DATA.posLabel = managerPosInput.value.trim() || 'MGR';
@@ -3187,24 +3457,32 @@ function syncManagerFromControls() {
 }
 
 function uploadManagerPhoto(field) {
+  if (!canEdit()) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  input.addEventListener('change', () => {
+  input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      MANAGER_DATA[field] = String(reader.result || '');
+    try {
+      MANAGER_DATA[field] = await getUploadImageSource(file, {
+        kind: 'staff',
+        num: MANAGER_DATA.num || 'manager',
+        name: MANAGER_DATA.name || 'manager',
+        field
+      });
       renderAll();
       saveLastState();
-    });
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.warn('manager photo upload failed:', error);
+      alert('领队照片上传失败，请稍后重试。');
+    }
   }, { once: true });
   input.click();
 }
 
 function clearManagerPhoto() {
+  if (!canEdit()) return;
   MANAGER_DATA.avatar = '';
   MANAGER_DATA.avatarHome = '';
   MANAGER_DATA.avatarAway = '';
@@ -3354,6 +3632,7 @@ function renderPresetSelect(selectedName = '') {
 }
 
 function saveCurrentAsPreset() {
+  if (!canEdit()) return;
   const defaultName = document.querySelector('[data-edit-key="meta"]')?.textContent?.trim() || '';
   const name = prompt('输入预设名称', defaultName);
   if (!name || !name.trim()) return;
@@ -3366,6 +3645,7 @@ function saveCurrentAsPreset() {
 }
 
 function loadSelectedPreset() {
+  if (!canEdit()) return;
   const name = presetSelect.value;
   deletePresetBtn.disabled = !name;
   if (!name) return;
@@ -3375,6 +3655,7 @@ function loadSelectedPreset() {
 }
 
 function deleteSelectedPreset() {
+  if (!canEdit()) return;
   const name = presetSelect.value;
   if (!name) return;
   if (!confirm(`删除预设「${name}」？`)) return;
@@ -3403,6 +3684,12 @@ function exportCurrentPresetJson() {
 }
 
 function bindControls() {
+  unlockEditBtn?.addEventListener('click', unlockEditing);
+  lockEditBtn?.addEventListener('click', lockEditing);
+  editPasswordInput?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') unlockEditing();
+  });
+
   document.querySelectorAll('.formation-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       currentFormation = btn.dataset.formation;
@@ -3500,7 +3787,7 @@ async function exportPoster() {
     link.href = canvas.toDataURL('image/png');
     link.click();
   } finally {
-    editables.forEach(el => el.contentEditable = 'true');
+    editables.forEach(el => el.contentEditable = canEdit() ? 'true' : 'false');
     document.body.classList.remove('exporting-poster');
     updatePosterPreviewScale();
   }
