@@ -80,12 +80,12 @@
 
 `老和山无内鬼`
 
-CloudBase 域名下上传照片时，页面会先把图片传到云存储，再把图片 URL 写进 `lineups/current`。如果照片上传失败，检查：
+CloudBase 域名下上传照片时，页面会先把图片传到云存储，再把云存储 `fileID` 引用和当前临时 URL 写进 `lineups/current`。后续显示或导出时，页面会用 `fileID` 重新换取新临时 URL，避免旧临时图片地址过期。如果照片上传失败，检查：
 
 1. 匿名登录是否开启。
 2. 云存储权限是否允许已登录用户上传。
 3. 静态网站默认域名是否在安全来源里。
 
-球员评价保存在 `lineups/current.reviewsData`。评价前必须输入自己的号码；同一号码对同一球员再次提交，会覆盖自己上一条评价。
+评价保存在 `lineups/current.reviewsData`。评价前必须输入自己的号码；同一号码对同一球员、教练、领队或绝版人物再次提交，会覆盖自己上一条评价。
 
-手机端导出 PNG 依赖最新的 `publishLineup` 云函数。如果导出提示 `The operation is insecure` 或提示图片无法准备导出，先重新部署 `cloudfunctions/publishLineup/`，再覆盖上传最新 `index.html`。
+手机端导出 PNG 依赖最新 `index.html` 和 `publishLineup` 云函数。如果导出提示 `The operation is insecure` 或提示图片无法准备导出，先覆盖上传最新 `index.html`；如果仍失败，再重新部署 `cloudfunctions/publishLineup/`。

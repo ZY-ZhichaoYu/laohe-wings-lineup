@@ -557,6 +557,8 @@
     border: 2px solid rgba(255,255,255,0.2);
     border-radius: 50%;
     transform: translate(-50%, -50%);
+    z-index: 0;
+    pointer-events: none;
   }
   .pitch::after {
     content: '';
@@ -564,6 +566,8 @@
     top: 50%; left: 0; right: 0;
     height: 2px;
     background: rgba(255,255,255,0.2);
+    z-index: 0;
+    pointer-events: none;
   }
   .pitch .penalty {
     position: absolute;
@@ -572,6 +576,8 @@
     border: 2px solid rgba(255,255,255,0.2);
     border-bottom: none;
     transform: translateX(-50%);
+    z-index: 0;
+    pointer-events: none;
   }
   .pitch .small-box {
     position: absolute;
@@ -580,11 +586,14 @@
     border: 2px solid rgba(255,255,255,0.2);
     border-bottom: none;
     transform: translateX(-50%);
+    z-index: 0;
+    pointer-events: none;
   }
 
   .player-card,
   .coach-card {
     position: absolute;
+    z-index: 2;
     transform: translate(-50%, -50%);
     width: 108px;
     text-align: center;
@@ -1045,6 +1054,29 @@
     background: linear-gradient(135deg, #0d0d1a 0%, #151530 58%, #0a0a14 100%);
     border-color: #6366f1;
     box-shadow: 0 0 0 1px rgba(99,102,241,0.22), inset 0 0 28px rgba(99,102,241,0.08);
+  }
+  .draw-card.unbelievable-draw {
+    background: linear-gradient(135deg, #160f1f 0%, #261036 50%, #08040d 100%);
+    border-color: #f97316;
+    box-shadow: 0 0 0 1px rgba(249,115,22,0.28), inset 0 0 32px rgba(249,115,22,0.12);
+  }
+  .unbelievable-draw .draw-avatar {
+    background: radial-gradient(circle at 50% 18%, #fb923c 0%, #7c2d12 42%, #1c0a02 100%);
+    border-color: #fdba74;
+    color: #fed7aa;
+  }
+  .draw-tag.unbelievable-tag {
+    background: rgba(249,115,22,0.16);
+    color: #fdba74;
+    border: 1px solid rgba(249,115,22,0.42);
+  }
+  .unbelievable-fallback {
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #fed7aa;
+    text-align: center;
+    line-height: 1.1;
   }
   .review-tool {
     margin-top: 18px;
@@ -1647,6 +1679,20 @@ let LEGENDS_DATA = [];
 const DEFAULT_PRESET_NAME = '老和山之翼 4-2-3-1 本场名单';
 let CARD_INTROS = {};
 let REVIEWS_DATA = [];
+const EXTRA_DRAW_CARDS = [
+  {
+    num: '∞',
+    name: '王泊乔',
+    pos: 'ST',
+    role: '航院大前锋 · 抽象',
+    cardType: 'unbelievable',
+    avatarHome: '',
+    avatarAway: '',
+    stats: { goals: 0, assists: 0, appearances: 0 },
+    status: 'fit',
+    intro: '航院重量级人物，人送外号“抽象”。禁区里不一定每次都按常规物理运行，但只要他起脚，所有人都会先暂停半秒，确认这球到底算射门、传球，还是一次大型空气动力学实验。'
+  }
+];
 const PLAYER_DATA_URL = 'data/players.json';
 const INLINE_PLAYER_DATA = {"starters":[{"num":18,"name":"张天乐","pos":"LW","role":"左边锋","positions":["LW","LM"],"avatarHome":"assets/players/18-张天乐-home.png","avatarAway":"assets/players/18-张天乐-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":10,"name":"张文杰","pos":"ST","role":"中锋","positions":["ST","RW"],"avatarHome":"assets/players/10-张文杰-home.jpg","avatarAway":"assets/players/10-张文杰-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"red","captain":false},{"num":28,"name":"邓翔宇","pos":"RW","role":"右边锋","positions":["RW","RM"],"avatarHome":"assets/players/28-邓翔宇-home.png","avatarAway":"assets/players/28-邓翔宇-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":77,"name":"汪昌强","pos":"CM","role":"后腰（左）","positions":["DM","CM"],"avatarHome":"assets/players/77-汪昌强-home.png","avatarAway":"assets/players/77-汪昌强-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":9,"name":"金世纪","pos":"CAM","role":"前腰","positions":["CAM","CM"],"avatarHome":"assets/players/9-金世纪-home.jpg","avatarAway":"assets/players/9-金世纪-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":20,"name":"张子冲","pos":"CM","role":"后腰（右）","positions":["DM","CM","CAM"],"avatarHome":"assets/players/20-张子冲-home.png","avatarAway":"assets/players/20-张子冲-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":true},{"num":31,"name":"黄于翀","pos":"LB","role":"左边卫","positions":["LB","LWB"],"avatarHome":"assets/players/31-黄于翀-home.png","avatarAway":"assets/players/31-黄于翀-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":4,"name":"徐多","pos":"CB","role":"中后卫（左）","positions":["CB","LB"],"avatarHome":"assets/players/4-徐多-home.png","avatarAway":"assets/players/4-徐多-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":8,"name":"宋健","pos":"CB","role":"中后卫（右）","positions":["CB","RB"],"avatarHome":"assets/players/8-宋健-home.png","avatarAway":"assets/players/8-宋健-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":7,"name":"蒋天鸿","pos":"RB","role":"右边卫","positions":["RB","RWB"],"avatarHome":"assets/players/7-蒋天鸿-home.png","avatarAway":"assets/players/7-蒋天鸿-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":1,"name":"吴优","pos":"GK","role":"门将","positions":["GK"],"avatarHome":"assets/players/1-吴优-home.png","avatarAway":"assets/players/1-吴优-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false}],"bench":[{"num":2,"name":"李骁","pos":"","role":"","positions":[],"avatarHome":"assets/players/2-李骁-home.png","avatarAway":"assets/players/2-李骁-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":3,"name":"陈炫","pos":"","role":"教练","positions":[],"avatarHome":"assets/players/3-陈炫-home.png","avatarAway":"assets/players/3-陈炫-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"injured","captain":false},{"num":5,"name":"俞智超","pos":"","role":"","positions":[],"avatarHome":"assets/players/5-俞智超-home.jpg","avatarAway":"assets/players/5-俞智超-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":12,"name":"樊世洲","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":14,"name":"钱诚浩","pos":"","role":"","positions":[],"avatarHome":"assets/players/14-钱诚浩-home.png","avatarAway":"assets/players/14-钱诚浩-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":15,"name":"程志伟","pos":"","role":"","positions":[],"avatarHome":"assets/players/15-程志伟-home.png","avatarAway":"assets/players/15-程志伟-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":19,"name":"沈熙洲","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":21,"name":"徐文浩","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":22,"name":"万江源","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":24,"name":"刘方年","pos":"","role":"","positions":[],"avatarHome":"assets/players/24-刘方年-home.png","avatarAway":"assets/players/24-刘方年-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":25,"name":"孟红历","pos":"","role":"","positions":[],"avatarHome":"assets/players/25-孟红历-home.png","avatarAway":"assets/players/25-孟红历-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":26,"name":"徐戈","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":32,"name":"张帆","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":33,"name":"梁之恒","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":39,"name":"郑又畅","pos":"","role":"","positions":[],"avatarHome":"assets/players/39-郑又畅-home.png","avatarAway":"assets/players/39-郑又畅-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":41,"name":"许艺","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":47,"name":"赖飞扬","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":55,"name":"张启行","pos":"","role":"","positions":[],"avatarHome":"assets/players/55-张启行-home.png","avatarAway":"assets/players/55-张启行-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":86,"name":"黎兆荣","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":88,"name":"徐乾洲","pos":"","role":"","positions":[],"avatarHome":"assets/players/88-徐乾洲-home.png","avatarAway":"assets/players/88-徐乾洲-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":90,"name":"吴优","pos":"","role":"","positions":[],"avatarHome":"assets/players/90-吴优-home.png","avatarAway":"assets/players/90-吴优-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false}],"legends":[{"num":23,"name":"张柔和","role":"绝版人物","avatar":"","avatarHome":"","avatarAway":""},{"num":36,"name":"田治华","role":"绝版人物","avatar":"","avatarHome":"assets/legends/36-田治华-home.png","avatarAway":"assets/legends/36-田治华-away.png"},{"num":37,"name":"王开来","role":"绝版人物","avatar":"","avatarHome":"assets/legends/37-王开来-home.png","avatarAway":"assets/legends/37-王开来-away.png"},{"num":84,"name":"黄焜宇","role":"绝版人物","avatar":"","avatarHome":"assets/legends/84-黄焜宇-home.png","avatarAway":"assets/legends/84-黄焜宇-away.png"}],"coach":{"show":true,"num":"3","posLabel":"COACH","name":"陈炫","role":"教练","avatar":"","avatarHome":"assets/staff/coach-home.jpg","avatarAway":"assets/staff/coach-away.jpg"},"manager":{"show":true,"num":"·","posLabel":"MGR","name":"许俊秋","role":"领队","avatar":"","avatarHome":"assets/staff/manager-home.png","avatarAway":"assets/staff/manager-away.png"},"intros":{"李骁":"2号，替补席的隐藏按钮。平时安静，一上场就像系统弹窗：是否立即加速比赛节奏？","徐多":"4号，中后卫（左）。防守风格朴素但有效，主打一个你过得去算我没站好。","俞智超":"5号，替补。名字里带智，踢法也讲究，偶尔还会让对手怀疑自己是不是少看了一集战术课。","蒋天鸿":"7号，右边卫。边路巡航能力在线，像开了导航，目的地永远是对手身后。","宋健":"8号，中后卫（右）。看起来稳，实际更稳，属于后场保险柜的密码本人。","金世纪":"9号，前腰。负责把普通进攻加工成看起来很有想法的进攻。","张文杰":"10号，中锋。曾经也打过8人制右边卫。你问张文杰和内马尔、登贝莱的区别是什么？他们的射门枪法没有张文杰准。","钱诚浩":"14号，替补。诚恳是真的，浩大也是真的，尤其是冲刺时覆盖面积很有存在感。","程志伟":"15号，替补。名字听着像班干部，踢起来像负责把混乱局面重新整理成表格的人。","张天乐":"18号，左边锋。天乐一启动，边路就开始播放快乐足球，但快乐通常只属于我们。","沈熙洲":"19号，替补。名字自带江湖气，上场后主要业务是让对面边路变成风景区。","张子冲":"20号，后腰（右）。冲不是乱冲，是有组织有纪律地把球和人一起送到前面。","徐文浩":"21号，替补。文能看懂局势，浩能覆盖空间，合起来就是替补席上的多功能接口。","万江源":"22号，替补。名字像水系法师，传球也讲究源源不断，偶尔还能制造水花。","刘方年":"24号，替补。方年一出场，带的是一股少年气；对手可以低估他年纪，但低估不了他的奔跑覆盖。","徐戈":"26号，替补。名字短，动作也干脆，防守时主打一个少废话多断球。","邓翔宇":"28号，右边锋。翔宇起速时像把边线当跑道，缺点是摄像机可能跟不上。","张帆":"32号，替补。帆一挂起来，顺风球会更顺，逆风球也能试着借点风。","梁之恒":"33号，替补。恒字辈选手，优势是稳定输出，劣势是对手很难等到他掉线。","郑又畅":"39号，替补。又畅一上，传接球都想变顺一点，像给中场抹了润滑油。","许艺":"41号，替补。名字带艺，脚下也有点节目效果，偶尔会给比赛加一段即兴表演。","赖飞扬":"47号，替补。飞扬起来不是形容词，是边路实况，对手追着追着就只剩背影。","张启行":"55号，替补。启行代表随时出发，热身完毕后像导航开始播报：即将进入战场。","黎兆荣":"86号，替补。号码很大，存在感也不小，上场后主打一个让人记住今晚有这个人。","徐乾洲":"88号，替补。88号自带吉利属性，上场像给球队抽到一张隐藏增益卡。","陈炫":"3号，教练。战术板一拿，气质就上来了；受伤也不影响他在场边输出能量。","吴优":"1号，门将。门前一站，像给球门装了一个人工智能防火墙。","汪昌强":"77号，后腰。左路忠诚守护者，哪里缺人补哪里，哪里危险先到哪里。","许俊秋":"领队。不下场，但场上每一次轮换、每一份名单、每一次出征，都是他在背后默默调度。","张柔和":"23号，绝版人物。名字带着柔和，球风里自有一股劲道；这张卡一出现，卡池里的氛围立刻不一样了。","田治华":"36号，绝版人物。号码不靠前，江湖地位很靠前；一出现在卡面上，回忆自动加滤镜。","王开来":"37号，绝版人物。开来不是将来，是已经写进队史里；抽到这张卡，说明今天手气有点金。","孟红历":"25号，替补。红历不是红牌厉害，是气势厉害，上场自带压迫感滤镜。","黄焜宇":"84号，绝版人物。老和山之翼的金色记忆卡，名字一亮出来就自带队史滤镜。","樊世洲":"12号，替补。上场像插电，跑起来以后对手会开始思考人生和补水。","黄于翀":"31号，左边卫。左路守护神，能上能下，仿佛体力条偷偷接了充电宝。","吴优90":"90号，替补门将。号码换了，门线上的存在感没换；随时准备把球门重新锁上。"},"team":{"logo":"","logoHome":"assets/team/logo-home.jpg","logoAway":"assets/team/logo-away.jpg"}};
 const DEFAULT_CAPTAIN_NAME = '张子冲';
@@ -1796,10 +1842,14 @@ let reportLink = '';
 let saveTimer = null;
 let html5DragBenchIndex = null;
 let html5DragStarterIndex = null;
+let html5DragCandidateValue = null;
 let pointerDrag = null;
 let pointerDragStarter = null;
 let currentDrawnPlayer = null;
 let editUnlocked = sessionStorage.getItem(EDIT_SESSION_KEY) === 'true';
+const cloudImageUrlCache = new Map();
+const cloudImageFileIdByUrl = new Map();
+const pendingCloudImageRefreshes = new Set();
 
 const poster = document.getElementById('poster');
 const posterStage = document.getElementById('poster-stage');
@@ -2181,6 +2231,66 @@ function getTempFileUrlFromResponse(response, fileID) {
   return item?.tempFileURL || item?.download_url || item?.url || fileID;
 }
 
+function createCloudImageReference(fileID, url = '') {
+  return `cloudimg:${encodeURIComponent(JSON.stringify({
+    fileID,
+    url,
+    refreshedAt: Date.now()
+  }))}`;
+}
+
+function parseCloudImageReference(value) {
+  const source = String(value || '').trim();
+  if (!source.startsWith('cloudimg:')) return null;
+  try {
+    const data = JSON.parse(decodeURIComponent(source.slice('cloudimg:'.length)));
+    return data && data.fileID ? data : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function isCloudImageUrlFresh(ref) {
+  const refreshedAt = Number(ref?.refreshedAt || 0);
+  return Boolean(ref?.url && refreshedAt && Date.now() - refreshedAt < 6 * 60 * 60 * 1000);
+}
+
+function refreshCloudImageUrl(fileID) {
+  if (!fileID || pendingCloudImageRefreshes.has(fileID)) return;
+  if (!cloudSyncState.app || typeof cloudSyncState.app.getTempFileURL !== 'function') return;
+  pendingCloudImageRefreshes.add(fileID);
+  cloudSyncState.app.getTempFileURL({ fileList: [fileID] })
+    .then(result => {
+      const url = getTempFileUrlFromResponse(result, fileID);
+      if (url && !url.startsWith('cloud://')) {
+        cloudImageUrlCache.set(fileID, url);
+        cloudImageFileIdByUrl.set(url, fileID);
+        renderAll();
+      }
+    })
+    .catch(error => {
+      console.warn('refresh cloud image URL failed:', fileID, error);
+    })
+    .finally(() => {
+      pendingCloudImageRefreshes.delete(fileID);
+    });
+}
+
+async function getFreshCloudImageUrl(fileID) {
+  if (!fileID) return '';
+  if (!cloudSyncState.app || typeof cloudSyncState.app.getTempFileURL !== 'function') {
+    return cloudImageUrlCache.get(fileID) || '';
+  }
+  const result = await cloudSyncState.app.getTempFileURL({ fileList: [fileID] });
+  const url = getTempFileUrlFromResponse(result, fileID);
+  if (url && !url.startsWith('cloud://')) {
+    cloudImageUrlCache.set(fileID, url);
+    cloudImageFileIdByUrl.set(url, fileID);
+    return url;
+  }
+  return cloudImageUrlCache.get(fileID) || '';
+}
+
 async function uploadImageToCloudStorage(file, context = {}) {
   if (!cloudSyncState.initialized || !cloudSyncState.app || typeof cloudSyncState.app.uploadFile !== 'function') {
     return '';
@@ -2203,7 +2313,9 @@ async function uploadImageToCloudStorage(file, context = {}) {
   if (!source || source.startsWith('cloud://')) {
     throw new Error('云存储没有返回可直接访问的 HTTPS 图片链接');
   }
-  return source;
+  cloudImageUrlCache.set(fileID, source);
+  cloudImageFileIdByUrl.set(source, fileID);
+  return createCloudImageReference(fileID, source);
 }
 
 function readFileAsDataUrl(file) {
@@ -2523,8 +2635,10 @@ function normalizeReview(review = {}) {
   const rating = Math.min(5, Math.max(1, Number.parseInt(review.rating, 10) || 0));
   if (!targetNum || !reviewerNum || !rating) return null;
   return {
+    targetKey: String(review.targetKey || `player:${targetNum}`),
     targetNum,
     targetName: normalizeName(review.targetName || ''),
+    targetType: String(review.targetType || 'player'),
     reviewerNum,
     rating,
     comment: String(review.comment || '').trim().slice(0, 180),
@@ -2582,7 +2696,48 @@ function benchVersionOf(player) {
 function resolveImageSource(value) {
   const source = String(value || '').trim();
   if (!source) return '';
+  const cloudRef = parseCloudImageReference(source);
+  if (cloudRef) {
+    if (cloudRef.url) cloudImageFileIdByUrl.set(cloudRef.url, cloudRef.fileID);
+    if (cloudImageUrlCache.has(cloudRef.fileID)) {
+      const cached = cloudImageUrlCache.get(cloudRef.fileID);
+      cloudImageFileIdByUrl.set(cached, cloudRef.fileID);
+      return cached;
+    }
+    if (isCloudImageUrlFresh(cloudRef)) return cloudRef.url;
+    refreshCloudImageUrl(cloudRef.fileID);
+    return cloudRef.url || '';
+  }
   return source.startsWith('data:') ? source : source.replace(/\\/g, '/');
+}
+
+function findDefaultPlayerByNum(num) {
+  const key = String(num ?? '');
+  return [...(INLINE_PLAYER_DATA.starters || []), ...(INLINE_PLAYER_DATA.bench || [])]
+    .map(normalizePlayer)
+    .find(player => String(player.num) === key) || null;
+}
+
+function getDefaultPlayerAvatar(player) {
+  const source = findDefaultPlayerByNum(player?.num);
+  if (!source) return '';
+  const avatar = currentKit === 'away' ? source.avatarAway : source.avatarHome;
+  return resolveImageSource(avatar);
+}
+
+function renderImageTag(className, source, fallback = '', alt = '') {
+  if (!source && !fallback) return '';
+  const classAttr = className ? ` class="${escapeAttr(className)}"` : '';
+  const fallbackAttr = fallback && fallback !== source ? ` data-fallback-src="${escapeAttr(fallback)}"` : '';
+  return `<img${classAttr} src="${escapeAttr(source || fallback)}"${fallbackAttr} alt="${escapeAttr(alt)}">`;
+}
+
+function handleImageError(event) {
+  const image = event.target?.closest?.('img');
+  if (!image || image.dataset.fallbackApplied === 'true') return;
+  const fallback = image.dataset.fallbackSrc;
+  image.dataset.fallbackApplied = 'true';
+  image.src = fallback || getExportPlaceholderImage();
 }
 
 function getCurrentAvatar(player) {
@@ -2699,6 +2854,7 @@ function isSavedImageSource(value) {
       source.startsWith('http://') ||
       source.startsWith('https://') ||
       source.startsWith('cloud://') ||
+      source.startsWith('cloudimg:') ||
       source.startsWith('assets/')
     )
   );
@@ -2993,6 +3149,7 @@ function renderPitch() {
     const coord = slot.coord;
     if (!player || !coord) return;
     const avatar = getCurrentAvatar(player);
+    const fallbackAvatar = getDefaultPlayerAvatar(player);
     const statusIcon = getStatusIcon(player.status);
     const statsBadge = getStatsBadgeText(player);
     const card = document.createElement('div');
@@ -3006,7 +3163,7 @@ function renderPitch() {
         <span class="player-pos" contenteditable="${canEdit() ? 'true' : 'false'}" data-player-field="pos" data-starter-index="${slot.playerIndex}">${escapeHtml(player.pos)}</span>
         ${statusIcon ? `<span class="status-badge">${statusIcon}</span>` : ''}
         ${statsBadge ? `<span class="stats-badge">${escapeHtml(statsBadge)}</span>` : ''}
-        ${avatar ? `<img class="player-avatar-img" src="${escapeAttr(avatar)}" alt="">` : SVG_AVATAR}
+        ${avatar || fallbackAvatar ? renderImageTag('player-avatar-img', avatar, fallbackAvatar) : SVG_AVATAR}
       </div>
       <div class="player-name"><span contenteditable="${canEdit() ? 'true' : 'false'}" data-player-field="name" data-starter-index="${slot.playerIndex}">${escapeHtml(player.name)}</span>${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
       <div class="player-role" contenteditable="${canEdit() ? 'true' : 'false'}" data-player-field="role" data-starter-index="${slot.playerIndex}">${escapeHtml(player.role)}</div>
@@ -3069,14 +3226,16 @@ function renderBench() {
   benchGrid.innerHTML = '';
   SQUAD_DATA.bench.forEach((player, index) => {
     const avatar = getCurrentAvatar(player);
+    const fallbackAvatar = getDefaultPlayerAvatar(player);
     const statusIcon = getStatusIcon(player.status);
     const item = document.createElement('div');
     item.className = `bench-item ${player.status === 'injured' || player.status === 'suspended' ? 'unavailable' : ''}`;
     item.draggable = canEdit();
     item.dataset.benchIndex = String(index);
+    item.dataset.swapValue = `bench:${index}`;
     item.innerHTML = `
       <div class="bench-avatar">
-        ${avatar ? `<img class="bench-avatar-img" src="${escapeAttr(avatar)}" alt="">` : escapeHtml(player.num)}
+        ${avatar || fallbackAvatar ? renderImageTag('bench-avatar-img', avatar, fallbackAvatar) : escapeHtml(player.num)}
         ${statusIcon ? `<span class="bench-status-badge">${statusIcon}</span>` : ''}
       </div>
       <div class="bench-name">${escapeHtml(player.name)}${player.captain ? '<span class="captain-badge">C</span>' : ''}</div>
@@ -3094,8 +3253,8 @@ function renderStaffSection() {
   const section = document.getElementById('staff-section');
   if (!section) return;
   const staff = [];
-  if (COACH_DATA.show) staff.push(COACH_DATA);
-  if (MANAGER_DATA.show) staff.push(MANAGER_DATA);
+  if (COACH_DATA.show) staff.push({ data: COACH_DATA, swapValue: 'coach:0' });
+  if (MANAGER_DATA.show) staff.push({ data: MANAGER_DATA, swapValue: '' });
   if (!staff.length) { section.hidden = true; return; }
   section.hidden = false;
   section.innerHTML = '';
@@ -3105,13 +3264,15 @@ function renderStaffSection() {
   section.appendChild(title);
   const grid = document.createElement('div');
   grid.className = 'staff-grid';
-  staff.forEach(data => {
+  staff.forEach(({ data, swapValue }) => {
     const avatar = getStaffAvatar(data);
     const item = document.createElement('div');
     item.className = 'staff-item';
+    item.draggable = Boolean(canEdit() && swapValue);
+    if (swapValue) item.dataset.swapValue = swapValue;
     item.innerHTML = `
       <div class="staff-avatar">
-        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : COACH_SVG_AVATAR}
+        ${avatar ? renderImageTag('', avatar) : COACH_SVG_AVATAR}
       </div>
       <div class="staff-info">
         <div class="staff-pos-tag">${escapeHtml(data.posLabel)}</div>
@@ -3119,6 +3280,11 @@ function renderStaffSection() {
         <div class="staff-role">${escapeHtml(data.role)}</div>
       </div>
     `;
+    if (swapValue) {
+      item.addEventListener('dragstart', handleBenchDragStart);
+      item.addEventListener('dragend', handleBenchDragEnd);
+      item.addEventListener('pointerdown', handleBenchPointerDown);
+    }
     grid.appendChild(item);
   });
   section.appendChild(grid);
@@ -3132,9 +3298,11 @@ function renderLegends() {
     const avatar = getLegendAvatar(normalized);
     const item = document.createElement('div');
     item.className = 'legend-item';
+    item.draggable = canEdit();
+    item.dataset.swapValue = `legend:${index}`;
     item.innerHTML = `
       <div class="legend-avatar" data-legend-index="${index}" title="点击上传照片">
-        ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : escapeHtml(String(normalized.num !== '' ? normalized.num : normalized.name.charAt(0)))}
+        ${avatar ? renderImageTag('', avatar) : escapeHtml(String(normalized.num !== '' ? normalized.num : normalized.name.charAt(0)))}
       </div>
       <div class="legend-name">${escapeHtml(normalized.name)}</div>
       <div class="legend-role">${escapeHtml(normalized.role || '绝版人物')}</div>
@@ -3164,6 +3332,9 @@ function renderLegends() {
       });
       input.click();
     });
+    item.addEventListener('dragstart', handleBenchDragStart);
+    item.addEventListener('dragend', handleBenchDragEnd);
+    item.addEventListener('pointerdown', handleBenchPointerDown);
     legendsGrid.appendChild(item);
   });
 }
@@ -3201,8 +3372,8 @@ function renderPhotoManager() {
       <div>主场/照片</div>
       <div>客场照</div>
       <div>清除</div>
-    </div>
-  `;
+      </div>
+    `;
   rows.forEach(({ player, list, index }) => {
     const isLegend = list === 'legends';
     const row = document.createElement('div');
@@ -3238,23 +3409,64 @@ function renderPhotoManager() {
 }
 
 function getReviewablePlayers() {
-  const byNum = new Map();
+  const byKey = new Map();
   [...SQUAD_DATA.starters, ...SQUAD_DATA.bench].forEach(player => {
     const normalized = normalizePlayer(player);
     const key = String(normalized.num ?? '').trim();
-    if (key && !byNum.has(key)) byNum.set(key, normalized);
+    if (key && !byKey.has(`player:${key}`)) {
+      byKey.set(`player:${key}`, {
+        ...normalized,
+        reviewKey: `player:${key}`,
+        reviewType: 'player'
+      });
+    }
   });
-  return Array.from(byNum.values()).sort((a, b) => {
+  if (COACH_DATA.show) {
+    byKey.set('coach', {
+      num: COACH_DATA.num || '3',
+      name: COACH_DATA.name || '教练',
+      role: COACH_DATA.role || '教练',
+      reviewKey: 'coach',
+      reviewType: 'coach'
+    });
+  }
+  if (MANAGER_DATA.show) {
+    byKey.set('manager', {
+      num: MANAGER_DATA.num || '·',
+      name: MANAGER_DATA.name || '领队',
+      role: MANAGER_DATA.role || '领队',
+      reviewKey: 'manager',
+      reviewType: 'manager'
+    });
+  }
+  LEGENDS_DATA.forEach(legend => {
+    const item = normalizeLegend(legend);
+    const key = `legend:${item.num || item.name}`;
+    byKey.set(key, {
+      num: item.num,
+      name: item.name,
+      role: item.role || '绝版人物',
+      reviewKey: key,
+      reviewType: 'legend'
+    });
+  });
+  return Array.from(byKey.values()).sort((a, b) => {
     const numA = Number.parseInt(a.num, 10);
     const numB = Number.parseInt(b.num, 10);
     if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) return numA - numB;
+    if (a.reviewType !== b.reviewType) {
+      const order = { player: 0, coach: 1, manager: 2, legend: 3 };
+      return (order[a.reviewType] ?? 9) - (order[b.reviewType] ?? 9);
+    }
     return String(a.num).localeCompare(String(b.num), 'zh-CN');
   });
 }
 
-function findReviewablePlayer(num) {
-  const key = String(num ?? '').trim();
-  return getReviewablePlayers().find(player => String(player.num) === key) || null;
+function findReviewablePlayer(value) {
+  const key = String(value ?? '').trim();
+  return getReviewablePlayers().find(player =>
+    player.reviewKey === key || String(player.num) === key
+  ) || null;
 }
 
 function formatReviewTime(value) {
@@ -3274,12 +3486,12 @@ function renderReviewTool() {
   const players = getReviewablePlayers();
   const previousTarget = reviewTargetSelect.value;
   reviewTargetSelect.innerHTML = players.map(player => (
-    `<option value="${escapeAttr(player.num)}">#${escapeHtml(player.num)} ${escapeHtml(player.name)}</option>`
+    `<option value="${escapeAttr(player.reviewKey)}">${player.reviewType === 'player' ? '#' : ''}${escapeHtml(player.num)} ${escapeHtml(player.name)} · ${escapeHtml(player.role || player.reviewType)}</option>`
   )).join('');
-  if (players.some(player => String(player.num) === previousTarget)) {
+  if (players.some(player => player.reviewKey === previousTarget)) {
     reviewTargetSelect.value = previousTarget;
   } else if (players[0]) {
-    reviewTargetSelect.value = String(players[0].num);
+    reviewTargetSelect.value = String(players[0].reviewKey);
   }
 
   const targetNum = reviewTargetSelect.value;
@@ -3287,7 +3499,7 @@ function renderReviewTool() {
   const reviews = REVIEWS_DATA
     .map(normalizeReview)
     .filter(Boolean)
-    .filter(review => String(review.targetNum) === String(targetNum))
+    .filter(review => String(review.targetKey || `player:${review.targetNum}`) === String(targetNum))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const average = reviews.length
     ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
@@ -3339,6 +3551,8 @@ function submitPlayerReview() {
   const review = normalizeReview({
     targetNum: String(target.num),
     targetName: target.name,
+    targetKey: target.reviewKey,
+    targetType: target.reviewType,
     reviewerNum,
     rating: reviewRatingSelect?.value || 5,
     comment: reviewCommentInput?.value || '',
@@ -3350,7 +3564,7 @@ function submitPlayerReview() {
   }
   REVIEWS_DATA = [
     review,
-    ...REVIEWS_DATA.filter(item => !(String(item.targetNum) === review.targetNum && String(item.reviewerNum) === review.reviewerNum))
+    ...REVIEWS_DATA.filter(item => !(String(item.targetKey || `player:${item.targetNum}`) === review.targetKey && String(item.reviewerNum) === review.reviewerNum))
   ].slice(0, 600);
   if (reviewCommentInput) reviewCommentInput.value = '';
   renderReviewTool();
@@ -3512,6 +3726,23 @@ function clearDragVisuals() {
   document.querySelectorAll('.drag-ghost').forEach(el => el.remove());
 }
 
+function getStarterSlotLabel(starterIndex) {
+  const slot = FORMATIONS[currentFormation]?.slots?.find(item => item.playerIndex === starterIndex);
+  return {
+    pos: slot?.pos || SQUAD_DATA.starters[starterIndex]?.pos || '',
+    role: slot?.role || SQUAD_DATA.starters[starterIndex]?.role || ''
+  };
+}
+
+function applyStarterSlotLabel(player, starterIndex) {
+  const label = getStarterSlotLabel(starterIndex);
+  return normalizePlayer({
+    ...player,
+    pos: label.pos,
+    role: label.role
+  });
+}
+
 function specialCandidateToPlayer(candidate) {
   if (!candidate) return null;
   if (candidate.type === 'coach') {
@@ -3571,13 +3802,7 @@ function swapBenchToStarter(benchIndex, starterIndex) {
   const starterPlayer = SQUAD_DATA.starters[starterIndex];
   if (!benchPlayer || !starterPlayer) return;
 
-  const inheritedPos = starterPlayer.pos;
-  const inheritedRole = starterPlayer.role;
-  SQUAD_DATA.starters[starterIndex] = normalizePlayer({
-    ...benchPlayer,
-    pos: inheritedPos,
-    role: inheritedRole
-  });
+  SQUAD_DATA.starters[starterIndex] = applyStarterSlotLabel(benchPlayer, starterIndex);
   SQUAD_DATA.bench[benchIndex] = benchVersionOf(starterPlayer);
 
   clearDragVisuals();
@@ -3593,13 +3818,7 @@ function swapSpecialToStarter(candidateValue, starterIndex) {
   const incomingPlayer = specialCandidateToPlayer(candidate);
   if (!incomingPlayer || !starterPlayer) return;
 
-  const inheritedPos = starterPlayer.pos;
-  const inheritedRole = starterPlayer.role;
-  SQUAD_DATA.starters[starterIndex] = normalizePlayer({
-    ...incomingPlayer,
-    pos: inheritedPos,
-    role: inheritedRole
-  });
+  SQUAD_DATA.starters[starterIndex] = applyStarterSlotLabel(incomingPlayer, starterIndex);
   SQUAD_DATA.bench.push(benchVersionOf(starterPlayer));
 
   clearDragVisuals();
@@ -3607,12 +3826,23 @@ function swapSpecialToStarter(candidateValue, starterIndex) {
   saveLastState();
 }
 
+function swapCandidateToStarter(candidateValue, starterIndex) {
+  const [type, indexText] = String(candidateValue || '').split(':');
+  if (type === 'bench') {
+    const benchIndex = Number(indexText);
+    if (Number.isFinite(benchIndex)) swapBenchToStarter(benchIndex, starterIndex);
+    return;
+  }
+  swapSpecialToStarter(candidateValue, starterIndex);
+}
+
 function swapStarterToStarter(fromIndex, toIndex) {
   if (!canEdit()) return;
   if (fromIndex === toIndex) return;
-  const tmp = SQUAD_DATA.starters[fromIndex];
-  SQUAD_DATA.starters[fromIndex] = SQUAD_DATA.starters[toIndex];
-  SQUAD_DATA.starters[toIndex] = tmp;
+  const fromPlayer = SQUAD_DATA.starters[fromIndex];
+  const toPlayer = SQUAD_DATA.starters[toIndex];
+  SQUAD_DATA.starters[fromIndex] = applyStarterSlotLabel(toPlayer, fromIndex);
+  SQUAD_DATA.starters[toIndex] = applyStarterSlotLabel(fromPlayer, toIndex);
   clearDragVisuals();
   renderAll();
   saveLastState();
@@ -3623,25 +3853,21 @@ function swapSelectedStarter() {
   const candidateValue = benchPlayerSelect.value || '';
   const starterIndex = Number(starterSlotSelect.value);
   if (!Number.isFinite(starterIndex)) return;
-  const [type, indexText] = candidateValue.split(':');
-  if (type === 'bench') {
-    const benchIndex = Number(indexText);
-    if (Number.isFinite(benchIndex)) swapBenchToStarter(benchIndex, starterIndex);
-    return;
-  }
-  swapSpecialToStarter(candidateValue, starterIndex);
+  swapCandidateToStarter(candidateValue, starterIndex);
 }
 
 function handleBenchDragStart(event) {
   if (!canEdit()) { event.preventDefault(); return; }
   html5DragBenchIndex = Number(event.currentTarget.dataset.benchIndex);
+  html5DragCandidateValue = event.currentTarget.dataset.swapValue || `bench:${html5DragBenchIndex}`;
   event.currentTarget.classList.add('dragging-source');
   event.dataTransfer.effectAllowed = 'move';
-  event.dataTransfer.setData('text/plain', 'bench:' + html5DragBenchIndex);
+  event.dataTransfer.setData('text/plain', html5DragCandidateValue);
 }
 
 function handleBenchDragEnd() {
   html5DragBenchIndex = null;
+  html5DragCandidateValue = null;
   clearDragVisuals();
 }
 
@@ -3661,7 +3887,7 @@ function handleStarterDragEnd() {
 
 function handleStarterDragOver(event) {
   if (!canEdit()) return;
-  if (html5DragBenchIndex === null && html5DragStarterIndex === null) return;
+  if (html5DragCandidateValue === null && html5DragStarterIndex === null) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
   setDropTarget(event.currentTarget);
@@ -3669,7 +3895,7 @@ function handleStarterDragOver(event) {
 
 function handleStarterDragEnter(event) {
   if (!canEdit()) return;
-  if (html5DragBenchIndex === null && html5DragStarterIndex === null) return;
+  if (html5DragCandidateValue === null && html5DragStarterIndex === null) return;
   event.preventDefault();
   setDropTarget(event.currentTarget);
 }
@@ -3689,10 +3915,10 @@ function handleStarterDrop(event) {
     const fromIndex = Number(raw.slice(8));
     html5DragStarterIndex = null;
     swapStarterToStarter(fromIndex, toIndex);
-  } else if (raw.startsWith('bench:')) {
-    const benchIndex = Number(raw.slice(6));
+  } else if (raw) {
     html5DragBenchIndex = null;
-    swapBenchToStarter(benchIndex, toIndex);
+    html5DragCandidateValue = null;
+    swapCandidateToStarter(raw, toIndex);
   }
 }
 
@@ -3728,14 +3954,14 @@ function movePointerDrag(event) {
 
 function stopPointerDrag(event, shouldDrop) {
   if (!pointerDrag) return;
-  const { benchIndex, target } = pointerDrag;
+  const { benchIndex, candidateValue, target } = pointerDrag;
   window.removeEventListener('pointermove', movePointerDrag);
   window.removeEventListener('pointerup', handlePointerUp);
   window.removeEventListener('pointercancel', handlePointerCancel);
   pointerDrag = null;
 
   if (shouldDrop && target) {
-    swapBenchToStarter(benchIndex, Number(target.dataset.starterIndex));
+    swapCandidateToStarter(candidateValue || `bench:${benchIndex}`, Number(target.dataset.starterIndex));
   } else {
     clearDragVisuals();
   }
@@ -3756,6 +3982,7 @@ function handleBenchPointerDown(event) {
   const source = event.currentTarget;
   pointerDrag = {
     benchIndex: Number(source.dataset.benchIndex),
+    candidateValue: source.dataset.swapValue || `bench:${source.dataset.benchIndex}`,
     source,
     ghost: createDragGhost(source),
     target: null
@@ -3956,7 +4183,8 @@ function getAllCardPlayers() {
     ...SQUAD_DATA.bench.map(player => ({ ...normalizePlayer(player), cardType: 'player' })),
     ...LEGENDS_DATA.map(legend => ({ ...normalizeLegend(legend), cardType: 'legend' })),
     ...(COACH_DATA.show ? [{ ...COACH_DATA, cardType: 'staff' }] : []),
-    ...(MANAGER_DATA.show ? [{ ...MANAGER_DATA, cardType: 'staff' }] : [])
+    ...(MANAGER_DATA.show ? [{ ...MANAGER_DATA, cardType: 'staff' }] : []),
+    ...EXTRA_DRAW_CARDS.map(card => ({ ...card }))
   ];
 }
 
@@ -3970,6 +4198,9 @@ function getCardIntro(player) {
   if (player.cardType === 'staff') {
     return `${player.role || '教练与领队'}。幕后一站，比谁都清楚场上发生了什么；这张卡抽到了，说明今天队伍的凝聚力值满格。`;
   }
+  if (player.cardType === 'unbelievable') {
+    return player.intro || '这张卡不在常规名单里，但抽出来就说明今天的气氛已经进入非常规时间。';
+  }
   const role = player.role || player.pos || '万能替补';
   return `${player.num}号，${role}。这张卡的隐藏属性是：上场前看起来很冷静，上场后让对手也开始不冷静。`;
 }
@@ -3978,22 +4209,27 @@ function renderDrawCard(player) {
   currentDrawnPlayer = player;
   const isLegend = player.cardType === 'legend';
   const isStaff = player.cardType === 'staff';
+  const isUnbelievable = player.cardType === 'unbelievable';
   const avatar = isLegend
     ? getLegendAvatar(player)
     : isStaff
       ? getStaffAvatar(player)
       : getCurrentAvatar(player);
-  drawCard.className = `draw-card${isLegend ? ' legend-draw' : isStaff ? ' staff-draw' : ''}`;
+  drawCard.className = `draw-card${isLegend ? ' legend-draw' : isStaff ? ' staff-draw' : isUnbelievable ? ' unbelievable-draw' : ''}`;
   const fallbackAvatar = isLegend
     ? '<span class="legend-star-fallback">★</span>'
     : isStaff
       ? '<span class="staff-star-fallback">⚙</span>'
-      : SVG_AVATAR;
+      : isUnbelievable
+        ? '<span class="unbelievable-fallback">抽象</span>'
+        : SVG_AVATAR;
   const metaText = isLegend
     ? `${player.role || '绝版人物'} · 金色卡`
     : isStaff
       ? `${player.role || '教练与领队'} · 紫卡`
-      : (player.role || player.pos || '老和山之翼');
+      : isUnbelievable
+        ? `${player.role || '隐藏人物'} · UNBELIEVABLE`
+        : (player.role || player.pos || '老和山之翼');
   drawCard.innerHTML = `
     <div class="draw-avatar">
       ${avatar ? `<img src="${escapeAttr(avatar)}" alt="">` : fallbackAvatar}
@@ -4001,6 +4237,7 @@ function renderDrawCard(player) {
     <div>
       ${isLegend ? '<div class="draw-tag">HALL OF FAME</div>' : ''}
       ${isStaff ? '<div class="draw-tag staff-tag">COACH & MANAGER</div>' : ''}
+      ${isUnbelievable ? '<div class="draw-tag unbelievable-tag">UNBELIEVABLE</div>' : ''}
       <div class="draw-name">${escapeHtml(player.name)}</div>
       <div class="draw-meta">${isStaff ? '' : `#${escapeHtml(player.num)} · `}${escapeHtml(metaText)}</div>
       <div class="draw-intro">${escapeHtml(getCardIntro(player))}</div>
@@ -4227,20 +4464,25 @@ function bindControls() {
   window.addEventListener('resize', updatePosterPreviewScale);
   window.addEventListener('orientationchange', () => setTimeout(updatePosterPreviewScale, 250));
   window.addEventListener('load', updatePosterPreviewScale);
+  document.addEventListener('error', handleImageError, true);
   poster.addEventListener('load', updatePosterPreviewScale, true);
   window.addEventListener('beforeunload', saveLastState);
 }
 
 function canvasToBlob(canvas) {
-  return new Promise(resolve => {
-    if (canvas.toBlob) {
-      canvas.toBlob(blob => resolve(blob), 'image/png');
-    } else {
-      const dataUrl = canvas.toDataURL('image/png');
-      const binary = atob(dataUrl.split(',')[1]);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-      resolve(new Blob([bytes], { type: 'image/png' }));
+  return new Promise((resolve, reject) => {
+    try {
+      if (canvas.toBlob) {
+        canvas.toBlob(blob => resolve(blob), 'image/png');
+      } else {
+        const dataUrl = canvas.toDataURL('image/png');
+        const binary = atob(dataUrl.split(',')[1]);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        resolve(new Blob([bytes], { type: 'image/png' }));
+      }
+    } catch (error) {
+      reject(error);
     }
   });
 }
@@ -4343,8 +4585,9 @@ function getExportPlaceholderImage() {
   );
 }
 
-async function prepareImagesForExport(root) {
+async function prepareImagesForExport(root, options = {}) {
   if (!root || location.protocol === 'file:') return () => {};
+  const forcePlaceholder = Boolean(options.forcePlaceholder);
   const images = Array.from(root.querySelectorAll('img'));
   const restores = [];
   await Promise.all(images.map(async image => {
@@ -4359,7 +4602,19 @@ async function prepareImagesForExport(root) {
       else image.setAttribute('crossorigin', originalCrossOrigin);
     };
     try {
-      const safeSource = await getExportSafeImageSource(renderedSrc);
+      let exportSource = renderedSrc;
+      if (!forcePlaceholder) {
+        const cloudFileID = cloudImageFileIdByUrl.get(renderedSrc) || cloudImageFileIdByUrl.get(originalSrc) || '';
+        if (cloudFileID) {
+          try {
+            const freshCloudUrl = await getFreshCloudImageUrl(cloudFileID);
+            if (freshCloudUrl) exportSource = freshCloudUrl;
+          } catch (refreshError) {
+            console.warn('export cloud image refresh failed:', cloudFileID, refreshError);
+          }
+        }
+      }
+      const safeSource = forcePlaceholder ? getExportPlaceholderImage() : await getExportSafeImageSource(exportSource);
       if (!safeSource || safeSource === renderedSrc) return;
       restores.push(restore);
       image.removeAttribute('crossorigin');
@@ -4369,13 +4624,41 @@ async function prepareImagesForExport(root) {
       console.warn('export image skipped:', renderedSrc, error);
       restores.push(restore);
       image.removeAttribute('crossorigin');
-      image.setAttribute('src', getExportPlaceholderImage());
+      let fallbackSource = '';
+      if (!forcePlaceholder && image.dataset.fallbackSrc) {
+        try {
+          fallbackSource = await getExportSafeImageSource(image.dataset.fallbackSrc);
+        } catch (fallbackError) {
+          console.warn('export fallback image skipped:', image.dataset.fallbackSrc, fallbackError);
+        }
+      }
+      image.setAttribute('src', fallbackSource || getExportPlaceholderImage());
       await waitForImageReady(image);
     }
   }));
   return () => {
     restores.reverse().forEach(restore => restore());
   };
+}
+
+async function capturePosterCanvas(options = {}) {
+  const restoreExportImages = await prepareImagesForExport(poster, options);
+  try {
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    return await html2canvas(poster, {
+      backgroundColor: null,
+      scale: options.scale || 2,
+      logging: false,
+      useCORS: true,
+      allowTaint: false,
+      imageTimeout: 15000,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 760
+    });
+  } finally {
+    restoreExportImages();
+  }
 }
 
 async function exportPoster() {
@@ -4390,25 +4673,30 @@ async function exportPoster() {
   editables.forEach(el => el.contentEditable = 'false');
   document.body.classList.add('exporting-poster');
   updatePosterPreviewScale();
-  let restoreExportImages = () => {};
 
   try {
-    await new Promise(resolve => requestAnimationFrame(resolve));
-    restoreExportImages = await prepareImagesForExport(poster);
-    const canvas = await html2canvas(poster, {
-      backgroundColor: null,
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      imageTimeout: 15000,
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: 760
-    });
+    let canvas = await capturePosterCanvas();
     if (mobileExport) {
-      showExportPreview(canvas.toDataURL('image/png'));
+      let imageUrl = '';
+      try {
+        imageUrl = canvas.toDataURL('image/png');
+      } catch (error) {
+        console.warn('mobile dataURL export failed, retrying with placeholders:', error);
+        canvas = await capturePosterCanvas({ forcePlaceholder: true, scale: 1.5 });
+        imageUrl = canvas.toDataURL('image/png');
+      }
+      showExportPreview(imageUrl);
     } else {
-      const blob = await canvasToBlob(canvas);
+      let blob = null;
+      try {
+        blob = await canvasToBlob(canvas);
+      } catch (error) {
+        console.warn('desktop blob export failed, retrying with placeholders:', error);
+      }
+      if (!blob) {
+        canvas = await capturePosterCanvas({ forcePlaceholder: true, scale: 1.5 });
+        blob = await canvasToBlob(canvas);
+      }
       if (!blob) throw new Error('PNG 生成失败');
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -4424,7 +4712,6 @@ async function exportPoster() {
     closeExportPreview();
     alert(`导出失败：${error?.message || error}`);
   } finally {
-    restoreExportImages();
     editables.forEach(el => el.contentEditable = canEdit() ? 'true' : 'false');
     document.body.classList.remove('exporting-poster');
     updatePosterPreviewScale();
