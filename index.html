@@ -1686,8 +1686,8 @@ const EXTRA_DRAW_CARDS = [
     pos: 'ST',
     role: '航院大前锋 · 抽象',
     cardType: 'unbelievable',
-    avatarHome: '',
-    avatarAway: '',
+    avatarHome: 'assets/special/wang-boqiao.jpg',
+    avatarAway: 'assets/special/wang-boqiao.jpg',
     stats: { goals: 0, assists: 0, appearances: 0 },
     status: 'fit',
     intro: '航院重量级人物，人送外号“抽象”。禁区里不一定每次都按常规物理运行，但只要他起脚，所有人都会先暂停半秒，确认这球到底算射门、传球，还是一次大型空气动力学实验。'
@@ -1846,6 +1846,7 @@ let html5DragCandidateValue = null;
 let pointerDrag = null;
 let pointerDragStarter = null;
 let currentDrawnPlayer = null;
+let currentExportObjectUrl = '';
 let editUnlocked = sessionStorage.getItem(EDIT_SESSION_KEY) === 'true';
 const cloudImageUrlCache = new Map();
 const cloudImageFileIdByUrl = new Map();
@@ -4473,7 +4474,10 @@ function canvasToBlob(canvas) {
   return new Promise((resolve, reject) => {
     try {
       if (canvas.toBlob) {
-        canvas.toBlob(blob => resolve(blob), 'image/png');
+        canvas.toBlob(blob => {
+          if (blob) resolve(blob);
+          else reject(new Error('PNG 生成失败'));
+        }, 'image/png');
       } else {
         const dataUrl = canvas.toDataURL('image/png');
         const binary = atob(dataUrl.split(',')[1]);
@@ -4489,10 +4493,20 @@ function canvasToBlob(canvas) {
 
 function closeExportPreview() {
   document.getElementById('export-preview-overlay')?.remove();
+  if (currentExportObjectUrl) {
+    URL.revokeObjectURL(currentExportObjectUrl);
+    currentExportObjectUrl = '';
+  }
+}
+
+async function canvasToPreviewUrl(canvas) {
+  const blob = await canvasToBlob(canvas);
+  return URL.createObjectURL(blob);
 }
 
 function showExportPreview(imageUrl = '') {
   closeExportPreview();
+  if (imageUrl && imageUrl.startsWith('blob:')) currentExportObjectUrl = imageUrl;
   const overlay = document.createElement('div');
   overlay.className = 'export-preview-overlay';
   overlay.id = 'export-preview-overlay';
@@ -4679,11 +4693,11 @@ async function exportPoster() {
     if (mobileExport) {
       let imageUrl = '';
       try {
-        imageUrl = canvas.toDataURL('image/png');
+        imageUrl = await canvasToPreviewUrl(canvas);
       } catch (error) {
-        console.warn('mobile dataURL export failed, retrying with placeholders:', error);
-        canvas = await capturePosterCanvas({ forcePlaceholder: true, scale: 1.5 });
-        imageUrl = canvas.toDataURL('image/png');
+        console.warn('mobile blob export failed, retrying with placeholders:', error);
+        canvas = await capturePosterCanvas({ forcePlaceholder: true, scale: 1 });
+        imageUrl = await canvasToPreviewUrl(canvas);
       }
       showExportPreview(imageUrl);
     } else {
