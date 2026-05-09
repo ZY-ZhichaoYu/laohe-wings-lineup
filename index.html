@@ -1046,6 +1046,82 @@
     border-color: #6366f1;
     box-shadow: 0 0 0 1px rgba(99,102,241,0.22), inset 0 0 28px rgba(99,102,241,0.08);
   }
+  .review-tool {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #333;
+  }
+  .review-form {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.2fr) minmax(110px, 0.8fr) minmax(90px, 0.6fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .review-comment {
+    grid-column: 1 / -2;
+    min-height: 64px;
+    resize: vertical;
+    line-height: 1.45;
+  }
+  .review-submit {
+    align-self: stretch;
+  }
+  .review-status {
+    min-height: 20px;
+    margin-top: 8px;
+    color: #a3e635;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .review-status.is-error {
+    color: #fca5a5;
+  }
+  .review-summary {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #151515;
+  }
+  .review-summary-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: #f5f5f5;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .review-summary-head span {
+    color: #facc15;
+    white-space: nowrap;
+  }
+  .review-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .review-item {
+    padding: 8px 10px;
+    border: 1px solid #292929;
+    border-radius: 6px;
+    background: #101010;
+  }
+  .review-item-meta {
+    color: #93c5fd;
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .review-item-comment {
+    color: #ddd;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .review-empty {
+    color: #888;
+    font-size: 13px;
+  }
   .staff-draw .draw-avatar {
     background: radial-gradient(circle at 50% 20%, #818cf8 0%, #6366f1 40%, #1e1b4b 100%);
     border-color: #818cf8;
@@ -1267,6 +1343,16 @@
       grid-template-columns: 92px 1fr;
       gap: 12px;
     }
+    .review-form {
+      grid-template-columns: 1fr 1fr;
+    }
+    .review-comment {
+      grid-column: 1 / -1;
+    }
+    .review-submit {
+      grid-column: 1 / -1;
+      min-height: 42px;
+    }
   }
 
   @media (max-width: 420px) {
@@ -1289,6 +1375,16 @@
     }
     .draw-card {
       grid-template-columns: 1fr;
+    }
+    .review-form {
+      grid-template-columns: 1fr;
+    }
+    .review-summary-head {
+      display: grid;
+      gap: 4px;
+    }
+    .review-summary-head span {
+      white-space: normal;
     }
   }
 </style>
@@ -1501,6 +1597,24 @@
       <div class="draw-intro">点击按钮，随机抽出一位老和山之翼成员。</div>
     </div>
   </div>
+  <div class="review-tool" id="review-tool">
+    <h2>⭐ 球员评价</h2>
+    <div class="review-form">
+      <select class="ctrl-select" id="review-target-select" aria-label="选择被评价球员"></select>
+      <input class="ctrl-input" id="reviewer-num-input" type="number" min="1" step="1" inputmode="numeric" placeholder="你的号码">
+      <select class="ctrl-select" id="review-rating-select" aria-label="评分">
+        <option value="5">5 分</option>
+        <option value="4">4 分</option>
+        <option value="3">3 分</option>
+        <option value="2">2 分</option>
+        <option value="1">1 分</option>
+      </select>
+      <button class="ctrl-btn export review-submit" id="review-submit-btn" type="button">提交评价</button>
+      <textarea class="ctrl-input review-comment" id="review-comment-input" maxlength="180" placeholder="写一句评价（可选）"></textarea>
+    </div>
+    <div class="review-status" id="review-status"></div>
+    <div class="review-summary" id="review-summary"></div>
+  </div>
 </div>
 
 <script>
@@ -1532,6 +1646,7 @@ const TEAM_DATA = {
 let LEGENDS_DATA = [];
 const DEFAULT_PRESET_NAME = '老和山之翼 4-2-3-1 本场名单';
 let CARD_INTROS = {};
+let REVIEWS_DATA = [];
 const PLAYER_DATA_URL = 'data/players.json';
 const INLINE_PLAYER_DATA = {"starters":[{"num":18,"name":"张天乐","pos":"LW","role":"左边锋","positions":["LW","LM"],"avatarHome":"assets/players/18-张天乐-home.png","avatarAway":"assets/players/18-张天乐-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":10,"name":"张文杰","pos":"ST","role":"中锋","positions":["ST","RW"],"avatarHome":"assets/players/10-张文杰-home.jpg","avatarAway":"assets/players/10-张文杰-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"red","captain":false},{"num":28,"name":"邓翔宇","pos":"RW","role":"右边锋","positions":["RW","RM"],"avatarHome":"assets/players/28-邓翔宇-home.png","avatarAway":"assets/players/28-邓翔宇-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":77,"name":"汪昌强","pos":"CM","role":"后腰（左）","positions":["DM","CM"],"avatarHome":"assets/players/77-汪昌强-home.png","avatarAway":"assets/players/77-汪昌强-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":9,"name":"金世纪","pos":"CAM","role":"前腰","positions":["CAM","CM"],"avatarHome":"assets/players/9-金世纪-home.jpg","avatarAway":"assets/players/9-金世纪-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":20,"name":"张子冲","pos":"CM","role":"后腰（右）","positions":["DM","CM","CAM"],"avatarHome":"assets/players/20-张子冲-home.png","avatarAway":"assets/players/20-张子冲-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":true},{"num":31,"name":"黄于翀","pos":"LB","role":"左边卫","positions":["LB","LWB"],"avatarHome":"assets/players/31-黄于翀-home.png","avatarAway":"assets/players/31-黄于翀-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":4,"name":"徐多","pos":"CB","role":"中后卫（左）","positions":["CB","LB"],"avatarHome":"assets/players/4-徐多-home.png","avatarAway":"assets/players/4-徐多-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":8,"name":"宋健","pos":"CB","role":"中后卫（右）","positions":["CB","RB"],"avatarHome":"assets/players/8-宋健-home.png","avatarAway":"assets/players/8-宋健-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":7,"name":"蒋天鸿","pos":"RB","role":"右边卫","positions":["RB","RWB"],"avatarHome":"assets/players/7-蒋天鸿-home.png","avatarAway":"assets/players/7-蒋天鸿-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":1,"name":"吴优","pos":"GK","role":"门将","positions":["GK"],"avatarHome":"assets/players/1-吴优-home.png","avatarAway":"assets/players/1-吴优-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false}],"bench":[{"num":2,"name":"李骁","pos":"","role":"","positions":[],"avatarHome":"assets/players/2-李骁-home.png","avatarAway":"assets/players/2-李骁-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":3,"name":"陈炫","pos":"","role":"教练","positions":[],"avatarHome":"assets/players/3-陈炫-home.png","avatarAway":"assets/players/3-陈炫-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"injured","captain":false},{"num":5,"name":"俞智超","pos":"","role":"","positions":[],"avatarHome":"assets/players/5-俞智超-home.jpg","avatarAway":"assets/players/5-俞智超-away.jpg","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":12,"name":"樊世洲","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":14,"name":"钱诚浩","pos":"","role":"","positions":[],"avatarHome":"assets/players/14-钱诚浩-home.png","avatarAway":"assets/players/14-钱诚浩-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":15,"name":"程志伟","pos":"","role":"","positions":[],"avatarHome":"assets/players/15-程志伟-home.png","avatarAway":"assets/players/15-程志伟-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":19,"name":"沈熙洲","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":21,"name":"徐文浩","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":22,"name":"万江源","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":24,"name":"刘方年","pos":"","role":"","positions":[],"avatarHome":"assets/players/24-刘方年-home.png","avatarAway":"assets/players/24-刘方年-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":25,"name":"孟红历","pos":"","role":"","positions":[],"avatarHome":"assets/players/25-孟红历-home.png","avatarAway":"assets/players/25-孟红历-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":26,"name":"徐戈","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":32,"name":"张帆","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":33,"name":"梁之恒","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":39,"name":"郑又畅","pos":"","role":"","positions":[],"avatarHome":"assets/players/39-郑又畅-home.png","avatarAway":"assets/players/39-郑又畅-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":41,"name":"许艺","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":47,"name":"赖飞扬","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":55,"name":"张启行","pos":"","role":"","positions":[],"avatarHome":"assets/players/55-张启行-home.png","avatarAway":"assets/players/55-张启行-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":86,"name":"黎兆荣","pos":"","role":"","positions":[],"avatarHome":"","avatarAway":"","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":88,"name":"徐乾洲","pos":"","role":"","positions":[],"avatarHome":"assets/players/88-徐乾洲-home.png","avatarAway":"assets/players/88-徐乾洲-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false},{"num":90,"name":"吴优","pos":"","role":"","positions":[],"avatarHome":"assets/players/90-吴优-home.png","avatarAway":"assets/players/90-吴优-away.png","stats":{"goals":0,"assists":0,"appearances":0},"status":"fit","captain":false}],"legends":[{"num":23,"name":"张柔和","role":"绝版人物","avatar":"","avatarHome":"","avatarAway":""},{"num":36,"name":"田治华","role":"绝版人物","avatar":"","avatarHome":"assets/legends/36-田治华-home.png","avatarAway":"assets/legends/36-田治华-away.png"},{"num":37,"name":"王开来","role":"绝版人物","avatar":"","avatarHome":"assets/legends/37-王开来-home.png","avatarAway":"assets/legends/37-王开来-away.png"},{"num":84,"name":"黄焜宇","role":"绝版人物","avatar":"","avatarHome":"assets/legends/84-黄焜宇-home.png","avatarAway":"assets/legends/84-黄焜宇-away.png"}],"coach":{"show":true,"num":"3","posLabel":"COACH","name":"陈炫","role":"教练","avatar":"","avatarHome":"assets/staff/coach-home.jpg","avatarAway":"assets/staff/coach-away.jpg"},"manager":{"show":true,"num":"·","posLabel":"MGR","name":"许俊秋","role":"领队","avatar":"","avatarHome":"assets/staff/manager-home.png","avatarAway":"assets/staff/manager-away.png"},"intros":{"李骁":"2号，替补席的隐藏按钮。平时安静，一上场就像系统弹窗：是否立即加速比赛节奏？","徐多":"4号，中后卫（左）。防守风格朴素但有效，主打一个你过得去算我没站好。","俞智超":"5号，替补。名字里带智，踢法也讲究，偶尔还会让对手怀疑自己是不是少看了一集战术课。","蒋天鸿":"7号，右边卫。边路巡航能力在线，像开了导航，目的地永远是对手身后。","宋健":"8号，中后卫（右）。看起来稳，实际更稳，属于后场保险柜的密码本人。","金世纪":"9号，前腰。负责把普通进攻加工成看起来很有想法的进攻。","张文杰":"10号，中锋。曾经也打过8人制右边卫。你问张文杰和内马尔、登贝莱的区别是什么？他们的射门枪法没有张文杰准。","钱诚浩":"14号，替补。诚恳是真的，浩大也是真的，尤其是冲刺时覆盖面积很有存在感。","程志伟":"15号，替补。名字听着像班干部，踢起来像负责把混乱局面重新整理成表格的人。","张天乐":"18号，左边锋。天乐一启动，边路就开始播放快乐足球，但快乐通常只属于我们。","沈熙洲":"19号，替补。名字自带江湖气，上场后主要业务是让对面边路变成风景区。","张子冲":"20号，后腰（右）。冲不是乱冲，是有组织有纪律地把球和人一起送到前面。","徐文浩":"21号，替补。文能看懂局势，浩能覆盖空间，合起来就是替补席上的多功能接口。","万江源":"22号，替补。名字像水系法师，传球也讲究源源不断，偶尔还能制造水花。","刘方年":"24号，替补。方年一出场，带的是一股少年气；对手可以低估他年纪，但低估不了他的奔跑覆盖。","徐戈":"26号，替补。名字短，动作也干脆，防守时主打一个少废话多断球。","邓翔宇":"28号，右边锋。翔宇起速时像把边线当跑道，缺点是摄像机可能跟不上。","张帆":"32号，替补。帆一挂起来，顺风球会更顺，逆风球也能试着借点风。","梁之恒":"33号，替补。恒字辈选手，优势是稳定输出，劣势是对手很难等到他掉线。","郑又畅":"39号，替补。又畅一上，传接球都想变顺一点，像给中场抹了润滑油。","许艺":"41号，替补。名字带艺，脚下也有点节目效果，偶尔会给比赛加一段即兴表演。","赖飞扬":"47号，替补。飞扬起来不是形容词，是边路实况，对手追着追着就只剩背影。","张启行":"55号，替补。启行代表随时出发，热身完毕后像导航开始播报：即将进入战场。","黎兆荣":"86号，替补。号码很大，存在感也不小，上场后主打一个让人记住今晚有这个人。","徐乾洲":"88号，替补。88号自带吉利属性，上场像给球队抽到一张隐藏增益卡。","陈炫":"3号，教练。战术板一拿，气质就上来了；受伤也不影响他在场边输出能量。","吴优":"1号，门将。门前一站，像给球门装了一个人工智能防火墙。","汪昌强":"77号，后腰。左路忠诚守护者，哪里缺人补哪里，哪里危险先到哪里。","许俊秋":"领队。不下场，但场上每一次轮换、每一份名单、每一次出征，都是他在背后默默调度。","张柔和":"23号，绝版人物。名字带着柔和，球风里自有一股劲道；这张卡一出现，卡池里的氛围立刻不一样了。","田治华":"36号，绝版人物。号码不靠前，江湖地位很靠前；一出现在卡面上，回忆自动加滤镜。","王开来":"37号，绝版人物。开来不是将来，是已经写进队史里；抽到这张卡，说明今天手气有点金。","孟红历":"25号，替补。红历不是红牌厉害，是气势厉害，上场自带压迫感滤镜。","黄焜宇":"84号，绝版人物。老和山之翼的金色记忆卡，名字一亮出来就自带队史滤镜。","樊世洲":"12号，替补。上场像插电，跑起来以后对手会开始思考人生和补水。","黄于翀":"31号，左边卫。左路守护神，能上能下，仿佛体力条偷偷接了充电宝。","吴优90":"90号，替补门将。号码换了，门线上的存在感没换；随时准备把球门重新锁上。"},"team":{"logo":"","logoHome":"assets/team/logo-home.jpg","logoAway":"assets/team/logo-away.jpg"}};
 const DEFAULT_CAPTAIN_NAME = '张子冲';
@@ -1731,6 +1846,13 @@ const managerUploadAwayBtn = document.getElementById('manager-upload-away-btn');
 const managerClearBtn = document.getElementById('manager-clear-btn');
 const randomDrawBtn = document.getElementById('random-draw-btn');
 const drawCard = document.getElementById('draw-card');
+const reviewTargetSelect = document.getElementById('review-target-select');
+const reviewerNumInput = document.getElementById('reviewer-num-input');
+const reviewRatingSelect = document.getElementById('review-rating-select');
+const reviewCommentInput = document.getElementById('review-comment-input');
+const reviewSubmitBtn = document.getElementById('review-submit-btn');
+const reviewStatus = document.getElementById('review-status');
+const reviewSummary = document.getElementById('review-summary');
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -1882,7 +2004,11 @@ function updateEditMode() {
     managerNameInput,
     managerRoleInput,
     managerUploadHomeBtn,
-    managerUploadAwayBtn
+    managerUploadAwayBtn,
+    reviewerNumInput,
+    reviewRatingSelect,
+    reviewCommentInput,
+    reviewSubmitBtn
   ].forEach(el => {
     if (el) el.disabled = !unlocked;
   });
@@ -1891,6 +2017,7 @@ function updateEditMode() {
   if (coachClearBtn) coachClearBtn.disabled = !unlocked || (!COACH_DATA.avatar && !COACH_DATA.avatarHome && !COACH_DATA.avatarAway);
   if (managerClearBtn) managerClearBtn.disabled = !unlocked || (!MANAGER_DATA.avatar && !MANAGER_DATA.avatarHome && !MANAGER_DATA.avatarAway);
   if (publishCloudBtn) publishCloudBtn.hidden = !(unlocked && cloudSyncState.initialized && isCloudBaseSyncHost());
+  renderReviewTool();
 }
 
 function isCloudBaseSyncHost() {
@@ -2389,6 +2516,22 @@ function normalizeLegend(legend = {}) {
   };
 }
 
+function normalizeReview(review = {}) {
+  if (!review || typeof review !== 'object') return null;
+  const targetNum = String(review.targetNum ?? '').trim();
+  const reviewerNum = String(review.reviewerNum ?? '').trim();
+  const rating = Math.min(5, Math.max(1, Number.parseInt(review.rating, 10) || 0));
+  if (!targetNum || !reviewerNum || !rating) return null;
+  return {
+    targetNum,
+    targetName: normalizeName(review.targetName || ''),
+    reviewerNum,
+    rating,
+    comment: String(review.comment || '').trim().slice(0, 180),
+    createdAt: String(review.createdAt || new Date().toISOString())
+  };
+}
+
 function normalizeIntroMap(intros = {}) {
   const result = {};
   if (!intros || typeof intros !== 'object' || Array.isArray(intros)) return result;
@@ -2520,6 +2663,7 @@ function createSnapshot() {
     managerData: clone(MANAGER_DATA),
     teamData: clone(TEAM_DATA),
     legendsData: clone(LEGENDS_DATA),
+    reviewsData: clone(REVIEWS_DATA),
     formation: currentFormation,
     kit: currentKit,
     showStats: currentShowStats,
@@ -2632,6 +2776,7 @@ function applyPlayerData(data) {
   Object.assign(TEAM_DATA, normalizeTeamData(data.team));
   LEGENDS_DATA = Array.isArray(data.legends) ? data.legends.map(normalizeLegend) : [];
   CARD_INTROS = normalizeIntroMap(data.intros);
+  REVIEWS_DATA = Array.isArray(data.reviews) ? data.reviews.map(normalizeReview).filter(Boolean) : [];
 }
 
 async function loadPlayerData() {
@@ -2693,6 +2838,9 @@ function applySnapshot(snapshot, shouldSave = true) {
       }
     });
     LEGENDS_DATA = nextLegends;
+  }
+  if (Array.isArray(snapshot.reviewsData)) {
+    REVIEWS_DATA = snapshot.reviewsData.map(normalizeReview).filter(Boolean);
   }
   setEditableTexts(snapshot.editables);
   currentFormation = FORMATIONS[snapshot.formation] ? snapshot.formation : '433';
@@ -3067,6 +3215,127 @@ function renderPhotoManager() {
   });
 }
 
+function getReviewablePlayers() {
+  const byNum = new Map();
+  [...SQUAD_DATA.starters, ...SQUAD_DATA.bench].forEach(player => {
+    const normalized = normalizePlayer(player);
+    const key = String(normalized.num ?? '').trim();
+    if (key && !byNum.has(key)) byNum.set(key, normalized);
+  });
+  return Array.from(byNum.values()).sort((a, b) => {
+    const numA = Number.parseInt(a.num, 10);
+    const numB = Number.parseInt(b.num, 10);
+    if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) return numA - numB;
+    return String(a.num).localeCompare(String(b.num), 'zh-CN');
+  });
+}
+
+function findReviewablePlayer(num) {
+  const key = String(num ?? '').trim();
+  return getReviewablePlayers().find(player => String(player.num) === key) || null;
+}
+
+function formatReviewTime(value) {
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) return '';
+  return `${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+}
+
+function setReviewStatus(message = '', isError = false) {
+  if (!reviewStatus) return;
+  reviewStatus.textContent = message;
+  reviewStatus.classList.toggle('is-error', Boolean(isError));
+}
+
+function renderReviewTool() {
+  if (!reviewTargetSelect || !reviewSummary) return;
+  const players = getReviewablePlayers();
+  const previousTarget = reviewTargetSelect.value;
+  reviewTargetSelect.innerHTML = players.map(player => (
+    `<option value="${escapeAttr(player.num)}">#${escapeHtml(player.num)} ${escapeHtml(player.name)}</option>`
+  )).join('');
+  if (players.some(player => String(player.num) === previousTarget)) {
+    reviewTargetSelect.value = previousTarget;
+  } else if (players[0]) {
+    reviewTargetSelect.value = String(players[0].num);
+  }
+
+  const targetNum = reviewTargetSelect.value;
+  const target = findReviewablePlayer(targetNum);
+  const reviews = REVIEWS_DATA
+    .map(normalizeReview)
+    .filter(Boolean)
+    .filter(review => String(review.targetNum) === String(targetNum))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const average = reviews.length
+    ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
+    : '';
+
+  reviewSummary.innerHTML = target
+    ? `<div class="review-summary-head">
+        <strong>#${escapeHtml(target.num)} ${escapeHtml(target.name)}</strong>
+        <span>${reviews.length ? `${average} / 5 · ${reviews.length} 条评价` : '暂无评价'}</span>
+      </div>
+      <div class="review-list">
+        ${reviews.length ? reviews.slice(0, 8).map(review => `
+          <div class="review-item">
+            <div class="review-item-meta">#${escapeHtml(review.reviewerNum)} · ${escapeHtml(review.rating)} 分${formatReviewTime(review.createdAt) ? ` · ${escapeHtml(formatReviewTime(review.createdAt))}` : ''}</div>
+            <div class="review-item-comment">${escapeHtml(review.comment || '没有写文字评价。')}</div>
+          </div>
+        `).join('') : '<div class="review-empty">解锁编辑后，可以给这名球员提交第一条评价。</div>'}
+      </div>`
+    : '<div class="review-empty">暂无可评价球员。</div>';
+
+  const unlocked = canEdit();
+  [reviewerNumInput, reviewRatingSelect, reviewCommentInput, reviewSubmitBtn].forEach(el => {
+    if (el) el.disabled = !unlocked || !target;
+  });
+  if (!unlocked) {
+    setReviewStatus('只读模式：可查看评价，解锁编辑后可提交。', false);
+  } else if (reviewStatus && reviewStatus.textContent.startsWith('只读模式')) {
+    setReviewStatus('');
+  }
+}
+
+function submitPlayerReview() {
+  if (!canEdit()) {
+    setReviewStatus('请先解锁编辑模式。', true);
+    return;
+  }
+  const targetNum = reviewTargetSelect?.value || '';
+  const target = findReviewablePlayer(targetNum);
+  if (!target) {
+    setReviewStatus('请选择要评价的球员。', true);
+    return;
+  }
+  const reviewerNum = String(reviewerNumInput?.value || '').trim();
+  if (!/^\d{1,3}$/.test(reviewerNum)) {
+    setReviewStatus('提交前请先输入自己的号码。', true);
+    reviewerNumInput?.focus();
+    return;
+  }
+  const review = normalizeReview({
+    targetNum: String(target.num),
+    targetName: target.name,
+    reviewerNum,
+    rating: reviewRatingSelect?.value || 5,
+    comment: reviewCommentInput?.value || '',
+    createdAt: new Date().toISOString()
+  });
+  if (!review) {
+    setReviewStatus('评价内容不完整。', true);
+    return;
+  }
+  REVIEWS_DATA = [
+    review,
+    ...REVIEWS_DATA.filter(item => !(String(item.targetNum) === review.targetNum && String(item.reviewerNum) === review.reviewerNum))
+  ].slice(0, 600);
+  if (reviewCommentInput) reviewCommentInput.value = '';
+  renderReviewTool();
+  setReviewStatus(`已提交：#${reviewerNum} 对 #${target.num} ${target.name} 的 ${review.rating} 分评价。`);
+  saveLastState();
+}
+
 function renderAll() {
   normalizeSquadData();
   renderTeamLogo();
@@ -3075,6 +3344,7 @@ function renderAll() {
   renderStaffSection();
   renderLegends();
   renderPhotoManager();
+  renderReviewTool();
   renderReportQr();
   updateControls();
   updatePosterPreviewScale();
@@ -3836,6 +4106,8 @@ function bindControls() {
   managerUploadAwayBtn.addEventListener('click', () => uploadManagerPhoto('avatarAway'));
   managerClearBtn.addEventListener('click', clearManagerPhoto);
   randomDrawBtn.addEventListener('click', drawRandomPlayer);
+  reviewTargetSelect?.addEventListener('change', renderReviewTool);
+  reviewSubmitBtn?.addEventListener('click', submitPlayerReview);
 
   savePresetBtn.addEventListener('click', saveCurrentAsPreset);
   presetSelect.addEventListener('change', loadSelectedPreset);
@@ -3898,6 +4170,105 @@ function showExportPreview(imageUrl = '') {
   document.body.appendChild(overlay);
 }
 
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result || '')));
+    reader.addEventListener('error', () => reject(reader.error || new Error('图片读取失败')));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchImageAsDataUrl(source) {
+  const response = await fetch(source, {
+    mode: 'cors',
+    cache: 'force-cache',
+    credentials: 'omit'
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const blob = await response.blob();
+  if (!String(blob.type || '').startsWith('image/')) {
+    throw new Error(`不是图片资源：${blob.type || 'unknown'}`);
+  }
+  return blobToDataUrl(blob);
+}
+
+async function proxyImageAsDataUrl(source) {
+  if (!CLOUDBASE_CONFIG.publishHttpPath) {
+    throw new Error('未配置 CloudBase 图片代理');
+  }
+  const result = normalizePublishResult(await callPublishHttp({
+    action: 'proxyImage',
+    url: source
+  }));
+  if (!result || result.ok === false || !result.dataUrl) {
+    throw new Error(result?.message || result?.code || '图片代理失败');
+  }
+  return result.dataUrl;
+}
+
+async function getExportSafeImageSource(source) {
+  if (!source) return '';
+  const resolved = new URL(source, location.href);
+  if (resolved.protocol === 'data:' || resolved.protocol === 'blob:') return source;
+  if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') return source;
+  try {
+    return await fetchImageAsDataUrl(resolved.href);
+  } catch (error) {
+    console.warn('direct export image fetch failed, trying proxy:', resolved.href, error);
+    return proxyImageAsDataUrl(resolved.href);
+  }
+}
+
+function waitForImageReady(image) {
+  if (!image) return Promise.resolve();
+  if (image.decode) {
+    return image.decode().catch(() => undefined);
+  }
+  if (image.complete) return Promise.resolve();
+  return new Promise(resolve => {
+    const done = () => resolve();
+    image.addEventListener('load', done, { once: true });
+    image.addEventListener('error', done, { once: true });
+    window.setTimeout(done, 5000);
+  });
+}
+
+async function prepareImagesForExport(root) {
+  if (!root || location.protocol === 'file:') return () => {};
+  const images = Array.from(root.querySelectorAll('img'));
+  const restores = [];
+  const failures = [];
+  await Promise.all(images.map(async image => {
+    const originalSrc = image.getAttribute('src');
+    const renderedSrc = image.currentSrc || image.src || originalSrc;
+    if (!renderedSrc || renderedSrc.startsWith('data:') || renderedSrc.startsWith('blob:')) return;
+    try {
+      const safeSource = await getExportSafeImageSource(renderedSrc);
+      if (!safeSource || safeSource === renderedSrc) return;
+      const originalCrossOrigin = image.getAttribute('crossorigin');
+      restores.push(() => {
+        if (originalSrc === null) image.removeAttribute('src');
+        else image.setAttribute('src', originalSrc);
+        if (originalCrossOrigin === null) image.removeAttribute('crossorigin');
+        else image.setAttribute('crossorigin', originalCrossOrigin);
+      });
+      image.removeAttribute('crossorigin');
+      image.setAttribute('src', safeSource);
+      await waitForImageReady(image);
+    } catch (error) {
+      failures.push({ source: renderedSrc, error });
+    }
+  }));
+  if (failures.length) {
+    restores.reverse().forEach(restore => restore());
+    throw new Error(`有 ${failures.length} 张图片无法准备导出，请确认云函数已部署最新版本`);
+  }
+  return () => {
+    restores.reverse().forEach(restore => restore());
+  };
+}
+
 async function exportPoster() {
   const mobileExport = isMobileExportContext();
   if (mobileExport) showExportPreview('');
@@ -3910,9 +4281,11 @@ async function exportPoster() {
   editables.forEach(el => el.contentEditable = 'false');
   document.body.classList.add('exporting-poster');
   updatePosterPreviewScale();
+  let restoreExportImages = () => {};
 
   try {
     await new Promise(resolve => requestAnimationFrame(resolve));
+    restoreExportImages = await prepareImagesForExport(poster);
     const canvas = await html2canvas(poster, {
       backgroundColor: null,
       scale: 2,
@@ -3942,6 +4315,7 @@ async function exportPoster() {
     closeExportPreview();
     alert(`导出失败：${error?.message || error}`);
   } finally {
+    restoreExportImages();
     editables.forEach(el => el.contentEditable = canEdit() ? 'true' : 'false');
     document.body.classList.remove('exporting-poster');
     updatePosterPreviewScale();
