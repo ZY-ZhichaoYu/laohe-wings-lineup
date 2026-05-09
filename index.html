@@ -652,10 +652,10 @@
   }
   .stats-badge {
     right: 5px;
-    max-width: 92px;
+    max-width: 98px;
     padding: 3px 4px;
     color: #fff;
-    font-size: 8.5px;
+    font-size: 7.8px;
     font-weight: 800;
     letter-spacing: 0;
     white-space: nowrap;
@@ -2568,6 +2568,8 @@ function benchVersionOf(player) {
   return {
     num: normalized.num,
     name: normalized.name,
+    pos: normalized.pos,
+    role: normalized.role,
     positions: normalized.positions,
     avatarHome: normalized.avatarHome,
     avatarAway: normalized.avatarAway,
@@ -2616,10 +2618,7 @@ function getStatusIcon(status) {
 function getStatsBadgeText(player) {
   if (!currentShowStats) return '';
   const stats = normalizeStats(player.stats);
-  const parts = [];
-  if (stats.goals > 0) parts.push(`⚽${stats.goals}`);
-  if (stats.assists > 0) parts.push(`🅰️${stats.assists}`);
-  return parts.join(' ');
+  return `进${stats.goals} 助${stats.assists} 场${stats.appearances}`;
 }
 
 function getEditableTexts() {
@@ -2678,6 +2677,11 @@ function mergeSavedPlayerFields(basePlayer, savedPlayer) {
   const saved = normalizePlayer(savedPlayer);
   return {
     ...base,
+    num: saved.num || base.num,
+    name: saved.name || base.name,
+    pos: saved.pos,
+    role: saved.role,
+    positions: Array.isArray(saved.positions) ? saved.positions : base.positions,
     avatarHome: saved.avatarHome || base.avatarHome,
     avatarAway: saved.avatarAway || base.avatarAway,
     stats: saved.stats || base.stats,
@@ -2847,7 +2851,9 @@ function applySnapshot(snapshot, shouldSave = true) {
   currentKit = snapshot.kit === 'away' ? 'away' : 'home';
   currentShowStats = snapshot.showStats !== false;
   reportLink = typeof snapshot.reportLink === 'string' ? snapshot.reportLink : '';
-  applyCurrentFormationLabels();
+  const snapshotHasPlayerLabels = Array.isArray(snapshot.squadData?.starters) &&
+    snapshot.squadData.starters.some(player => player && (player.pos || player.role));
+  if (!snapshotHasPlayerLabels) applyCurrentFormationLabels();
   updateControls();
   renderAll();
   if (shouldSave) saveLastState();
@@ -2870,8 +2876,14 @@ function renderLineupSwitcher() {
 
   SQUAD_DATA.bench.forEach((player, index) => {
     const option = document.createElement('option');
-    option.value = String(index);
+    option.value = `bench:${index}`;
     option.textContent = `#${player.num} ${player.name} · ${player.role || player.pos || '替补'}`;
+    benchPlayerSelect.appendChild(option);
+  });
+  getSpecialSwapCandidates().forEach(candidate => {
+    const option = document.createElement('option');
+    option.value = candidate.value;
+    option.textContent = candidate.label;
     benchPlayerSelect.appendChild(option);
   });
 
@@ -2879,6 +2891,12 @@ function renderLineupSwitcher() {
   starterSlotSelect.disabled = disabled;
   benchPlayerSelect.disabled = disabled;
   swapStarterBtn.disabled = disabled;
+}
+
+function setUploadButtonState(button, hasImage, emptyLabel) {
+  if (!button) return;
+  button.classList.toggle('is-uploaded', Boolean(hasImage));
+  button.textContent = hasImage ? '✓ 已上传' : emptyLabel;
 }
 
 function updateControls() {
@@ -2900,12 +2918,16 @@ function updateControls() {
   coachPosInput.value = COACH_DATA.posLabel;
   coachNameInput.value = COACH_DATA.name;
   coachRoleInput.value = COACH_DATA.role;
+  setUploadButtonState(coachUploadHomeBtn, Boolean(COACH_DATA.avatarHome || COACH_DATA.avatar), '上传主场照');
+  setUploadButtonState(coachUploadAwayBtn, Boolean(COACH_DATA.avatarAway), '上传客场照');
   coachClearBtn.disabled = !COACH_DATA.avatar && !COACH_DATA.avatarHome && !COACH_DATA.avatarAway;
   managerShowInput.checked = MANAGER_DATA.show;
   managerNumInput.value = MANAGER_DATA.num;
   managerPosInput.value = MANAGER_DATA.posLabel;
   managerNameInput.value = MANAGER_DATA.name;
   managerRoleInput.value = MANAGER_DATA.role;
+  setUploadButtonState(managerUploadHomeBtn, Boolean(MANAGER_DATA.avatarHome || MANAGER_DATA.avatar), '上传主场照');
+  setUploadButtonState(managerUploadAwayBtn, Boolean(MANAGER_DATA.avatarAway), '上传客场照');
   managerClearBtn.disabled = !MANAGER_DATA.avatar && !MANAGER_DATA.avatarHome && !MANAGER_DATA.avatarAway;
   teamLogoClearBtn.disabled = !TEAM_DATA.logo && !TEAM_DATA.logoHome && !TEAM_DATA.logoAway;
   renderLineupSwitcher();
@@ -3204,7 +3226,7 @@ function renderPhotoManager() {
         ${renderStatusOptions(player.status)}
       </select>`}
       <button class="ctrl-btn photo-btn ${hasHome ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarHome" ${disabledAttr}>${hasHome ? '✓ 已上传' : '上传主场照'}</button>
-      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway" ${disabledAttr}>${hasAway ? '✓ 已上传客场' : '上传客场照'}</button>
+      <button class="ctrl-btn photo-btn ${hasAway ? 'is-uploaded' : ''}" data-action="upload-photo" data-list="${list}" data-index="${index}" data-field="avatarAway" ${disabledAttr}>${hasAway ? '✓ 已上传' : '上传客场照'}</button>
       <button class="ctrl-btn photo-btn" data-action="clear-photo" data-list="${list}" data-index="${index}" ${hasHome || hasAway ? disabledAttr : 'disabled'}>清除</button>
     `;
     if (!isLegend && !canEdit()) {
@@ -3490,6 +3512,59 @@ function clearDragVisuals() {
   document.querySelectorAll('.drag-ghost').forEach(el => el.remove());
 }
 
+function specialCandidateToPlayer(candidate) {
+  if (!candidate) return null;
+  if (candidate.type === 'coach') {
+    return normalizePlayer({
+      num: COACH_DATA.num || '3',
+      name: COACH_DATA.name || '教练',
+      pos: '',
+      role: COACH_DATA.role || COACH_DATA.posLabel || '教练',
+      positions: [],
+      avatarHome: COACH_DATA.avatarHome || COACH_DATA.avatar || '',
+      avatarAway: COACH_DATA.avatarAway || COACH_DATA.avatar || '',
+      stats: {},
+      status: 'fit'
+    });
+  }
+  if (candidate.type === 'legend') {
+    const legend = normalizeLegend(LEGENDS_DATA[candidate.index]);
+    return normalizePlayer({
+      num: legend.num,
+      name: legend.name,
+      pos: '',
+      role: legend.role || '绝版人物',
+      positions: [],
+      avatarHome: legend.avatarHome || legend.avatar || '',
+      avatarAway: legend.avatarAway || legend.avatar || '',
+      stats: {},
+      status: 'fit'
+    });
+  }
+  return null;
+}
+
+function getSpecialSwapCandidates() {
+  const candidates = [];
+  if (COACH_DATA.show) {
+    candidates.push({
+      type: 'coach',
+      value: 'coach:0',
+      label: `教练 · #${COACH_DATA.num || '3'} ${COACH_DATA.name || '教练'}`
+    });
+  }
+  LEGENDS_DATA.forEach((legend, index) => {
+    const item = normalizeLegend(legend);
+    candidates.push({
+      type: 'legend',
+      index,
+      value: `legend:${index}`,
+      label: `绝版 · #${item.num} ${item.name}`
+    });
+  });
+  return candidates;
+}
+
 function swapBenchToStarter(benchIndex, starterIndex) {
   if (!canEdit()) return;
   const benchPlayer = SQUAD_DATA.bench[benchIndex];
@@ -3510,6 +3585,28 @@ function swapBenchToStarter(benchIndex, starterIndex) {
   saveLastState();
 }
 
+function swapSpecialToStarter(candidateValue, starterIndex) {
+  if (!canEdit()) return;
+  const [type, indexText] = String(candidateValue || '').split(':');
+  const starterPlayer = SQUAD_DATA.starters[starterIndex];
+  const candidate = { type, index: Number(indexText) };
+  const incomingPlayer = specialCandidateToPlayer(candidate);
+  if (!incomingPlayer || !starterPlayer) return;
+
+  const inheritedPos = starterPlayer.pos;
+  const inheritedRole = starterPlayer.role;
+  SQUAD_DATA.starters[starterIndex] = normalizePlayer({
+    ...incomingPlayer,
+    pos: inheritedPos,
+    role: inheritedRole
+  });
+  SQUAD_DATA.bench.push(benchVersionOf(starterPlayer));
+
+  clearDragVisuals();
+  renderAll();
+  saveLastState();
+}
+
 function swapStarterToStarter(fromIndex, toIndex) {
   if (!canEdit()) return;
   if (fromIndex === toIndex) return;
@@ -3523,10 +3620,16 @@ function swapStarterToStarter(fromIndex, toIndex) {
 
 function swapSelectedStarter() {
   if (!canEdit()) return;
-  const benchIndex = Number(benchPlayerSelect.value);
+  const candidateValue = benchPlayerSelect.value || '';
   const starterIndex = Number(starterSlotSelect.value);
-  if (!Number.isFinite(benchIndex) || !Number.isFinite(starterIndex)) return;
-  swapBenchToStarter(benchIndex, starterIndex);
+  if (!Number.isFinite(starterIndex)) return;
+  const [type, indexText] = candidateValue.split(':');
+  if (type === 'bench') {
+    const benchIndex = Number(indexText);
+    if (Number.isFinite(benchIndex)) swapBenchToStarter(benchIndex, starterIndex);
+    return;
+  }
+  swapSpecialToStarter(candidateValue, starterIndex);
 }
 
 function handleBenchDragStart(event) {
@@ -4234,36 +4337,42 @@ function waitForImageReady(image) {
   });
 }
 
+function getExportPlaceholderImage() {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4" viewBox="0 0 4 4"></svg>'
+  );
+}
+
 async function prepareImagesForExport(root) {
   if (!root || location.protocol === 'file:') return () => {};
   const images = Array.from(root.querySelectorAll('img'));
   const restores = [];
-  const failures = [];
   await Promise.all(images.map(async image => {
     const originalSrc = image.getAttribute('src');
     const renderedSrc = image.currentSrc || image.src || originalSrc;
     if (!renderedSrc || renderedSrc.startsWith('data:') || renderedSrc.startsWith('blob:')) return;
+    const originalCrossOrigin = image.getAttribute('crossorigin');
+    const restore = () => {
+      if (originalSrc === null) image.removeAttribute('src');
+      else image.setAttribute('src', originalSrc);
+      if (originalCrossOrigin === null) image.removeAttribute('crossorigin');
+      else image.setAttribute('crossorigin', originalCrossOrigin);
+    };
     try {
       const safeSource = await getExportSafeImageSource(renderedSrc);
       if (!safeSource || safeSource === renderedSrc) return;
-      const originalCrossOrigin = image.getAttribute('crossorigin');
-      restores.push(() => {
-        if (originalSrc === null) image.removeAttribute('src');
-        else image.setAttribute('src', originalSrc);
-        if (originalCrossOrigin === null) image.removeAttribute('crossorigin');
-        else image.setAttribute('crossorigin', originalCrossOrigin);
-      });
+      restores.push(restore);
       image.removeAttribute('crossorigin');
       image.setAttribute('src', safeSource);
       await waitForImageReady(image);
     } catch (error) {
-      failures.push({ source: renderedSrc, error });
+      console.warn('export image skipped:', renderedSrc, error);
+      restores.push(restore);
+      image.removeAttribute('crossorigin');
+      image.setAttribute('src', getExportPlaceholderImage());
+      await waitForImageReady(image);
     }
   }));
-  if (failures.length) {
-    restores.reverse().forEach(restore => restore());
-    throw new Error(`有 ${failures.length} 张图片无法准备导出，请确认云函数已部署最新版本`);
-  }
   return () => {
     restores.reverse().forEach(restore => restore());
   };
