@@ -1085,7 +1085,7 @@
   }
   .review-form {
     display: grid;
-    grid-template-columns: minmax(160px, 1.2fr) minmax(110px, 0.8fr) minmax(90px, 0.6fr) auto;
+    grid-template-columns: minmax(160px, 1.2fr) minmax(110px, 0.7fr) minmax(130px, 0.9fr) minmax(90px, 0.6fr) auto;
     gap: 10px;
     align-items: center;
   }
@@ -1633,7 +1633,8 @@
     <h2>⭐ 球员评价</h2>
     <div class="review-form">
       <select class="ctrl-select" id="review-target-select" aria-label="选择被评价球员"></select>
-      <input class="ctrl-input" id="reviewer-num-input" type="number" min="1" step="1" inputmode="numeric" placeholder="你的号码">
+      <input class="ctrl-input" id="reviewer-num-input" type="number" min="1" step="1" inputmode="numeric" placeholder="熟悉球员号">
+      <input class="ctrl-input" id="reviewer-name-input" type="text" maxlength="18" inputmode="text" autocomplete="nickname" placeholder="你的昵称">
       <select class="ctrl-select" id="review-rating-select" aria-label="评分">
         <option value="5">5 分</option>
         <option value="4">4 分</option>
@@ -1790,6 +1791,7 @@ const COACH_SVG_AVATAR = SVG_AVATAR.replace('fill="currentColor"', 'fill="#2a2a2
 const STORAGE_KEYS = {
   lastState: 'laohe-lineup-v9-last-state',
   presets: 'laohe-lineup-v9-presets',
+  reviewIdentity: 'laohe-lineup-review-identity',
   legacyLastStateV8: 'laohe-lineup-v8-last-state',
   legacyPresetsV8: 'laohe-lineup-v8-presets',
   legacyLastStateV7: 'laohe-lineup-v7-last-state',
@@ -1899,6 +1901,7 @@ const randomDrawBtn = document.getElementById('random-draw-btn');
 const drawCard = document.getElementById('draw-card');
 const reviewTargetSelect = document.getElementById('review-target-select');
 const reviewerNumInput = document.getElementById('reviewer-num-input');
+const reviewerNameInput = document.getElementById('reviewer-name-input');
 const reviewRatingSelect = document.getElementById('review-rating-select');
 const reviewCommentInput = document.getElementById('review-comment-input');
 const reviewSubmitBtn = document.getElementById('review-submit-btn');
@@ -2055,11 +2058,7 @@ function updateEditMode() {
     managerNameInput,
     managerRoleInput,
     managerUploadHomeBtn,
-    managerUploadAwayBtn,
-    reviewerNumInput,
-    reviewRatingSelect,
-    reviewCommentInput,
-    reviewSubmitBtn
+    managerUploadAwayBtn
   ].forEach(el => {
     if (el) el.disabled = !unlocked;
   });
@@ -2632,18 +2631,28 @@ function normalizeLegend(legend = {}) {
 function normalizeReview(review = {}) {
   if (!review || typeof review !== 'object') return null;
   const targetNum = String(review.targetNum ?? '').trim();
-  const reviewerNum = String(review.reviewerNum ?? '').trim();
+  const reviewerNum = String(review.reviewerNum ?? review.familiarPlayerNum ?? '').trim();
+  const reviewerName = String(review.reviewerName || '').trim().slice(0, 18);
+  const familiarPlayerNum = String(review.familiarPlayerNum ?? reviewerNum).trim();
+  const familiarPlayerName = normalizeName(review.familiarPlayerName || findLineupPersonNameByNumber(familiarPlayerNum) || '');
   const rating = Math.min(5, Math.max(1, Number.parseInt(review.rating, 10) || 0));
-  if (!targetNum || !reviewerNum || !rating) return null;
+  if (!targetNum || (!reviewerNum && !reviewerName) || !rating) return null;
+  const targetKey = String(review.targetKey || `player:${targetNum}`);
+  const createdAt = String(review.createdAt || new Date().toISOString());
   return {
-    targetKey: String(review.targetKey || `player:${targetNum}`),
+    id: String(review.id || `${targetKey}:${reviewerNum || reviewerName}:${createdAt}`),
+    targetKey,
     targetNum,
     targetName: normalizeName(review.targetName || ''),
     targetType: String(review.targetType || 'player'),
     reviewerNum,
+    reviewerName,
+    familiarPlayerNum,
+    familiarPlayerName,
+    reviewerAuth: String(review.reviewerAuth || (reviewerName ? 'friend_number' : 'number')),
     rating,
     comment: String(review.comment || '').trim().slice(0, 180),
-    createdAt: String(review.createdAt || new Date().toISOString())
+    createdAt
   };
 }
 
@@ -3470,10 +3479,70 @@ function findReviewablePlayer(value) {
   ) || null;
 }
 
+function findLineupPersonByNumber(value) {
+  const key = String(value ?? '').trim();
+  if (!key) return null;
+  const players = [
+    ...SQUAD_DATA.starters.map(normalizePlayer),
+    ...SQUAD_DATA.bench.map(normalizePlayer),
+    ...LEGENDS_DATA.map(normalizeLegend)
+  ];
+  return players.find(player => String(player.num ?? '').trim() === key) || null;
+}
+
+function findLineupPersonNameByNumber(value) {
+  const player = findLineupPersonByNumber(value);
+  return player ? player.name : '';
+}
+
 function formatReviewTime(value) {
   const time = new Date(value);
   if (Number.isNaN(time.getTime())) return '';
   return `${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+}
+
+function getReviewAttribution(review = {}) {
+  const normalized = normalizeReview(review);
+  if (!normalized) return '匿名朋友';
+  const nickname = normalized.reviewerName ? ` ${normalized.reviewerName}` : '';
+  if (normalized.familiarPlayerName) {
+    return `${normalized.familiarPlayerName}的朋友${nickname}`;
+  }
+  if (normalized.reviewerName) {
+    return normalized.reviewerNum ? `#${normalized.reviewerNum} ${normalized.reviewerName}` : normalized.reviewerName;
+  }
+  return normalized.reviewerNum ? `#${normalized.reviewerNum}` : '匿名朋友';
+}
+
+function prependReview(review) {
+  const normalized = normalizeReview(review);
+  if (!normalized) return null;
+  REVIEWS_DATA = [
+    normalized,
+    ...REVIEWS_DATA
+      .map(normalizeReview)
+      .filter(Boolean)
+      .filter(item => item.id !== normalized.id)
+  ].slice(0, 800);
+  return normalized;
+}
+
+function loadReviewIdentity() {
+  try {
+    const identity = localStorageAdapter.readJson(STORAGE_KEYS.reviewIdentity, {});
+    if (reviewerNumInput && identity.reviewerNum) reviewerNumInput.value = identity.reviewerNum;
+    if (reviewerNameInput && identity.reviewerName) reviewerNameInput.value = identity.reviewerName;
+  } catch (error) {
+    console.warn('读取评价身份失败：', error);
+  }
+}
+
+function saveReviewIdentity(reviewerNum, reviewerName) {
+  try {
+    localStorageAdapter.writeJson(STORAGE_KEYS.reviewIdentity, { reviewerNum, reviewerName });
+  } catch (error) {
+    console.warn('保存评价身份失败：', error);
+  }
 }
 
 function setReviewStatus(message = '', isError = false) {
@@ -3514,29 +3583,23 @@ function renderReviewTool() {
       <div class="review-list">
         ${reviews.length ? reviews.slice(0, 8).map(review => `
           <div class="review-item">
-            <div class="review-item-meta">#${escapeHtml(review.reviewerNum)} · ${escapeHtml(review.rating)} 分${formatReviewTime(review.createdAt) ? ` · ${escapeHtml(formatReviewTime(review.createdAt))}` : ''}</div>
+            <div class="review-item-meta">${escapeHtml(getReviewAttribution(review))} · ${escapeHtml(review.rating)} 分${formatReviewTime(review.createdAt) ? ` · ${escapeHtml(formatReviewTime(review.createdAt))}` : ''}</div>
             <div class="review-item-comment">${escapeHtml(review.comment || '没有写文字评价。')}</div>
           </div>
-        `).join('') : '<div class="review-empty">解锁编辑后，可以给这名球员提交第一条评价。</div>'}
+        `).join('') : '<div class="review-empty">输入熟悉的老和山球员号码和昵称，可以给这名成员提交第一条评价。</div>'}
       </div>`
     : '<div class="review-empty">暂无可评价球员。</div>';
 
-  const unlocked = canEdit();
-  [reviewerNumInput, reviewRatingSelect, reviewCommentInput, reviewSubmitBtn].forEach(el => {
-    if (el) el.disabled = !unlocked || !target;
+  [reviewerNumInput, reviewerNameInput, reviewRatingSelect, reviewCommentInput, reviewSubmitBtn].forEach(el => {
+    if (el) el.disabled = !target;
   });
-  if (!unlocked) {
-    setReviewStatus('只读模式：可查看评价，解锁编辑后可提交。', false);
-  } else if (reviewStatus && reviewStatus.textContent.startsWith('只读模式')) {
-    setReviewStatus('');
+  const helperText = '评价无需编辑口令：填一个你熟悉的老和山球员号码，再填昵称即可提交。';
+  if (target && reviewStatus && (!reviewStatus.textContent || reviewStatus.textContent.startsWith('只读模式') || reviewStatus.textContent.startsWith('评价无需编辑口令'))) {
+    setReviewStatus(helperText, false);
   }
 }
 
-function submitPlayerReview() {
-  if (!canEdit()) {
-    setReviewStatus('请先解锁编辑模式。', true);
-    return;
-  }
+async function submitPlayerReview() {
   const targetNum = reviewTargetSelect?.value || '';
   const target = findReviewablePlayer(targetNum);
   if (!target) {
@@ -3545,8 +3608,20 @@ function submitPlayerReview() {
   }
   const reviewerNum = String(reviewerNumInput?.value || '').trim();
   if (!/^\d{1,3}$/.test(reviewerNum)) {
-    setReviewStatus('提交前请先输入自己的号码。', true);
+    setReviewStatus('提交前请先输入一个你熟悉的老和山球员号码。', true);
     reviewerNumInput?.focus();
+    return;
+  }
+  const familiarPlayer = findLineupPersonByNumber(reviewerNum);
+  if (!familiarPlayer) {
+    setReviewStatus('这个号码暂时不在老和山名单里，请换一个你熟悉的球员号码。', true);
+    reviewerNumInput?.focus();
+    return;
+  }
+  const reviewerName = String(reviewerNameInput?.value || '').trim().slice(0, 18);
+  if (!reviewerName) {
+    setReviewStatus('提交前请先输入你的昵称。', true);
+    reviewerNameInput?.focus();
     return;
   }
   const review = normalizeReview({
@@ -3555,6 +3630,10 @@ function submitPlayerReview() {
     targetKey: target.reviewKey,
     targetType: target.reviewType,
     reviewerNum,
+    reviewerName,
+    familiarPlayerNum: reviewerNum,
+    familiarPlayerName: familiarPlayer.name,
+    reviewerAuth: 'friend_number',
     rating: reviewRatingSelect?.value || 5,
     comment: reviewCommentInput?.value || '',
     createdAt: new Date().toISOString()
@@ -3563,13 +3642,40 @@ function submitPlayerReview() {
     setReviewStatus('评价内容不完整。', true);
     return;
   }
-  REVIEWS_DATA = [
-    review,
-    ...REVIEWS_DATA.filter(item => !(String(item.targetKey || `player:${item.targetNum}`) === review.targetKey && String(item.reviewerNum) === review.reviewerNum))
-  ].slice(0, 600);
+  saveReviewIdentity(reviewerNum, reviewerName);
+  if (isCloudBaseSyncHost() && cloudSyncState.initialized && CLOUDBASE_CONFIG.publishFunction) {
+    try {
+      setReviewStatus('正在提交评价...');
+      const { response, mode } = await callPublishFunction({
+        action: 'submitReview',
+        docId: CLOUDBASE_CONFIG.currentDocId,
+        review,
+        clientUpdatedAt: new Date().toISOString()
+      });
+      const result = normalizePublishResult(response);
+      if (result && result.ok === false) {
+        throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '评价保存失败'}`);
+      }
+      const savedReview = prependReview(result?.review || review);
+      localStorageAdapter.writeLastState(createSnapshot());
+      if (reviewCommentInput) reviewCommentInput.value = '';
+      renderReviewTool();
+      setReviewStatus(`已提交：${getReviewAttribution(savedReview)} 对 #${target.num} ${target.name} 的 ${savedReview.rating} 分评价。${mode === 'http' ? '' : '（云函数）'}`);
+      return;
+    } catch (error) {
+      console.warn('CloudBase review submit failed:', error);
+      const savedReview = prependReview(review);
+      localStorageAdapter.writeLastState(createSnapshot());
+      if (reviewCommentInput) reviewCommentInput.value = '';
+      renderReviewTool();
+      setReviewStatus(`云端提交失败，已暂存在本机：${getCloudErrorMessage(error)}`, true);
+      return;
+    }
+  }
+  const savedReview = prependReview(review);
   if (reviewCommentInput) reviewCommentInput.value = '';
   renderReviewTool();
-  setReviewStatus(`已提交：#${reviewerNum} 对 #${target.num} ${target.name} 的 ${review.rating} 分评价。`);
+  setReviewStatus(`已本地提交：${getReviewAttribution(savedReview)} 对 #${target.num} ${target.name} 的 ${savedReview.rating} 分评价。`);
   saveLastState();
 }
 
@@ -4754,6 +4860,7 @@ async function init() {
   await loadPlayerData();
   normalizeSquadData();
   bindControls();
+  loadReviewIdentity();
   await initCloudBaseSync();
 
   const initialState = await readInitialState();

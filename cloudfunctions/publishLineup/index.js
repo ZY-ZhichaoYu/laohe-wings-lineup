@@ -5,6 +5,9 @@ const https = require('https');
 const COLLECTION = 'lineups';
 const DEFAULT_DOC_ID = 'current';
 const MAX_PROXY_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_REVIEWS = 800;
+const MAX_REVIEW_COMMENT_LENGTH = 180;
+const MAX_REVIEWER_NAME_LENGTH = 18;
 
 function initCloudBaseApp(context) {
   try {
@@ -25,6 +28,215 @@ function validateSnapshot(snapshot) {
   if (!Array.isArray(snapshot.squadData.bench)) return 'snapshot.squadData.bench is required';
   if (typeof snapshot.formation !== 'string') return 'snapshot.formation is required';
   return '';
+}
+
+function normalizeText(value, maxLength) {
+  return String(value || '').trim().slice(0, maxLength);
+}
+
+function normalizePerson(person = {}) {
+  return {
+    num: String(person.num ?? '').trim(),
+    name: normalizeText(person.name, 32),
+    role: normalizeText(person.role, 32)
+  };
+}
+
+function extractDatabaseRecord(result) {
+  if (!result) return null;
+  if (Array.isArray(result.data)) return result.data[0] || null;
+  if (isPlainObject(result.data)) return result.data;
+  if (isPlainObject(result) && result.snapshot) return result;
+  return null;
+}
+
+function getSquadPeople(snapshot = {}) {
+  const squad = isPlainObject(snapshot.squadData) ? snapshot.squadData : {};
+  return [
+    ...(Array.isArray(squad.starters) ? squad.starters : []),
+    ...(Array.isArray(squad.bench) ? squad.bench : [])
+  ]
+    .map(normalizePerson)
+    .filter(person => person.num && person.name);
+}
+
+function getLegendPeople(snapshot = {}) {
+  return (Array.isArray(snapshot.legendsData) ? snapshot.legendsData : [])
+    .map(normalizePerson)
+    .filter(person => person.num && person.name);
+}
+
+function findFamiliarPerson(snapshot, num) {
+  const key = String(num ?? '').trim();
+  return [...getSquadPeople(snapshot), ...getLegendPeople(snapshot)].find(person => person.num === key) || null;
+}
+
+function getReviewTargets(snapshot = {}) {
+  const byKey = new Map();
+  getSquadPeople(snapshot).forEach(person => {
+    const key = `player:${person.num}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        ...person,
+        reviewKey: key,
+        reviewType: 'player'
+      });
+    }
+  });
+  getLegendPeople(snapshot).forEach(person => {
+    const key = `legend:${person.num || person.name}`;
+    byKey.set(key, {
+      ...person,
+      role: person.role || '绝版人物',
+      reviewKey: key,
+      reviewType: 'legend'
+    });
+  });
+  const coach = isPlainObject(snapshot.coachData) ? normalizePerson(snapshot.coachData) : null;
+  if (coach && snapshot.coachData.show !== false) {
+    byKey.set('coach', {
+      num: coach.num || '3',
+      name: coach.name || '教练',
+      role: coach.role || '教练',
+      reviewKey: 'coach',
+      reviewType: 'coach'
+    });
+  }
+  const manager = isPlainObject(snapshot.managerData) ? normalizePerson(snapshot.managerData) : null;
+  if (manager && snapshot.managerData.show !== false) {
+    byKey.set('manager', {
+      num: manager.num || '·',
+      name: manager.name || '领队',
+      role: manager.role || '领队',
+      reviewKey: 'manager',
+      reviewType: 'manager'
+    });
+  }
+  return Array.from(byKey.values());
+}
+
+function createError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function normalizeSubmittedReview(review, snapshot) {
+  if (!isPlainObject(review)) {
+    throw createError('INVALID_REVIEW', 'review must be an object');
+  }
+  const targetKey = String(review.targetKey || '').trim();
+  const targetNum = String(review.targetNum ?? '').trim();
+  const target = getReviewTargets(snapshot).find(item =>
+    item.reviewKey === targetKey || (targetNum && String(item.num) === targetNum)
+  );
+  if (!target) {
+    throw createError('INVALID_REVIEW_TARGET', 'review target is not in the current lineup');
+  }
+
+  const reviewerNum = String(review.familiarPlayerNum ?? review.reviewerNum ?? '').trim();
+  if (!/^\d{1,3}$/.test(reviewerNum)) {
+    throw createError('INVALID_REVIEWER_NUM', 'familiar player number is required');
+  }
+  const familiarPerson = findFamiliarPerson(snapshot, reviewerNum);
+  if (!familiarPerson) {
+    throw createError('UNKNOWN_REVIEWER_NUM', 'familiar player number is not in the current roster');
+  }
+  const reviewerName = normalizeText(review.reviewerName, MAX_REVIEWER_NAME_LENGTH);
+  if (!reviewerName) {
+    throw createError('INVALID_REVIEWER_NAME', 'reviewer nickname is required');
+  }
+  const rating = Math.min(5, Math.max(1, Number.parseInt(review.rating, 10) || 0));
+  if (!rating) {
+    throw createError('INVALID_REVIEW_RATING', 'rating must be 1-5');
+  }
+  const now = new Date().toISOString();
+  return {
+    id: `review:${now}:${Math.random().toString(36).slice(2, 10)}`,
+    targetKey: target.reviewKey,
+    targetNum: String(target.num),
+    targetName: target.name,
+    targetType: target.reviewType,
+    reviewerNum,
+    reviewerName,
+    familiarPlayerNum: reviewerNum,
+    familiarPlayerName: familiarPerson.name,
+    reviewerAuth: 'friend_number',
+    rating,
+    comment: normalizeText(review.comment, MAX_REVIEW_COMMENT_LENGTH),
+    createdAt: now
+  };
+}
+
+async function submitReview(db, input, context) {
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
+    : DEFAULT_DOC_ID;
+  const docRef = db.collection(COLLECTION).doc(docId);
+  const record = extractDatabaseRecord(await docRef.get());
+  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
+  if (!snapshot) {
+    return {
+      ok: false,
+      code: 'SNAPSHOT_NOT_FOUND',
+      message: 'current lineup snapshot was not found'
+    };
+  }
+
+  let review;
+  try {
+    review = normalizeSubmittedReview(input.review, snapshot);
+  } catch (error) {
+    return {
+      ok: false,
+      code: error.code || 'INVALID_REVIEW',
+      message: error.message || String(error)
+    };
+  }
+
+  const existingReviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+  snapshot.reviewsData = [
+    review,
+    ...existingReviews.filter(item => !item || item.id !== review.id)
+  ].slice(0, MAX_REVIEWS);
+
+  const now = new Date();
+  const auth = context.auth || context.userInfo || {};
+  const updatedBy = auth.uid || auth.openId || auth.openid || 'review-web';
+
+  try {
+    await docRef.set({
+      snapshot,
+      schemaVersion: record.schemaVersion || 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy,
+      clientUpdatedAt: input.clientUpdatedAt || ''
+    });
+    console.log('submitReview saved', {
+      docId,
+      targetKey: review.targetKey,
+      reviewerNum: review.reviewerNum
+    });
+    return {
+      ok: true,
+      docId,
+      review,
+      updatedAt: now.toISOString()
+    };
+  } catch (error) {
+    console.error('submitReview failed', {
+      code: error && error.code,
+      message: error && error.message,
+      requestId: error && error.requestId
+    });
+    return {
+      ok: false,
+      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
+      message: error && error.message ? error.message : String(error),
+      requestId: error && error.requestId ? error.requestId : ''
+    };
+  }
 }
 
 function parseBody(body) {
@@ -141,6 +353,9 @@ exports.main = async (event = {}, context = {}) => {
   }
   const app = initCloudBaseApp(context);
   const db = app.database();
+  if (input.action === 'submitReview') {
+    return submitReview(db, input, context);
+  }
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
     : DEFAULT_DOC_ID;
