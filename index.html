@@ -2692,9 +2692,12 @@ function normalizeReview(review = {}) {
   const targetNum = String(review.targetNum ?? '').trim();
   const reviewerNum = String(review.reviewerNum ?? review.familiarPlayerNum ?? '').trim();
   const reviewerName = String(review.reviewerName || '').trim().slice(0, 18);
-  const reviewerAuth = String(review.reviewerAuth || (reviewerName ? 'friend_number' : 'team_edit'));
-  const familiarPlayerNum = String(review.familiarPlayerNum ?? reviewerNum).trim();
-  const familiarPlayerName = normalizeName(review.familiarPlayerName || findLineupPersonNameByNumber(familiarPlayerNum) || '');
+  const rawReviewerAuth = String(review.reviewerAuth || (reviewerName ? 'friend_number' : 'team_edit'));
+  const reviewerAuth = rawReviewerAuth === 'friend_number' && reviewerName ? 'friend_number' : 'team_edit';
+  const familiarPlayerNum = reviewerAuth === 'friend_number' ? String(review.familiarPlayerNum ?? reviewerNum).trim() : '';
+  const familiarPlayerName = reviewerAuth === 'friend_number'
+    ? normalizeName(review.familiarPlayerName || findLineupPersonNameByNumber(familiarPlayerNum) || '')
+    : '';
   const rating = Math.min(5, Math.max(1, Number.parseInt(review.rating, 10) || 0));
   if (!targetNum || (!reviewerNum && !reviewerName) || !rating) return null;
   const targetKey = String(review.targetKey || `player:${targetNum}`);
@@ -2713,6 +2716,10 @@ function normalizeReview(review = {}) {
     familiarPlayerName,
     reviewerAuth,
     deviceId: String(review.deviceId || ''),
+    ipRegion: String(review.ipRegion || review.reviewMeta?.ipRegion || ''),
+    ipMasked: String(review.ipMasked || review.reviewMeta?.ipMasked || ''),
+    deviceLabel: String(review.deviceLabel || review.reviewMeta?.deviceLabel || ''),
+    reviewMeta: review.reviewMeta && typeof review.reviewMeta === 'object' ? review.reviewMeta : {},
     deleteUntil: String(review.deleteUntil || fallbackDeleteUntil),
     rating,
     comment: String(review.comment || '').trim().slice(0, 180),
@@ -3578,6 +3585,19 @@ function getReviewDeviceId() {
   }
 }
 
+function getReviewClientInfo() {
+  const screenInfo = window.screen
+    ? `${window.screen.width || 0}x${window.screen.height || 0}@${window.devicePixelRatio || 1}`
+    : '';
+  return {
+    userAgent: navigator.userAgent || '',
+    platform: navigator.platform || '',
+    language: navigator.language || '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+    screen: screenInfo
+  };
+}
+
 function getReviewAttribution(review = {}) {
   const normalized = normalizeReview(review);
   if (!normalized) return '匿名评价';
@@ -3586,7 +3606,8 @@ function getReviewAttribution(review = {}) {
   }
   const nickname = normalized.reviewerName ? ` ${normalized.reviewerName}` : '';
   if (normalized.familiarPlayerName) {
-    return `${normalized.familiarPlayerName}的朋友${nickname}`;
+    const region = normalized.ipRegion ? `（IP：${normalized.ipRegion}）` : '';
+    return `${normalized.familiarPlayerName}的朋友${nickname}${region}`;
   }
   if (normalized.reviewerName) {
     return normalized.reviewerNum ? `#${normalized.reviewerNum} ${normalized.reviewerName}` : normalized.reviewerName;
@@ -3727,7 +3748,7 @@ function renderReviewTool() {
   if (reviewModeNote) {
     reviewModeNote.textContent = isTeamMode
       ? '队内评价：需要先解锁编辑口令，评价人显示为自己的号码。'
-      : '朋友评价：无需编辑口令，填一位熟悉的老和山球员号码和昵称，评价人显示为“某某的朋友”。';
+      : '朋友评价：无需编辑口令，填熟悉球员号码和昵称；提交会记录粗略 IP 属地和设备类型，用于防乱评。';
   }
   if (reviewerNumInput) reviewerNumInput.placeholder = isTeamMode ? '你的队内号码' : '熟悉球员号';
   if (reviewerNameInput) {
@@ -3806,6 +3827,7 @@ async function submitPlayerReview() {
         action: 'submitReview',
         docId: CLOUDBASE_CONFIG.currentDocId,
         review,
+        clientInfo: getReviewClientInfo(),
         clientUpdatedAt: new Date().toISOString()
       });
       const result = normalizePublishResult(response);

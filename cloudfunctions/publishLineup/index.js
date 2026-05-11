@@ -1,6 +1,7 @@
 const cloudbase = require('@cloudbase/node-sdk');
 const http = require('http');
 const https = require('https');
+const crypto = require('crypto');
 
 const COLLECTION = 'lineups';
 const DEFAULT_DOC_ID = 'current';
@@ -10,6 +11,8 @@ const MAX_REVIEW_COMMENT_LENGTH = 180;
 const MAX_REVIEWER_NAME_LENGTH = 18;
 const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 96;
+const MAX_USER_AGENT_LENGTH = 240;
+const REVIEW_IP_HASH_SALT = process.env.REVIEW_IP_HASH_SALT || 'laohe-wings-review';
 
 function initCloudBaseApp(context) {
   try {
@@ -123,7 +126,315 @@ function createError(code, message) {
   return error;
 }
 
-function normalizeSubmittedReview(review, snapshot) {
+function getHeaderValue(headers, name) {
+  if (!headers || typeof headers !== 'object') return '';
+  const lowerName = name.toLowerCase();
+  const key = Object.keys(headers).find(item => String(item).toLowerCase() === lowerName);
+  const value = key ? headers[key] : '';
+  return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
+function extractHeaders(rawEvent = {}) {
+  return rawEvent.headers || rawEvent.header || rawEvent.httpContext?.headers || rawEvent.requestContext?.headers || {};
+}
+
+function extractClientIp(rawEvent = {}) {
+  const headers = extractHeaders(rawEvent);
+  const candidates = [
+    getHeaderValue(headers, 'x-forwarded-for'),
+    getHeaderValue(headers, 'x-real-ip'),
+    getHeaderValue(headers, 'x-client-ip'),
+    getHeaderValue(headers, 'x-original-forwarded-for'),
+    getHeaderValue(headers, 'cf-connecting-ip'),
+    rawEvent.requestContext?.sourceIp,
+    rawEvent.httpContext?.sourceIp,
+    rawEvent.ip
+  ];
+  const value = candidates.find(item => String(item || '').trim());
+  return String(value || '').split(',')[0].trim();
+}
+
+function maskIp(ip) {
+  const value = String(ip || '').trim();
+  if (!value) return '';
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) {
+    const parts = value.split('.');
+    return `${parts[0]}.${parts[1]}.*.*`;
+  }
+  if (value.includes(':')) {
+    return `${value.split(':').slice(0, 3).join(':')}:*:*`;
+  }
+  return '';
+}
+
+function hashIp(ip) {
+  const value = String(ip || '').trim();
+  if (!value) return '';
+  return crypto.createHash('sha256').update(`${REVIEW_IP_HASH_SALT}:${value}`).digest('hex');
+}
+
+const REGION_NAME_MAP = new Map(Object.entries({
+  'anhui': '安徽',
+  'anhui province': '安徽',
+  'beijing': '北京',
+  'beijing city': '北京',
+  'chongqing': '重庆',
+  'chongqing city': '重庆',
+  'fujian': '福建',
+  'fujian province': '福建',
+  'gansu': '甘肃',
+  'gansu province': '甘肃',
+  'guangdong': '广东',
+  'guangdong province': '广东',
+  'guangxi': '广西',
+  'guangxi zhuang autonomous region': '广西',
+  'guizhou': '贵州',
+  'guizhou province': '贵州',
+  'hainan': '海南',
+  'hainan province': '海南',
+  'hebei': '河北',
+  'hebei province': '河北',
+  'heilongjiang': '黑龙江',
+  'heilongjiang province': '黑龙江',
+  'henan': '河南',
+  'henan province': '河南',
+  'hong kong': '香港',
+  'hubei': '湖北',
+  'hubei province': '湖北',
+  'hunan': '湖南',
+  'hunan province': '湖南',
+  'inner mongolia': '内蒙古',
+  'inner mongolia autonomous region': '内蒙古',
+  'jiangsu': '江苏',
+  'jiangsu province': '江苏',
+  'jiangxi': '江西',
+  'jiangxi province': '江西',
+  'jilin': '吉林',
+  'jilin province': '吉林',
+  'liaoning': '辽宁',
+  'liaoning province': '辽宁',
+  'macau': '澳门',
+  'ningxia': '宁夏',
+  'ningxia hui autonomous region': '宁夏',
+  'qinghai': '青海',
+  'qinghai province': '青海',
+  'shaanxi': '陕西',
+  'shaanxi province': '陕西',
+  'shandong': '山东',
+  'shandong province': '山东',
+  'shanghai': '上海',
+  'shanghai city': '上海',
+  'shanxi': '山西',
+  'shanxi province': '山西',
+  'sichuan': '四川',
+  'sichuan province': '四川',
+  'tianjin': '天津',
+  'tianjin city': '天津',
+  'tibet': '西藏',
+  'tibet autonomous region': '西藏',
+  'xinjiang': '新疆',
+  'xinjiang uygur autonomous region': '新疆',
+  'yunnan': '云南',
+  'yunnan province': '云南',
+  'zhejiang': '浙江',
+  'zhejiang province': '浙江',
+  'hangzhou': '杭州',
+  'hangzhou city': '杭州',
+  'ningbo': '宁波',
+  'ningbo city': '宁波',
+  'wenzhou': '温州',
+  'wenzhou city': '温州',
+  'jiaxing': '嘉兴',
+  'jiaxing city': '嘉兴',
+  'huzhou': '湖州',
+  'huzhou city': '湖州',
+  'shaoxing': '绍兴',
+  'shaoxing city': '绍兴',
+  'jinhua': '金华',
+  'jinhua city': '金华',
+  'quzhou': '衢州',
+  'quzhou city': '衢州',
+  'zhoushan': '舟山',
+  'zhoushan city': '舟山',
+  'taizhou': '台州',
+  'taizhou city': '台州',
+  'lishui': '丽水',
+  'lishui city': '丽水',
+  'nanjing': '南京',
+  'suzhou': '苏州',
+  'wuxi': '无锡',
+  'changzhou': '常州',
+  'guangzhou': '广州',
+  'shenzhen': '深圳',
+  'chengdu': '成都',
+  'wuhan': '武汉',
+  'changsha': '长沙',
+  'xiamen': '厦门',
+  'fuzhou': '福州',
+  'qingdao': '青岛',
+  'jinan': '济南'
+}));
+
+function compactRegionPart(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const stripped = raw
+    .replace(/^(中国|中华人民共和国|China|People's Republic of China)$/iu, '')
+    .replace(/(省|市|自治区|壮族自治区|回族自治区|维吾尔自治区|特别行政区)$/u, '')
+    .replace(/\b(province|city|municipality|autonomous region|special administrative region)\b$/iu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const key = stripped
+    .replace(/[._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return REGION_NAME_MAP.get(key) || stripped;
+}
+
+function pickRegionValue(...values) {
+  return values.find(value => String(value || '').trim()) || '';
+}
+
+function joinRegionParts(province, city) {
+  const combined = `${province}${city}`;
+  return /[A-Za-z]/.test(combined) ? `${province} ${city}` : combined;
+}
+
+function formatIpRegion(data) {
+  const source = data && data.data ? data.data : data;
+  if (!source || typeof source !== 'object') return '';
+  const location = source.location && typeof source.location === 'object' ? source.location : {};
+  const province = compactRegionPart(pickRegionValue(
+    source.prov,
+    source.province,
+    source.region,
+    source.regionName,
+    source.region_name,
+    location.province,
+    location.region,
+    location.regionName
+  ));
+  const city = compactRegionPart(pickRegionValue(
+    source.city,
+    source.cityName,
+    source.city_name,
+    location.city,
+    location.cityName
+  ));
+  const country = compactRegionPart(pickRegionValue(
+    source.country,
+    source.countryName,
+    source.country_name,
+    location.country,
+    location.countryName
+  ));
+  if (province && city && province !== city) return joinRegionParts(province, city);
+  return province || city || country || '';
+}
+
+function fetchJson(url, timeoutMs = 1600) {
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (error) {
+      reject(new Error('invalid json url'));
+      return;
+    }
+    const client = parsed.protocol === 'https:' ? https : http;
+    const request = client.get(parsed, {
+      timeout: timeoutMs,
+      headers: {
+        'User-Agent': 'laohe-wings-lineup-review/1.0',
+        'Accept': 'application/json,text/plain,*/*'
+      }
+    }, response => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => {
+        if ((response.statusCode || 0) < 200 || (response.statusCode || 0) >= 300) {
+          reject(new Error(`HTTP ${response.statusCode}`));
+          return;
+        }
+        const text = Buffer.concat(chunks).toString('utf8');
+        try {
+          resolve(JSON.parse(text));
+        } catch (error) {
+          reject(new Error('invalid json response'));
+        }
+      });
+    });
+    request.on('timeout', () => request.destroy(new Error('json request timeout')));
+    request.on('error', reject);
+  });
+}
+
+async function resolveIpRegion(ip) {
+  const value = String(ip || '').trim();
+  if (!value || value.startsWith('127.') || value === '::1') return '';
+  const lookupUrls = [
+    `https://api.ipbot.com/${encodeURIComponent(value)}`,
+    `https://freeipapi.com/api/json/${encodeURIComponent(value)}`,
+    `https://api.iplocation.net/?ip=${encodeURIComponent(value)}`
+  ];
+  let lastError = null;
+  for (const url of lookupUrls) {
+    try {
+      const data = await fetchJson(url);
+      const region = formatIpRegion(data);
+      if (region) return region;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  try {
+    const data = await fetchJson(`http://ip-api.com/json/${encodeURIComponent(value)}?fields=status,country,regionName,city`);
+    return formatIpRegion(data);
+  } catch (error) {
+    console.warn('resolveIpRegion failed', {
+      message: (lastError && lastError.message) || (error && error.message)
+    });
+    return '';
+  }
+}
+
+function detectDeviceLabel(userAgent = '', clientInfo = {}) {
+  const ua = String(userAgent || clientInfo.userAgent || '');
+  const platform = String(clientInfo.platform || '');
+  const os = /iPhone/i.test(ua) ? 'iPhone'
+    : /iPad/i.test(ua) ? 'iPad'
+      : /Android/i.test(ua) ? 'Android'
+        : /Windows/i.test(ua) ? 'Windows'
+          : /Mac OS X|Macintosh/i.test(ua) ? 'macOS'
+            : platform || 'Unknown';
+  const browser = /MicroMessenger/i.test(ua) ? 'WeChat'
+    : /Edg\//i.test(ua) ? 'Edge'
+      : /Chrome|CriOS/i.test(ua) ? 'Chrome'
+        : /Safari/i.test(ua) ? 'Safari'
+          : 'Browser';
+  return `${os} · ${browser}`;
+}
+
+async function buildReviewMeta(rawEvent = {}, clientInfo = {}, includePublicRegion = false) {
+  const headers = extractHeaders(rawEvent);
+  const ip = extractClientIp(rawEvent);
+  const userAgent = normalizeText(clientInfo.userAgent || getHeaderValue(headers, 'user-agent'), MAX_USER_AGENT_LENGTH);
+  const ipRegion = includePublicRegion ? await resolveIpRegion(ip) : '';
+  return {
+    ipMasked: maskIp(ip),
+    ipHash: hashIp(ip),
+    ipRegion,
+    deviceLabel: detectDeviceLabel(userAgent, clientInfo),
+    userAgent,
+    platform: normalizeText(clientInfo.platform, 80),
+    language: normalizeText(clientInfo.language || getHeaderValue(headers, 'accept-language'), 80),
+    timezone: normalizeText(clientInfo.timezone, 80),
+    screen: normalizeText(clientInfo.screen, 40)
+  };
+}
+
+async function normalizeSubmittedReview(review, snapshot, rawEvent = {}, clientInfo = {}) {
   if (!isPlainObject(review)) {
     throw createError('INVALID_REVIEW', 'review must be an object');
   }
@@ -157,6 +468,7 @@ function normalizeSubmittedReview(review, snapshot) {
   if (!rating) {
     throw createError('INVALID_REVIEW_RATING', 'rating must be 1-5');
   }
+  const reviewMeta = await buildReviewMeta(rawEvent, isPlainObject(clientInfo) ? clientInfo : {}, reviewerAuth === 'friend_number');
   const nowTime = Date.now();
   const now = new Date(nowTime).toISOString();
   return {
@@ -171,6 +483,10 @@ function normalizeSubmittedReview(review, snapshot) {
     familiarPlayerName: reviewerAuth === 'friend_number' ? reviewerPerson.name : '',
     reviewerAuth,
     deviceId,
+    ipRegion: reviewerAuth === 'friend_number' ? reviewMeta.ipRegion : '',
+    ipMasked: reviewMeta.ipMasked,
+    deviceLabel: reviewMeta.deviceLabel,
+    reviewMeta,
     deleteUntil: new Date(nowTime + REVIEW_DELETE_WINDOW_MS).toISOString(),
     rating,
     comment: normalizeText(review.comment, MAX_REVIEW_COMMENT_LENGTH),
@@ -178,7 +494,7 @@ function normalizeSubmittedReview(review, snapshot) {
   };
 }
 
-async function submitReview(db, input, context) {
+async function submitReview(db, input, context, rawEvent = {}) {
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
     : DEFAULT_DOC_ID;
@@ -195,7 +511,7 @@ async function submitReview(db, input, context) {
 
   let review;
   try {
-    review = normalizeSubmittedReview(input.review, snapshot);
+    review = await normalizeSubmittedReview(input.review, snapshot, rawEvent, input.clientInfo);
   } catch (error) {
     return {
       ok: false,
@@ -453,7 +769,7 @@ exports.main = async (event = {}, context = {}) => {
   const app = initCloudBaseApp(context);
   const db = app.database();
   if (input.action === 'submitReview') {
-    return submitReview(db, input, context);
+    return submitReview(db, input, context, event);
   }
   if (input.action === 'deleteReview') {
     return deleteReview(db, input, context);

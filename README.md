@@ -54,7 +54,9 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 - 编辑口令只用于阵容管理、上传照片、修改资料和发布云端。
 - 队内评价：仍然需要先解锁编辑口令，评价前选择自己的队内号码，展示为 `#号码`。
 - 朋友评价：不需要编辑口令，适合发给外部朋友参与；评价前输入一位熟悉的老和山球员号码，以及自己的昵称。
-- 朋友评价展示为 `某某的朋友 昵称`，例如输入 `20` 和昵称 `lll`，会显示 `张子冲的朋友 lll`。
+- 朋友评价展示为 `某某的朋友 昵称（IP：粗略属地）`，例如输入 `20` 和昵称 `lll`，会显示类似 `张子冲的朋友 lll（IP：浙江杭州）`。
+- 朋友评价会记录粗略 IP 属地、掩码 IP、设备类型和浏览器信息，用于防乱评和撤回验证；前台不展示完整 IP。
+- IP 属地是第三方查询的尽力结果，查询失败时会省略属地，不影响评价提交。
 - 同一个人可以对同一对象写多条评价，新评价不会覆盖旧评价。
 - 刚提交的评价可以在 10 分钟内用同一台设备撤回，超过时间或换设备后不能撤回。
 
@@ -218,7 +220,11 @@ There are two review modes:
 - Team review: requires the edit password. A team member selects their own squad number, and the review is displayed as `#number`.
 - Friend review: does not require the edit password. A friend enters the number of a Laohe player they know well, their nickname, rating, and optional comment.
 
-Friend reviews are displayed as `Friend of PlayerName Nickname`. For example, entering `20` and `lll` displays `张子冲的朋友 lll`.
+Friend reviews are displayed as `Friend of PlayerName Nickname (IP: rough region)`. For example, entering `20` and `lll` may display `张子冲的朋友 lll（IP：浙江杭州）`.
+
+Friend reviews record rough IP region, masked IP, device type, and browser information for abuse prevention and deletion verification. The full IP is not displayed publicly.
+
+IP region lookup is best effort. If lookup fails, the region is omitted and the review can still be submitted.
 
 Each submission creates a new review. A later review from the same number and nickname does not overwrite earlier comments.
 
