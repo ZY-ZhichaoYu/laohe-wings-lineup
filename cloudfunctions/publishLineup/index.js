@@ -468,7 +468,7 @@ async function normalizeSubmittedReview(review, snapshot, rawEvent = {}, clientI
   if (!rating) {
     throw createError('INVALID_REVIEW_RATING', 'rating must be 1-5');
   }
-  const reviewMeta = await buildReviewMeta(rawEvent, isPlainObject(clientInfo) ? clientInfo : {}, reviewerAuth === 'friend_number');
+  const reviewMeta = await buildReviewMeta(rawEvent, isPlainObject(clientInfo) ? clientInfo : {}, true);
   const nowTime = Date.now();
   const now = new Date(nowTime).toISOString();
   return {
@@ -483,7 +483,7 @@ async function normalizeSubmittedReview(review, snapshot, rawEvent = {}, clientI
     familiarPlayerName: reviewerAuth === 'friend_number' ? reviewerPerson.name : '',
     reviewerAuth,
     deviceId,
-    ipRegion: reviewerAuth === 'friend_number' ? reviewMeta.ipRegion : '',
+    ipRegion: reviewMeta.ipRegion,
     ipMasked: reviewMeta.ipMasked,
     deviceLabel: reviewMeta.deviceLabel,
     reviewMeta,

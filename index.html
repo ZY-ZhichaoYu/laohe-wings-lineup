@@ -1085,9 +1085,26 @@
   }
   .review-form {
     display: grid;
-    grid-template-columns: minmax(160px, 1.2fr) minmax(110px, 0.7fr) minmax(130px, 0.9fr) minmax(90px, 0.6fr) auto;
-    gap: 10px;
-    align-items: center;
+    grid-template-columns: minmax(220px, 1.5fr) minmax(130px, 0.75fr) minmax(170px, 0.95fr) minmax(100px, 0.55fr) minmax(126px, auto);
+    gap: 12px;
+    align-items: end;
+  }
+  .review-field {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+  .review-field label {
+    color: #a3a3a3;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+  .review-field .ctrl-select,
+  .review-field .ctrl-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
   .review-mode-tabs {
     display: flex;
@@ -1128,6 +1145,7 @@
   }
   .review-submit {
     align-self: stretch;
+    min-height: 42px;
   }
   .review-status {
     min-height: 20px;
@@ -1170,7 +1188,7 @@
     background: #101010;
   }
   .review-item-meta {
-    color: #93c5fd;
+    color: #d4d4d4;
     font-size: 12px;
     font-weight: 800;
     margin-bottom: 4px;
@@ -1178,6 +1196,35 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+  }
+  .review-meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 6px;
+    min-width: 0;
+  }
+  .review-meta-id,
+  .review-meta-friend {
+    color: #93c5fd;
+    font-weight: 900;
+  }
+  .review-meta-nickname {
+    color: #bbf7d0;
+    font-weight: 900;
+  }
+  .review-meta-score {
+    color: #facc15;
+  }
+  .review-meta-time {
+    color: #c4b5fd;
+  }
+  .review-meta-ip {
+    color: #fdba74;
+  }
+  .review-meta-dot {
+    color: #737373;
+    font-weight: 700;
   }
   .review-item-comment {
     color: #ddd;
@@ -1423,11 +1470,13 @@
     .review-form {
       grid-template-columns: 1fr 1fr;
     }
+    .review-submit {
+      grid-column: 1 / -1;
+    }
     .review-comment {
       grid-column: 1 / -1;
     }
     .review-submit {
-      grid-column: 1 / -1;
       min-height: 42px;
     }
   }
@@ -1682,16 +1731,28 @@
     </div>
     <div class="review-mode-note" id="review-mode-note"></div>
     <div class="review-form">
-      <select class="ctrl-select" id="review-target-select" aria-label="选择被评价球员"></select>
-      <input class="ctrl-input" id="reviewer-num-input" type="number" min="1" step="1" inputmode="numeric" placeholder="熟悉球员号">
-      <input class="ctrl-input" id="reviewer-name-input" type="text" maxlength="18" inputmode="text" autocomplete="nickname" placeholder="你的昵称">
-      <select class="ctrl-select" id="review-rating-select" aria-label="评分">
-        <option value="5">5 分</option>
-        <option value="4">4 分</option>
-        <option value="3">3 分</option>
-        <option value="2">2 分</option>
-        <option value="1">1 分</option>
-      </select>
+      <div class="review-field review-target-field">
+        <label for="review-target-select">评价的球员</label>
+        <select class="ctrl-select" id="review-target-select" aria-label="选择被评价球员"></select>
+      </div>
+      <div class="review-field">
+        <label for="reviewer-num-input" id="reviewer-num-label">熟悉球员号码</label>
+        <input class="ctrl-input" id="reviewer-num-input" type="number" min="1" step="1" inputmode="numeric" placeholder="如 20">
+      </div>
+      <div class="review-field" id="reviewer-name-field">
+        <label for="reviewer-name-input" id="reviewer-name-label">昵称 / 微信昵称</label>
+        <input class="ctrl-input" id="reviewer-name-input" type="text" maxlength="18" inputmode="text" autocomplete="nickname" placeholder="如 Arjen">
+      </div>
+      <div class="review-field review-rating-field">
+        <label for="review-rating-select">分数</label>
+        <select class="ctrl-select" id="review-rating-select" aria-label="评分">
+          <option value="5">5 分</option>
+          <option value="4">4 分</option>
+          <option value="3">3 分</option>
+          <option value="2">2 分</option>
+          <option value="1">1 分</option>
+        </select>
+      </div>
       <button class="ctrl-btn export review-submit" id="review-submit-btn" type="button">提交评价</button>
       <textarea class="ctrl-input review-comment" id="review-comment-input" maxlength="180" placeholder="写一句评价（可选）"></textarea>
     </div>
@@ -1960,6 +2021,8 @@ const reviewModeTeamBtn = document.getElementById('review-mode-team-btn');
 const reviewModeFriendBtn = document.getElementById('review-mode-friend-btn');
 const reviewModeNote = document.getElementById('review-mode-note');
 const reviewerNumInput = document.getElementById('reviewer-num-input');
+const reviewerNumLabel = document.getElementById('reviewer-num-label');
+const reviewerNameField = document.getElementById('reviewer-name-field');
 const reviewerNameInput = document.getElementById('reviewer-name-input');
 const reviewRatingSelect = document.getElementById('review-rating-select');
 const reviewCommentInput = document.getElementById('review-comment-input');
@@ -3615,6 +3678,36 @@ function getReviewAttribution(review = {}) {
   return normalized.reviewerNum ? `#${normalized.reviewerNum}` : '匿名朋友';
 }
 
+function getReviewIpRegion(review = {}) {
+  const region = String(review.ipRegion || review.reviewMeta?.ipRegion || '').trim();
+  return region;
+}
+
+function getReviewMetaHtml(review = {}) {
+  const normalized = normalizeReview(review);
+  if (!normalized) return '<span class="review-meta-id">匿名评价</span>';
+  const parts = [];
+  if (normalized.reviewerAuth === 'team_edit') {
+    parts.push(`<span class="review-meta-id">${escapeHtml(normalized.reviewerNum ? `#${normalized.reviewerNum}` : '队内成员')}</span>`);
+  } else {
+    const friendLabel = normalized.familiarPlayerName ? `${normalized.familiarPlayerName}的朋友` : '朋友评价';
+    parts.push(`<span class="review-meta-friend">${escapeHtml(friendLabel)}</span>`);
+    if (normalized.reviewerName) {
+      parts.push(`<span class="review-meta-nickname">${escapeHtml(normalized.reviewerName)}</span>`);
+    }
+  }
+  parts.push(`<span class="review-meta-score">${escapeHtml(normalized.rating)} 分</span>`);
+  const time = formatReviewTime(normalized.createdAt);
+  if (time) {
+    parts.push(`<span class="review-meta-time">${escapeHtml(time)}</span>`);
+  }
+  const region = getReviewIpRegion(normalized);
+  if (region) {
+    parts.push(`<span class="review-meta-ip">IP：${escapeHtml(region)}</span>`);
+  }
+  return parts.join('<span class="review-meta-dot">·</span>');
+}
+
 function canDeleteReview(review = {}) {
   const normalized = normalizeReview(review);
   if (!normalized?.id || !normalized.deviceId) return false;
@@ -3734,7 +3827,7 @@ function renderReviewTool() {
         ${reviews.length ? reviews.slice(0, 8).map(review => `
           <div class="review-item">
             <div class="review-item-meta">
-              <span>${escapeHtml(getReviewAttribution(review))} · ${escapeHtml(review.rating)} 分${formatReviewTime(review.createdAt) ? ` · ${escapeHtml(formatReviewTime(review.createdAt))}` : ''}</span>
+              <span class="review-meta-line">${getReviewMetaHtml(review)}</span>
               ${canDeleteReview(review) ? `<button class="review-delete-btn" type="button" data-action="delete-review" data-review-id="${escapeAttr(review.id)}">撤回</button>` : ''}
             </div>
             <div class="review-item-comment">${escapeHtml(review.comment || '没有写文字评价。')}</div>
@@ -3747,10 +3840,12 @@ function renderReviewTool() {
   reviewModeFriendBtn?.classList.toggle('is-active', !isTeamMode);
   if (reviewModeNote) {
     reviewModeNote.textContent = isTeamMode
-      ? '队内评价：需要先解锁编辑口令，评价人显示为自己的号码。'
-      : '朋友评价：无需编辑口令，填熟悉球员号码和昵称；提交会记录粗略 IP 属地和设备类型，用于防乱评。';
+      ? '队内评价字段：评价的球员 / 你的号码 / 分数。需要先解锁编辑口令，评价人显示为自己的号码。'
+      : '朋友评价字段：评价的球员 / 熟悉球员号码 / 昵称或微信昵称 / 分数。提交会记录粗略 IP 属地和设备类型，用于防乱评。';
   }
-  if (reviewerNumInput) reviewerNumInput.placeholder = isTeamMode ? '你的队内号码' : '熟悉球员号';
+  if (reviewerNumLabel) reviewerNumLabel.textContent = isTeamMode ? '你的号码' : '熟悉球员号码';
+  if (reviewerNumInput) reviewerNumInput.placeholder = isTeamMode ? '如 5' : '如 20';
+  if (reviewerNameField) reviewerNameField.hidden = isTeamMode;
   if (reviewerNameInput) {
     reviewerNameInput.hidden = isTeamMode;
     reviewerNameInput.disabled = isTeamMode || !target;
