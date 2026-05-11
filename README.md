@@ -17,7 +17,7 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 - 首发、替补、教练与领队、绝版人物卡片展示。
 - 首发替换支持替补、教练和绝版人物；支持下拉换人和拖拽换人。
 - 随机抽卡，包含首发、替补、教练、领队、绝版人物，以及隐藏 `UNBELIEVABLE` 彩蛋卡。
-- 球员评价：无需编辑口令，输入一位熟悉的老和山球员号码和自己的昵称后，可给球员、教练、领队和绝版人物打分留言。
+- 球员评价：队内评价需要解锁编辑口令；队外朋友可用“熟悉球员号 + 昵称”提交朋友评价。
 - 海报文字、球员资料、照片、队徽在线编辑。
 - PNG 海报导出，手机端会打开图片预览页，可长按保存；云端照片会先经过导出安全处理。
 - CloudBase 同步当前阵容：一人发布后，其他人刷新或实时监听后可看到同一版本。
@@ -52,10 +52,11 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 评价权限和编辑权限已拆开：
 
 - 编辑口令只用于阵容管理、上传照片、修改资料和发布云端。
-- 评价不需要编辑口令，适合发给队友或外部朋友参与。
-- 评价前需要输入一位熟悉的老和山球员号码，以及自己的昵称。
-- 展示时会显示为 `某某的朋友 昵称`，例如输入 `20` 和昵称 `lll`，会显示 `张子冲的朋友 lll`。
+- 队内评价：仍然需要先解锁编辑口令，评价前选择自己的队内号码，展示为 `#号码`。
+- 朋友评价：不需要编辑口令，适合发给外部朋友参与；评价前输入一位熟悉的老和山球员号码，以及自己的昵称。
+- 朋友评价展示为 `某某的朋友 昵称`，例如输入 `20` 和昵称 `lll`，会显示 `张子冲的朋友 lll`。
 - 同一个人可以对同一对象写多条评价，新评价不会覆盖旧评价。
+- 刚提交的评价可以在 10 分钟内用同一台设备撤回，超过时间或换设备后不能撤回。
 
 ## 数据同步说明
 
@@ -66,7 +67,7 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 
 在 CloudBase 正式地址打开时，页面会优先读取 `lineups/current`。编辑模式下修改后点击 `发布到云端`，其他人刷新页面即可看到新阵容。
 
-评价也保存在同一个 `lineups/current` 快照里，字段为 `reviewsData`。每次提交都会新增一条评价，不再按号码覆盖旧评价。普通评价提交会通过 `publishLineup` 云函数只更新评价字段，不授予阵容编辑权限。
+评价也保存在同一个 `lineups/current` 快照里，字段为 `reviewsData`。每次提交都会新增一条评价，不再按号码覆盖旧评价。朋友评价和评价撤回会通过 `publishLineup` 云函数只更新评价字段，不授予阵容编辑权限。
 
 GitHub Pages 备用地址不连接 CloudBase 写入能力，主要用于静态备份和海外访问。
 
@@ -199,34 +200,35 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 - Starting XI, bench, coach, manager, and Hall of Fame cards.
 - Drag-and-drop or dropdown substitutions, including bench players, coach, and Hall of Fame members.
 - Random card draw, including a hidden `UNBELIEVABLE` special card.
-- Player reviews for players, coach, manager, and Hall of Fame members.
+- Player reviews for players, coach, manager, and Hall of Fame members, with separate team-member and friend review modes.
 - Online editing for poster text, player data, photos, and team logos.
 - PNG poster export. On mobile, the app opens a preview image so users can long-press and save.
 - CloudBase sync for the current lineup and shared uploaded photos.
 
 ### Read-Only And Edit Modes
 
-The app opens in read-only mode by default. Visitors can view the lineup, switch formations, switch kits, draw random cards, export the poster, and submit reviews.
+The app opens in read-only mode by default. Visitors can view the lineup, switch formations, switch kits, draw random cards, export the poster, and submit friend reviews.
 
 The edit password is only for management tasks: changing the lineup, uploading photos, editing player data, and publishing the shared lineup to CloudBase.
 
 ### Review Access
 
-Reviews no longer require the edit password. A reviewer enters:
+There are two review modes:
 
-- the number of a Laohe player they know well;
-- their nickname;
-- rating and optional comment.
+- Team review: requires the edit password. A team member selects their own squad number, and the review is displayed as `#number`.
+- Friend review: does not require the edit password. A friend enters the number of a Laohe player they know well, their nickname, rating, and optional comment.
 
-The review is displayed as `Friend of PlayerName Nickname`. For example, entering `20` and `lll` displays `张子冲的朋友 lll`.
+Friend reviews are displayed as `Friend of PlayerName Nickname`. For example, entering `20` and `lll` displays `张子冲的朋友 lll`.
 
 Each submission creates a new review. A later review from the same number and nickname does not overwrite earlier comments.
+
+A newly submitted review can be deleted from the same browser/device within 10 minutes. After the window expires, or on another device, the delete button is not available.
 
 ### Data Sync
 
 CloudBase document `lineups/current` is the shared source of truth. Browser `localStorage` is only used for personal drafts, presets, and local fallback.
 
-Reviews are stored in `reviewsData` inside the same shared snapshot. Public review submissions go through the `publishLineup` CloudBase function and only update the review list; they do not grant lineup editing rights.
+Reviews are stored in `reviewsData` inside the same shared snapshot. Public friend review submissions and review deletion go through the `publishLineup` CloudBase function and only update the review list; they do not grant lineup editing rights.
 
 ### Deployment Notes
 

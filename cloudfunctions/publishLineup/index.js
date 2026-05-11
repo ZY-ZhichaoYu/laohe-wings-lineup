@@ -8,6 +8,8 @@ const MAX_PROXY_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REVIEWS = 800;
 const MAX_REVIEW_COMMENT_LENGTH = 180;
 const MAX_REVIEWER_NAME_LENGTH = 18;
+const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
+const MAX_DEVICE_ID_LENGTH = 96;
 
 function initCloudBaseApp(context) {
   try {
@@ -134,23 +136,29 @@ function normalizeSubmittedReview(review, snapshot) {
     throw createError('INVALID_REVIEW_TARGET', 'review target is not in the current lineup');
   }
 
-  const reviewerNum = String(review.familiarPlayerNum ?? review.reviewerNum ?? '').trim();
+  const reviewerAuth = review.reviewerAuth === 'team_edit' ? 'team_edit' : 'friend_number';
+  const reviewerNum = String(review.reviewerNum ?? review.familiarPlayerNum ?? '').trim();
   if (!/^\d{1,3}$/.test(reviewerNum)) {
-    throw createError('INVALID_REVIEWER_NUM', 'familiar player number is required');
+    throw createError('INVALID_REVIEWER_NUM', 'reviewer player number is required');
   }
-  const familiarPerson = findFamiliarPerson(snapshot, reviewerNum);
-  if (!familiarPerson) {
-    throw createError('UNKNOWN_REVIEWER_NUM', 'familiar player number is not in the current roster');
+  const reviewerPerson = findFamiliarPerson(snapshot, reviewerNum);
+  if (!reviewerPerson) {
+    throw createError('UNKNOWN_REVIEWER_NUM', 'reviewer player number is not in the current roster');
   }
-  const reviewerName = normalizeText(review.reviewerName, MAX_REVIEWER_NAME_LENGTH);
-  if (!reviewerName) {
+  const reviewerName = reviewerAuth === 'team_edit' ? '' : normalizeText(review.reviewerName, MAX_REVIEWER_NAME_LENGTH);
+  if (reviewerAuth === 'friend_number' && !reviewerName) {
     throw createError('INVALID_REVIEWER_NAME', 'reviewer nickname is required');
+  }
+  const deviceId = normalizeText(review.deviceId, MAX_DEVICE_ID_LENGTH);
+  if (!deviceId) {
+    throw createError('INVALID_DEVICE_ID', 'deviceId is required');
   }
   const rating = Math.min(5, Math.max(1, Number.parseInt(review.rating, 10) || 0));
   if (!rating) {
     throw createError('INVALID_REVIEW_RATING', 'rating must be 1-5');
   }
-  const now = new Date().toISOString();
+  const nowTime = Date.now();
+  const now = new Date(nowTime).toISOString();
   return {
     id: `review:${now}:${Math.random().toString(36).slice(2, 10)}`,
     targetKey: target.reviewKey,
@@ -159,9 +167,11 @@ function normalizeSubmittedReview(review, snapshot) {
     targetType: target.reviewType,
     reviewerNum,
     reviewerName,
-    familiarPlayerNum: reviewerNum,
-    familiarPlayerName: familiarPerson.name,
-    reviewerAuth: 'friend_number',
+    familiarPlayerNum: reviewerAuth === 'friend_number' ? reviewerNum : '',
+    familiarPlayerName: reviewerAuth === 'friend_number' ? reviewerPerson.name : '',
+    reviewerAuth,
+    deviceId,
+    deleteUntil: new Date(nowTime + REVIEW_DELETE_WINDOW_MS).toISOString(),
     rating,
     comment: normalizeText(review.comment, MAX_REVIEW_COMMENT_LENGTH),
     createdAt: now
@@ -226,6 +236,95 @@ async function submitReview(db, input, context) {
     };
   } catch (error) {
     console.error('submitReview failed', {
+      code: error && error.code,
+      message: error && error.message,
+      requestId: error && error.requestId
+    });
+    return {
+      ok: false,
+      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
+      message: error && error.message ? error.message : String(error),
+      requestId: error && error.requestId ? error.requestId : ''
+    };
+  }
+}
+
+async function deleteReview(db, input, context) {
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
+    : DEFAULT_DOC_ID;
+  const reviewId = String(input.reviewId || '').trim();
+  const deviceId = normalizeText(input.deviceId, MAX_DEVICE_ID_LENGTH);
+  if (!reviewId || !deviceId) {
+    return {
+      ok: false,
+      code: 'INVALID_DELETE_REQUEST',
+      message: 'reviewId and deviceId are required'
+    };
+  }
+
+  const docRef = db.collection(COLLECTION).doc(docId);
+  const record = extractDatabaseRecord(await docRef.get());
+  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
+  if (!snapshot) {
+    return {
+      ok: false,
+      code: 'SNAPSHOT_NOT_FOUND',
+      message: 'current lineup snapshot was not found'
+    };
+  }
+  const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+  const review = reviews.find(item => item && item.id === reviewId);
+  if (!review) {
+    return {
+      ok: false,
+      code: 'REVIEW_NOT_FOUND',
+      message: 'review was not found'
+    };
+  }
+  if (String(review.deviceId || '') !== deviceId) {
+    return {
+      ok: false,
+      code: 'DELETE_FORBIDDEN',
+      message: 'only the original device can delete this review'
+    };
+  }
+  const createdAt = new Date(review.createdAt || 0).getTime();
+  const deleteUntil = new Date(review.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
+  if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
+    return {
+      ok: false,
+      code: 'DELETE_EXPIRED',
+      message: 'review delete window has expired'
+    };
+  }
+
+  snapshot.reviewsData = reviews.filter(item => !item || item.id !== reviewId).slice(0, MAX_REVIEWS);
+  const now = new Date();
+  const auth = context.auth || context.userInfo || {};
+  const updatedBy = auth.uid || auth.openId || auth.openid || 'review-delete-web';
+
+  try {
+    await docRef.set({
+      snapshot,
+      schemaVersion: record.schemaVersion || 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy,
+      clientUpdatedAt: input.clientUpdatedAt || ''
+    });
+    console.log('deleteReview saved', {
+      docId,
+      reviewId
+    });
+    return {
+      ok: true,
+      docId,
+      reviewId,
+      updatedAt: now.toISOString()
+    };
+  } catch (error) {
+    console.error('deleteReview failed', {
       code: error && error.code,
       message: error && error.message,
       requestId: error && error.requestId
@@ -355,6 +454,9 @@ exports.main = async (event = {}, context = {}) => {
   const db = app.database();
   if (input.action === 'submitReview') {
     return submitReview(db, input, context);
+  }
+  if (input.action === 'deleteReview') {
+    return deleteReview(db, input, context);
   }
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
