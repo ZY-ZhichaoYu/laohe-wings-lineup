@@ -58,6 +58,7 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 - 评价会记录粗略 IP 属地、掩码 IP、设备类型和浏览器信息，用于防乱评和撤回验证；前台不展示完整 IP。
 - IP 属地是第三方查询的尽力结果，查询失败时会省略属地，不影响评价提交。
 - 同一个人可以对同一对象写多条评价，新评价不会覆盖旧评价。
+- 评价和回复都支持上传一张图片；在线版会先上传到 CloudBase 云存储，再把 `fileID` 引用保存到评价数据里。
 - 刚提交的评价可以在 10 分钟内用同一台设备撤回，超过时间或换设备后不能撤回。
 
 ## 数据同步说明
@@ -69,7 +70,7 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 
 在 CloudBase 正式地址打开时，页面会优先读取 `lineups/current`。编辑模式下修改后点击 `发布到云端`，其他人刷新页面即可看到新阵容。
 
-评价也保存在同一个 `lineups/current` 快照里，字段为 `reviewsData`。每次提交都会新增一条评价，不再按号码覆盖旧评价。朋友评价和评价撤回会通过 `publishLineup` 云函数只更新评价字段，不授予阵容编辑权限。
+评价也保存在同一个 `lineups/current` 快照里，字段为 `reviewsData`。每次提交都会新增一条评价，不再按号码覆盖旧评价。朋友评价、评价回复和评价撤回会通过 `publishLineup` 云函数只更新评价字段，不授予阵容编辑权限。
 
 GitHub Pages 备用地址不连接 CloudBase 写入能力，主要用于静态备份和海外访问。
 
@@ -228,13 +229,15 @@ IP region lookup is best effort. If lookup fails, the region is omitted and the 
 
 Each submission creates a new review. A later review from the same number and nickname does not overwrite earlier comments.
 
+Reviews and replies support one image attachment. On the CloudBase-hosted app, images are uploaded to CloudBase Storage and the saved review keeps the storage `fileID` reference.
+
 A newly submitted review can be deleted from the same browser/device within 10 minutes. After the window expires, or on another device, the delete button is not available.
 
 ### Data Sync
 
 CloudBase document `lineups/current` is the shared source of truth. Browser `localStorage` is only used for personal drafts, presets, and local fallback.
 
-Reviews are stored in `reviewsData` inside the same shared snapshot. Public friend review submissions and review deletion go through the `publishLineup` CloudBase function and only update the review list; they do not grant lineup editing rights.
+Reviews are stored in `reviewsData` inside the same shared snapshot. Public friend review submissions, review replies, and review deletion go through the `publishLineup` CloudBase function and only update the review list; they do not grant lineup editing rights.
 
 ### Deployment Notes
 

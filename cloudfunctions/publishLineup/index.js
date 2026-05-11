@@ -8,7 +8,11 @@ const DEFAULT_DOC_ID = 'current';
 const MAX_PROXY_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_REVIEWS = 800;
 const MAX_REVIEW_COMMENT_LENGTH = 180;
+const MAX_REVIEW_REPLY_LENGTH = 180;
 const MAX_REVIEWER_NAME_LENGTH = 18;
+const MAX_REVIEW_ATTACHMENTS = 3;
+const MAX_REVIEW_REPLIES = 80;
+const MAX_REVIEW_ATTACHMENT_SRC_LENGTH = 4000;
 const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 96;
 const MAX_USER_AGENT_LENGTH = 240;
@@ -434,6 +438,58 @@ async function buildReviewMeta(rawEvent = {}, clientInfo = {}, includePublicRegi
   };
 }
 
+function normalizeReviewAttachment(attachment = {}) {
+  const source = typeof attachment === 'string' ? attachment : attachment.src;
+  const src = normalizeText(source, MAX_REVIEW_ATTACHMENT_SRC_LENGTH);
+  if (!src) return null;
+  return {
+    type: 'image',
+    src,
+    name: normalizeText(attachment.name, 80)
+  };
+}
+
+function normalizeReviewAttachments(attachments = []) {
+  if (!Array.isArray(attachments)) return [];
+  return attachments
+    .map(normalizeReviewAttachment)
+    .filter(Boolean)
+    .slice(0, MAX_REVIEW_ATTACHMENTS);
+}
+
+async function normalizeSubmittedReviewIdentity(input, snapshot, rawEvent = {}, clientInfo = {}) {
+  const reviewerAuth = input.reviewerAuth === 'team_edit' ? 'team_edit' : 'friend_number';
+  const reviewerNum = String(input.reviewerNum ?? input.familiarPlayerNum ?? '').trim();
+  if (!/^\d{1,3}$/.test(reviewerNum)) {
+    throw createError('INVALID_REVIEWER_NUM', 'reviewer player number is required');
+  }
+  const reviewerPerson = findFamiliarPerson(snapshot, reviewerNum);
+  if (!reviewerPerson) {
+    throw createError('UNKNOWN_REVIEWER_NUM', 'reviewer player number is not in the current roster');
+  }
+  const reviewerName = reviewerAuth === 'team_edit' ? '' : normalizeText(input.reviewerName, MAX_REVIEWER_NAME_LENGTH);
+  if (reviewerAuth === 'friend_number' && !reviewerName) {
+    throw createError('INVALID_REVIEWER_NAME', 'reviewer nickname is required');
+  }
+  const deviceId = normalizeText(input.deviceId, MAX_DEVICE_ID_LENGTH);
+  if (!deviceId) {
+    throw createError('INVALID_DEVICE_ID', 'deviceId is required');
+  }
+  const reviewMeta = await buildReviewMeta(rawEvent, isPlainObject(clientInfo) ? clientInfo : {}, true);
+  return {
+    reviewerNum,
+    reviewerName,
+    familiarPlayerNum: reviewerAuth === 'friend_number' ? reviewerNum : '',
+    familiarPlayerName: reviewerAuth === 'friend_number' ? reviewerPerson.name : '',
+    reviewerAuth,
+    deviceId,
+    ipRegion: reviewMeta.ipRegion,
+    ipMasked: reviewMeta.ipMasked,
+    deviceLabel: reviewMeta.deviceLabel,
+    reviewMeta
+  };
+}
+
 async function normalizeSubmittedReview(review, snapshot, rawEvent = {}, clientInfo = {}) {
   if (!isPlainObject(review)) {
     throw createError('INVALID_REVIEW', 'review must be an object');
@@ -447,28 +503,11 @@ async function normalizeSubmittedReview(review, snapshot, rawEvent = {}, clientI
     throw createError('INVALID_REVIEW_TARGET', 'review target is not in the current lineup');
   }
 
-  const reviewerAuth = review.reviewerAuth === 'team_edit' ? 'team_edit' : 'friend_number';
-  const reviewerNum = String(review.reviewerNum ?? review.familiarPlayerNum ?? '').trim();
-  if (!/^\d{1,3}$/.test(reviewerNum)) {
-    throw createError('INVALID_REVIEWER_NUM', 'reviewer player number is required');
-  }
-  const reviewerPerson = findFamiliarPerson(snapshot, reviewerNum);
-  if (!reviewerPerson) {
-    throw createError('UNKNOWN_REVIEWER_NUM', 'reviewer player number is not in the current roster');
-  }
-  const reviewerName = reviewerAuth === 'team_edit' ? '' : normalizeText(review.reviewerName, MAX_REVIEWER_NAME_LENGTH);
-  if (reviewerAuth === 'friend_number' && !reviewerName) {
-    throw createError('INVALID_REVIEWER_NAME', 'reviewer nickname is required');
-  }
-  const deviceId = normalizeText(review.deviceId, MAX_DEVICE_ID_LENGTH);
-  if (!deviceId) {
-    throw createError('INVALID_DEVICE_ID', 'deviceId is required');
-  }
+  const identity = await normalizeSubmittedReviewIdentity(review, snapshot, rawEvent, clientInfo);
   const rating = Math.min(5, Math.max(1, Number.parseInt(review.rating, 10) || 0));
   if (!rating) {
     throw createError('INVALID_REVIEW_RATING', 'rating must be 1-5');
   }
-  const reviewMeta = await buildReviewMeta(rawEvent, isPlainObject(clientInfo) ? clientInfo : {}, true);
   const nowTime = Date.now();
   const now = new Date(nowTime).toISOString();
   return {
@@ -477,20 +516,32 @@ async function normalizeSubmittedReview(review, snapshot, rawEvent = {}, clientI
     targetNum: String(target.num),
     targetName: target.name,
     targetType: target.reviewType,
-    reviewerNum,
-    reviewerName,
-    familiarPlayerNum: reviewerAuth === 'friend_number' ? reviewerNum : '',
-    familiarPlayerName: reviewerAuth === 'friend_number' ? reviewerPerson.name : '',
-    reviewerAuth,
-    deviceId,
-    ipRegion: reviewMeta.ipRegion,
-    ipMasked: reviewMeta.ipMasked,
-    deviceLabel: reviewMeta.deviceLabel,
-    reviewMeta,
+    ...identity,
     deleteUntil: new Date(nowTime + REVIEW_DELETE_WINDOW_MS).toISOString(),
     rating,
     comment: normalizeText(review.comment, MAX_REVIEW_COMMENT_LENGTH),
+    attachments: normalizeReviewAttachments(review.attachments),
+    replies: [],
     createdAt: now
+  };
+}
+
+async function normalizeSubmittedReviewReply(reply, snapshot, rawEvent = {}, clientInfo = {}) {
+  if (!isPlainObject(reply)) {
+    throw createError('INVALID_REPLY', 'reply must be an object');
+  }
+  const identity = await normalizeSubmittedReviewIdentity(reply, snapshot, rawEvent, clientInfo);
+  const comment = normalizeText(reply.comment, MAX_REVIEW_REPLY_LENGTH);
+  const attachments = normalizeReviewAttachments(reply.attachments);
+  if (!comment && !attachments.length) {
+    throw createError('EMPTY_REPLY', 'reply text or image is required');
+  }
+  return {
+    id: `reply:${new Date().toISOString()}:${Math.random().toString(36).slice(2, 10)}`,
+    ...identity,
+    comment,
+    attachments,
+    createdAt: new Date().toISOString()
   };
 }
 
@@ -552,6 +603,101 @@ async function submitReview(db, input, context, rawEvent = {}) {
     };
   } catch (error) {
     console.error('submitReview failed', {
+      code: error && error.code,
+      message: error && error.message,
+      requestId: error && error.requestId
+    });
+    return {
+      ok: false,
+      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
+      message: error && error.message ? error.message : String(error),
+      requestId: error && error.requestId ? error.requestId : ''
+    };
+  }
+}
+
+async function replyReview(db, input, context, rawEvent = {}) {
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
+    : DEFAULT_DOC_ID;
+  const reviewId = String(input.reviewId || '').trim();
+  if (!reviewId) {
+    return {
+      ok: false,
+      code: 'INVALID_REPLY_REQUEST',
+      message: 'reviewId is required'
+    };
+  }
+
+  const docRef = db.collection(COLLECTION).doc(docId);
+  const record = extractDatabaseRecord(await docRef.get());
+  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
+  if (!snapshot) {
+    return {
+      ok: false,
+      code: 'SNAPSHOT_NOT_FOUND',
+      message: 'current lineup snapshot was not found'
+    };
+  }
+  const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+  const index = reviews.findIndex(item => item && item.id === reviewId);
+  if (index < 0) {
+    return {
+      ok: false,
+      code: 'REVIEW_NOT_FOUND',
+      message: 'review was not found'
+    };
+  }
+
+  let reply;
+  try {
+    reply = await normalizeSubmittedReviewReply(input.reply, snapshot, rawEvent, input.clientInfo);
+  } catch (error) {
+    return {
+      ok: false,
+      code: error.code || 'INVALID_REPLY',
+      message: error.message || String(error)
+    };
+  }
+
+  const review = isPlainObject(reviews[index]) ? reviews[index] : {};
+  const existingReplies = Array.isArray(review.replies) ? review.replies : [];
+  reviews[index] = {
+    ...review,
+    replies: [
+      ...existingReplies.filter(item => !item || item.id !== reply.id),
+      reply
+    ].slice(-MAX_REVIEW_REPLIES)
+  };
+  snapshot.reviewsData = reviews.slice(0, MAX_REVIEWS);
+
+  const now = new Date();
+  const auth = context.auth || context.userInfo || {};
+  const updatedBy = auth.uid || auth.openId || auth.openid || 'review-reply-web';
+
+  try {
+    await docRef.set({
+      snapshot,
+      schemaVersion: record.schemaVersion || 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy,
+      clientUpdatedAt: input.clientUpdatedAt || ''
+    });
+    console.log('replyReview saved', {
+      docId,
+      reviewId,
+      reviewerNum: reply.reviewerNum
+    });
+    return {
+      ok: true,
+      docId,
+      reviewId,
+      reply,
+      updatedAt: now.toISOString()
+    };
+  } catch (error) {
+    console.error('replyReview failed', {
       code: error && error.code,
       message: error && error.message,
       requestId: error && error.requestId
@@ -770,6 +916,9 @@ exports.main = async (event = {}, context = {}) => {
   const db = app.database();
   if (input.action === 'submitReview') {
     return submitReview(db, input, context, event);
+  }
+  if (input.action === 'replyReview') {
+    return replyReview(db, input, context, event);
   }
   if (input.action === 'deleteReview') {
     return deleteReview(db, input, context);

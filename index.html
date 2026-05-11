@@ -1085,7 +1085,7 @@
   }
   .review-form {
     display: grid;
-    grid-template-columns: minmax(220px, 1.5fr) minmax(130px, 0.75fr) minmax(170px, 0.95fr) minmax(100px, 0.55fr) minmax(126px, auto);
+    grid-template-columns: minmax(220px, 1.5fr) minmax(130px, 0.75fr) minmax(170px, 0.95fr) minmax(126px, auto);
     gap: 12px;
     align-items: end;
   }
@@ -1105,6 +1105,10 @@
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
+  }
+  .review-field[hidden],
+  .review-field.is-hidden {
+    display: none !important;
   }
   .review-mode-tabs {
     display: flex;
@@ -1138,14 +1142,31 @@
     line-height: 1.45;
   }
   .review-comment {
-    grid-column: 1 / -2;
+    grid-column: 1 / 4;
     min-height: 64px;
     resize: vertical;
     line-height: 1.45;
   }
   .review-submit {
+    grid-column: 4;
     align-self: stretch;
     min-height: 42px;
+  }
+  .review-attachment-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: #a3a3a3;
+    font-size: 12px;
+  }
+  .review-attachment-bar .ctrl-btn {
+    padding: 7px 10px;
+    min-height: 34px;
+  }
+  .review-attachment-bar [hidden] {
+    display: none !important;
   }
   .review-status {
     min-height: 20px;
@@ -1231,6 +1252,54 @@
     font-size: 13px;
     line-height: 1.5;
     word-break: break-word;
+  }
+  .review-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .review-attachment-img {
+    width: 92px;
+    height: 92px;
+    object-fit: cover;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #0f0f0f;
+  }
+  .review-replies {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 2px solid #2f2f2f;
+  }
+  .review-reply {
+    padding: 7px 8px;
+    border: 1px solid #262626;
+    border-radius: 6px;
+    background: #141414;
+  }
+  .review-reply-meta {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+  .review-reply-form {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto auto;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .review-reply-form .ctrl-btn {
+    min-height: 34px;
+    padding: 7px 10px;
+  }
+  .review-reply-image-status {
+    grid-column: 1 / -1;
+    color: #a3a3a3;
+    font-size: 11px;
+    min-height: 14px;
   }
   .review-delete-btn {
     flex: 0 0 auto;
@@ -1476,8 +1545,14 @@
     .review-comment {
       grid-column: 1 / -1;
     }
+    .review-attachment-bar {
+      grid-column: 1 / -1;
+    }
     .review-submit {
       min-height: 42px;
+    }
+    .review-reply-form {
+      grid-template-columns: 1fr;
     }
   }
 
@@ -1753,8 +1828,13 @@
           <option value="1">1 分</option>
         </select>
       </div>
-      <button class="ctrl-btn export review-submit" id="review-submit-btn" type="button">提交评价</button>
       <textarea class="ctrl-input review-comment" id="review-comment-input" maxlength="180" placeholder="写一句评价（可选）"></textarea>
+      <button class="ctrl-btn export review-submit" id="review-submit-btn" type="button">提交评价</button>
+      <div class="review-attachment-bar">
+        <button class="ctrl-btn" id="review-image-btn" type="button">添加图片</button>
+        <button class="ctrl-btn" id="review-image-clear-btn" type="button" hidden>移除图片</button>
+        <span id="review-image-status">可选：上传一张评价图片。</span>
+      </div>
     </div>
     <div class="review-status" id="review-status"></div>
     <div class="review-summary" id="review-summary"></div>
@@ -1798,8 +1878,8 @@ const EXTRA_DRAW_CARDS = [
     pos: 'ST',
     role: '航院大前锋 · 抽象',
     cardType: 'unbelievable',
-    avatarHome: 'assets/special/wang-boqiao.jpg',
-    avatarAway: 'assets/special/wang-boqiao.jpg',
+    avatarHome: 'assets/special/wang-boqiao.jpg?v=20260512',
+    avatarAway: 'assets/special/wang-boqiao.jpg?v=20260512',
     stats: { goals: 0, assists: 0, appearances: 0 },
     status: 'fit',
     intro: '航院重量级人物，人送外号“抽象”。禁区里不一定每次都按常规物理运行，但只要他起脚，所有人都会先暂停半秒，确认这球到底算射门、传球，还是一次大型空气动力学实验。'
@@ -1967,6 +2047,8 @@ let currentDrawnPlayer = null;
 let currentExportObjectUrl = '';
 let editUnlocked = sessionStorage.getItem(EDIT_SESSION_KEY) === 'true';
 let currentReviewMode = localStorage.getItem(STORAGE_KEYS.reviewMode) || REVIEW_MODE_FRIEND;
+let pendingReviewAttachmentFile = null;
+const pendingReplyAttachmentFiles = new Map();
 const cloudImageUrlCache = new Map();
 const cloudImageFileIdByUrl = new Map();
 const pendingCloudImageRefreshes = new Set();
@@ -2017,6 +2099,7 @@ const managerClearBtn = document.getElementById('manager-clear-btn');
 const randomDrawBtn = document.getElementById('random-draw-btn');
 const drawCard = document.getElementById('draw-card');
 const reviewTargetSelect = document.getElementById('review-target-select');
+const reviewForm = document.querySelector('.review-form');
 const reviewModeTeamBtn = document.getElementById('review-mode-team-btn');
 const reviewModeFriendBtn = document.getElementById('review-mode-friend-btn');
 const reviewModeNote = document.getElementById('review-mode-note');
@@ -2027,6 +2110,9 @@ const reviewerNameInput = document.getElementById('reviewer-name-input');
 const reviewRatingSelect = document.getElementById('review-rating-select');
 const reviewCommentInput = document.getElementById('review-comment-input');
 const reviewSubmitBtn = document.getElementById('review-submit-btn');
+const reviewImageBtn = document.getElementById('review-image-btn');
+const reviewImageClearBtn = document.getElementById('review-image-clear-btn');
+const reviewImageStatus = document.getElementById('review-image-status');
 const reviewStatus = document.getElementById('review-status');
 const reviewSummary = document.getElementById('review-summary');
 
@@ -2463,6 +2549,43 @@ async function getUploadImageSource(file, context = {}) {
   return readFileAsDataUrl(file);
 }
 
+function chooseImageFile() {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', () => {
+      resolve(input.files?.[0] || null);
+    });
+    input.click();
+  });
+}
+
+async function uploadReviewImageAttachment(file, context = {}) {
+  if (!file) return null;
+  if (!String(file.type || '').startsWith('image/')) {
+    throw new Error('请选择图片文件');
+  }
+  const uploadContext = {
+    kind: 'reviews',
+    num: context.num || 'review',
+    name: context.name || 'comment',
+    field: context.field || 'image'
+  };
+  let src = '';
+  if (isCloudBaseSyncHost()) {
+    src = await uploadImageToCloudStorage(file, uploadContext);
+    if (!src) throw new Error('云存储未返回图片地址');
+  } else {
+    src = await readFileAsDataUrl(file);
+  }
+  return {
+    type: 'image',
+    src,
+    name: String(file.name || '').slice(0, 80)
+  };
+}
+
 function getPublishCallOptions(payload, mode) {
   const base = {
     name: CLOUDBASE_CONFIG.publishFunction,
@@ -2750,6 +2873,55 @@ function normalizeLegend(legend = {}) {
   };
 }
 
+function normalizeReviewAttachment(attachment = {}) {
+  const source = typeof attachment === 'string' ? attachment : attachment.src;
+  const src = String(source || '').trim();
+  if (!src) return null;
+  return {
+    type: 'image',
+    src,
+    name: String(attachment.name || '').trim().slice(0, 80)
+  };
+}
+
+function normalizeReviewAttachments(attachments = []) {
+  if (!Array.isArray(attachments)) return [];
+  return attachments
+    .map(normalizeReviewAttachment)
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function normalizeReviewReply(reply = {}) {
+  if (!reply || typeof reply !== 'object') return null;
+  const reviewerNum = String(reply.reviewerNum ?? reply.familiarPlayerNum ?? '').trim();
+  const reviewerName = String(reply.reviewerName || '').trim().slice(0, 18);
+  const rawReviewerAuth = String(reply.reviewerAuth || (reviewerName ? 'friend_number' : 'team_edit'));
+  const reviewerAuth = rawReviewerAuth === 'friend_number' && reviewerName ? 'friend_number' : 'team_edit';
+  const familiarPlayerNum = reviewerAuth === 'friend_number' ? String(reply.familiarPlayerNum ?? reviewerNum).trim() : '';
+  const familiarPlayerName = reviewerAuth === 'friend_number'
+    ? normalizeName(reply.familiarPlayerName || findLineupPersonNameByNumber(familiarPlayerNum) || '')
+    : '';
+  const createdAt = String(reply.createdAt || new Date().toISOString());
+  if (!reviewerNum && !reviewerName) return null;
+  return {
+    id: String(reply.id || `reply:${reviewerNum || reviewerName}:${createdAt}`),
+    reviewerNum,
+    reviewerName,
+    familiarPlayerNum,
+    familiarPlayerName,
+    reviewerAuth,
+    deviceId: String(reply.deviceId || ''),
+    ipRegion: String(reply.ipRegion || reply.reviewMeta?.ipRegion || ''),
+    ipMasked: String(reply.ipMasked || reply.reviewMeta?.ipMasked || ''),
+    deviceLabel: String(reply.deviceLabel || reply.reviewMeta?.deviceLabel || ''),
+    reviewMeta: reply.reviewMeta && typeof reply.reviewMeta === 'object' ? reply.reviewMeta : {},
+    comment: String(reply.comment || '').trim().slice(0, 180),
+    attachments: normalizeReviewAttachments(reply.attachments),
+    createdAt
+  };
+}
+
 function normalizeReview(review = {}) {
   if (!review || typeof review !== 'object') return null;
   const targetNum = String(review.targetNum ?? '').trim();
@@ -2786,6 +2958,8 @@ function normalizeReview(review = {}) {
     deleteUntil: String(review.deleteUntil || fallbackDeleteUntil),
     rating,
     comment: String(review.comment || '').trim().slice(0, 180),
+    attachments: normalizeReviewAttachments(review.attachments),
+    replies: Array.isArray(review.replies) ? review.replies.map(normalizeReviewReply).filter(Boolean) : [],
     createdAt
   };
 }
@@ -3708,6 +3882,51 @@ function getReviewMetaHtml(review = {}) {
   return parts.join('<span class="review-meta-dot">·</span>');
 }
 
+function getReviewReplyMetaHtml(reply = {}) {
+  const normalized = normalizeReviewReply(reply);
+  if (!normalized) return '<span class="review-meta-id">匿名回复</span>';
+  const parts = [];
+  if (normalized.reviewerAuth === 'team_edit') {
+    parts.push(`<span class="review-meta-id">${escapeHtml(normalized.reviewerNum ? `#${normalized.reviewerNum}` : '队内成员')}</span>`);
+  } else {
+    const friendLabel = normalized.familiarPlayerName ? `${normalized.familiarPlayerName}的朋友` : '朋友回复';
+    parts.push(`<span class="review-meta-friend">${escapeHtml(friendLabel)}</span>`);
+    if (normalized.reviewerName) {
+      parts.push(`<span class="review-meta-nickname">${escapeHtml(normalized.reviewerName)}</span>`);
+    }
+  }
+  const time = formatReviewTime(normalized.createdAt);
+  if (time) {
+    parts.push(`<span class="review-meta-time">${escapeHtml(time)}</span>`);
+  }
+  const region = getReviewIpRegion(normalized);
+  if (region) {
+    parts.push(`<span class="review-meta-ip">IP：${escapeHtml(region)}</span>`);
+  }
+  return parts.join('<span class="review-meta-dot">·</span>');
+}
+
+function renderReviewAttachmentsHtml(attachments = []) {
+  const items = normalizeReviewAttachments(attachments);
+  if (!items.length) return '';
+  return `<div class="review-attachments">${items.map(attachment => {
+    const src = resolveImageSource(attachment.src);
+    return src ? `<img class="review-attachment-img" src="${escapeAttr(src)}" alt="${escapeAttr(attachment.name || '评价图片')}" loading="lazy">` : '';
+  }).join('')}</div>`;
+}
+
+function renderReviewRepliesHtml(replies = []) {
+  const items = Array.isArray(replies) ? replies.map(normalizeReviewReply).filter(Boolean) : [];
+  if (!items.length) return '';
+  return `<div class="review-replies">${items.map(reply => `
+    <div class="review-reply">
+      <div class="review-reply-meta"><span class="review-meta-line">${getReviewReplyMetaHtml(reply)}</span></div>
+      ${reply.comment ? `<div class="review-item-comment">${escapeHtml(reply.comment)}</div>` : ''}
+      ${renderReviewAttachmentsHtml(reply.attachments)}
+    </div>
+  `).join('')}</div>`;
+}
+
 function canDeleteReview(review = {}) {
   const normalized = normalizeReview(review);
   if (!normalized?.id || !normalized.deviceId) return false;
@@ -3793,6 +4012,41 @@ function setReviewStatus(message = '', isError = false) {
   reviewStatus.classList.toggle('is-error', Boolean(isError));
 }
 
+function setMainReviewImage(file = null) {
+  pendingReviewAttachmentFile = file;
+  if (reviewImageStatus) {
+    reviewImageStatus.textContent = file ? `已选择：${file.name}` : '可选：上传一张评价图片。';
+  }
+  if (reviewImageClearBtn) reviewImageClearBtn.hidden = !file;
+}
+
+function clearMainReviewImage() {
+  setMainReviewImage(null);
+}
+
+async function chooseMainReviewImage() {
+  const file = await chooseImageFile();
+  if (!file) return;
+  setMainReviewImage(file);
+}
+
+function setReplyImage(reviewId, file = null) {
+  const id = String(reviewId || '');
+  if (!id) return;
+  if (file) pendingReplyAttachmentFiles.set(id, file);
+  else pendingReplyAttachmentFiles.delete(id);
+  const form = Array.from(reviewSummary?.querySelectorAll('.review-reply-form') || [])
+    .find(item => item.dataset.reviewId === id);
+  const status = form?.querySelector('[data-role="reply-image-status"]');
+  if (status) status.textContent = file ? `已选择：${file.name}` : '可选：添加一张回复图片。';
+}
+
+async function chooseReplyImage(reviewId) {
+  const file = await chooseImageFile();
+  if (!file) return;
+  setReplyImage(reviewId, file);
+}
+
 function renderReviewTool() {
   if (!reviewTargetSelect || !reviewSummary) return;
   const isTeamMode = currentReviewMode === REVIEW_MODE_TEAM;
@@ -3831,6 +4085,14 @@ function renderReviewTool() {
               ${canDeleteReview(review) ? `<button class="review-delete-btn" type="button" data-action="delete-review" data-review-id="${escapeAttr(review.id)}">撤回</button>` : ''}
             </div>
             <div class="review-item-comment">${escapeHtml(review.comment || '没有写文字评价。')}</div>
+            ${renderReviewAttachmentsHtml(review.attachments)}
+            ${renderReviewRepliesHtml(review.replies)}
+            <div class="review-reply-form" data-review-id="${escapeAttr(review.id)}">
+              <input class="ctrl-input" data-role="reply-comment" maxlength="180" placeholder="回复这条评价">
+              <button class="ctrl-btn" type="button" data-action="reply-image" data-review-id="${escapeAttr(review.id)}">加图</button>
+              <button class="ctrl-btn export" type="button" data-action="submit-reply" data-review-id="${escapeAttr(review.id)}">回复</button>
+              <div class="review-reply-image-status" data-role="reply-image-status">${pendingReplyAttachmentFiles.get(review.id) ? `已选择：${escapeHtml(pendingReplyAttachmentFiles.get(review.id).name)}` : '可选：添加一张回复图片。'}</div>
+            </div>
           </div>
         `).join('') : '<div class="review-empty">选择一种评价身份后，可以给这名成员提交第一条评价。</div>'}
       </div>`
@@ -3838,6 +4100,8 @@ function renderReviewTool() {
 
   reviewModeTeamBtn?.classList.toggle('is-active', isTeamMode);
   reviewModeFriendBtn?.classList.toggle('is-active', !isTeamMode);
+  reviewForm?.classList.toggle('is-team', isTeamMode);
+  reviewForm?.classList.toggle('is-friend', !isTeamMode);
   if (reviewModeNote) {
     reviewModeNote.textContent = isTeamMode
       ? '队内评价字段：评价的球员 / 你的号码 / 分数。需要先解锁编辑口令，评价人显示为自己的号码。'
@@ -3893,6 +4157,21 @@ async function submitPlayerReview() {
     reviewerNameInput?.focus();
     return;
   }
+  const attachments = [];
+  if (pendingReviewAttachmentFile) {
+    try {
+      setReviewStatus('正在上传评价图片...');
+      const attachment = await uploadReviewImageAttachment(pendingReviewAttachmentFile, {
+        num: target.num,
+        name: target.name,
+        field: 'review'
+      });
+      if (attachment) attachments.push(attachment);
+    } catch (error) {
+      setReviewStatus(`评价图片上传失败：${getCloudErrorMessage(error)}`, true);
+      return;
+    }
+  }
   const createdAt = new Date().toISOString();
   const review = normalizeReview({
     targetNum: String(target.num),
@@ -3907,6 +4186,7 @@ async function submitPlayerReview() {
     deviceId: getReviewDeviceId(),
     rating: reviewRatingSelect?.value || 5,
     comment: reviewCommentInput?.value || '',
+    attachments,
     createdAt,
     deleteUntil: new Date(new Date(createdAt).getTime() + REVIEW_DELETE_WINDOW_MS).toISOString()
   });
@@ -3932,6 +4212,7 @@ async function submitPlayerReview() {
       const savedReview = prependReview(result?.review || review);
       localStorageAdapter.writeLastState(createSnapshot());
       if (reviewCommentInput) reviewCommentInput.value = '';
+      clearMainReviewImage();
       renderReviewTool();
       setReviewStatus(`已提交：${getReviewAttribution(savedReview)} 对 #${target.num} ${target.name} 的 ${savedReview.rating} 分评价。${mode === 'http' ? '' : '（云函数）'}`);
       return;
@@ -3940,6 +4221,7 @@ async function submitPlayerReview() {
       const savedReview = prependReview(review);
       localStorageAdapter.writeLastState(createSnapshot());
       if (reviewCommentInput) reviewCommentInput.value = '';
+      clearMainReviewImage();
       renderReviewTool();
       setReviewStatus(`云端提交失败，已暂存在本机：${getCloudErrorMessage(error)}`, true);
       return;
@@ -3947,8 +4229,142 @@ async function submitPlayerReview() {
   }
   const savedReview = prependReview(review);
   if (reviewCommentInput) reviewCommentInput.value = '';
+  clearMainReviewImage();
   renderReviewTool();
   setReviewStatus(`已本地提交：${getReviewAttribution(savedReview)} 对 #${target.num} ${target.name} 的 ${savedReview.rating} 分评价。`);
+  saveLastState();
+}
+
+function appendReplyToReview(reviewId, reply) {
+  const normalizedReply = normalizeReviewReply(reply);
+  if (!normalizedReply) return null;
+  REVIEWS_DATA = REVIEWS_DATA
+    .map(normalizeReview)
+    .filter(Boolean)
+    .map(review => {
+      if (review.id !== reviewId) return review;
+      const existing = Array.isArray(review.replies) ? review.replies : [];
+      return {
+        ...review,
+        replies: [
+          ...existing.filter(item => item && item.id !== normalizedReply.id),
+          normalizedReply
+        ].slice(-80)
+      };
+    });
+  return normalizedReply;
+}
+
+async function submitReviewReply(reviewId) {
+  const id = String(reviewId || '');
+  const parentReview = REVIEWS_DATA.map(normalizeReview).filter(Boolean).find(item => item.id === id);
+  if (!parentReview) {
+    setReviewStatus('这条评价不存在，无法回复。', true);
+    return;
+  }
+  const form = Array.from(reviewSummary?.querySelectorAll('.review-reply-form') || [])
+    .find(item => item.dataset.reviewId === id);
+  const input = form?.querySelector('[data-role="reply-comment"]');
+  const comment = String(input?.value || '').trim().slice(0, 180);
+  const imageFile = pendingReplyAttachmentFiles.get(id) || null;
+  if (!comment && !imageFile) {
+    setReviewStatus('回复需要写点文字，或添加一张图片。', true);
+    input?.focus();
+    return;
+  }
+  const isTeamMode = currentReviewMode === REVIEW_MODE_TEAM;
+  if (isTeamMode && !canEdit()) {
+    setReviewStatus('队内回复需要先解锁编辑口令。', true);
+    return;
+  }
+  const reviewerNum = String(reviewerNumInput?.value || '').trim();
+  if (!/^\d{1,3}$/.test(reviewerNum)) {
+    setReviewStatus(isTeamMode ? '回复前请先输入自己的队内号码。' : '回复前请先输入一个你熟悉的老和山球员号码。', true);
+    reviewerNumInput?.focus();
+    return;
+  }
+  const familiarPlayer = findLineupPersonByNumber(reviewerNum);
+  if (!familiarPlayer) {
+    setReviewStatus('这个号码暂时不在老和山名单里，请换一个你熟悉的球员号码。', true);
+    reviewerNumInput?.focus();
+    return;
+  }
+  const reviewerName = isTeamMode ? '' : String(reviewerNameInput?.value || '').trim().slice(0, 18);
+  if (!isTeamMode && !reviewerName) {
+    setReviewStatus('朋友回复前请先输入你的昵称。', true);
+    reviewerNameInput?.focus();
+    return;
+  }
+  const attachments = [];
+  if (imageFile) {
+    try {
+      setReviewStatus('正在上传回复图片...');
+      const attachment = await uploadReviewImageAttachment(imageFile, {
+        num: parentReview.targetNum,
+        name: parentReview.targetName || 'reply',
+        field: 'reply'
+      });
+      if (attachment) attachments.push(attachment);
+    } catch (error) {
+      setReviewStatus(`回复图片上传失败：${getCloudErrorMessage(error)}`, true);
+      return;
+    }
+  }
+  const createdAt = new Date().toISOString();
+  const reply = normalizeReviewReply({
+    reviewerNum,
+    reviewerName,
+    familiarPlayerNum: isTeamMode ? '' : reviewerNum,
+    familiarPlayerName: isTeamMode ? '' : familiarPlayer.name,
+    reviewerAuth: isTeamMode ? 'team_edit' : 'friend_number',
+    deviceId: getReviewDeviceId(),
+    comment,
+    attachments,
+    createdAt
+  });
+  if (!reply) {
+    setReviewStatus('回复内容不完整。', true);
+    return;
+  }
+  saveReviewIdentityForMode(reviewerNum, reviewerName);
+  if (isCloudBaseSyncHost() && cloudSyncState.initialized && CLOUDBASE_CONFIG.publishFunction) {
+    try {
+      setReviewStatus('正在提交回复...');
+      const { response } = await callPublishFunction({
+        action: 'replyReview',
+        docId: CLOUDBASE_CONFIG.currentDocId,
+        reviewId: id,
+        reply,
+        clientInfo: getReviewClientInfo(),
+        clientUpdatedAt: new Date().toISOString()
+      });
+      const result = normalizePublishResult(response);
+      if (result && result.ok === false) {
+        throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '回复保存失败'}`);
+      }
+      const savedReply = appendReplyToReview(id, result?.reply || reply);
+      localStorageAdapter.writeLastState(createSnapshot());
+      if (input) input.value = '';
+      setReplyImage(id, null);
+      renderReviewTool();
+      setReviewStatus(`已回复：${getReviewReplyMetaHtml(savedReply).replace(/<[^>]*>/g, '')}`);
+      return;
+    } catch (error) {
+      console.warn('CloudBase review reply failed:', error);
+      appendReplyToReview(id, reply);
+      localStorageAdapter.writeLastState(createSnapshot());
+      if (input) input.value = '';
+      setReplyImage(id, null);
+      renderReviewTool();
+      setReviewStatus(`云端回复失败，已暂存在本机：${getCloudErrorMessage(error)}`, true);
+      return;
+    }
+  }
+  appendReplyToReview(id, reply);
+  if (input) input.value = '';
+  setReplyImage(id, null);
+  renderReviewTool();
+  setReviewStatus('已本地回复。');
   saveLastState();
 }
 
@@ -4870,11 +5286,17 @@ function bindControls() {
   reviewTargetSelect?.addEventListener('change', renderReviewTool);
   reviewModeTeamBtn?.addEventListener('click', () => setReviewMode(REVIEW_MODE_TEAM));
   reviewModeFriendBtn?.addEventListener('click', () => setReviewMode(REVIEW_MODE_FRIEND));
+  reviewImageBtn?.addEventListener('click', chooseMainReviewImage);
+  reviewImageClearBtn?.addEventListener('click', clearMainReviewImage);
   reviewSubmitBtn?.addEventListener('click', submitPlayerReview);
   reviewSummary?.addEventListener('click', event => {
-    const button = event.target.closest('[data-action="delete-review"]');
+    const button = event.target.closest('[data-action]');
     if (!button) return;
-    deleteReview(button.dataset.reviewId || '');
+    const action = button.dataset.action;
+    const reviewId = button.dataset.reviewId || '';
+    if (action === 'delete-review') deleteReview(reviewId);
+    if (action === 'reply-image') chooseReplyImage(reviewId);
+    if (action === 'submit-reply') submitReviewReply(reviewId);
   });
 
   savePresetBtn.addEventListener('click', saveCurrentAsPreset);
