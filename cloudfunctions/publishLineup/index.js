@@ -17,6 +17,7 @@ const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 96;
 const MAX_USER_AGENT_LENGTH = 240;
 const REVIEW_IP_HASH_SALT = process.env.REVIEW_IP_HASH_SALT || 'laohe-wings-review';
+const FUNCTION_VERSION = '20260512-review-attachments-ip';
 
 function initCloudBaseApp(context) {
   try {
@@ -593,13 +594,16 @@ async function submitReview(db, input, context, rawEvent = {}) {
     console.log('submitReview saved', {
       docId,
       targetKey: review.targetKey,
-      reviewerNum: review.reviewerNum
+      reviewerNum: review.reviewerNum,
+      attachmentCount: review.attachments.length,
+      functionVersion: FUNCTION_VERSION
     });
     return {
       ok: true,
       docId,
       review,
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
     console.error('submitReview failed', {
@@ -687,14 +691,18 @@ async function replyReview(db, input, context, rawEvent = {}) {
     console.log('replyReview saved', {
       docId,
       reviewId,
-      reviewerNum: reply.reviewerNum
+      reviewerNum: reply.reviewerNum,
+      attachmentCount: reply.attachments.length,
+      ipRegion: reply.ipRegion,
+      functionVersion: FUNCTION_VERSION
     });
     return {
       ok: true,
       docId,
       reviewId,
       reply,
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
     console.error('replyReview failed', {
@@ -783,7 +791,8 @@ async function deleteReview(db, input, context) {
       ok: true,
       docId,
       reviewId,
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
     console.error('deleteReview failed', {
@@ -960,7 +969,8 @@ exports.main = async (event = {}, context = {}) => {
     return {
       ok: true,
       docId,
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
+      functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
     console.error('publishLineup failed', {

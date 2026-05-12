@@ -2691,6 +2691,20 @@ async function callPublishFunction(payload) {
   throw new Error(errors.join(' | '));
 }
 
+async function publishReviewSnapshotFallback(snapshot) {
+  const { response, mode } = await callPublishFunction({
+    docId: CLOUDBASE_CONFIG.currentDocId,
+    snapshot,
+    clientUpdatedAt: new Date().toISOString()
+  });
+  const result = normalizePublishResult(response);
+  if (result && result.ok === false) {
+    throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '评价快照保存失败'}`);
+  }
+  cloudSyncState.remoteSnapshot = clone(snapshot);
+  return mode;
+}
+
 async function publishCloudSnapshot(snapshot) {
   if (!canEdit()) {
     updateSyncStatus('local', '只读模式，输入口令后发布');
@@ -2908,6 +2922,22 @@ function normalizeReviewAttachments(attachments = []) {
     .map(normalizeReviewAttachment)
     .filter(Boolean)
     .slice(0, 3);
+}
+
+function hasReviewAttachments(review = {}) {
+  return normalizeReviewAttachments(review.attachments).length > 0;
+}
+
+function mergeSubmittedReviewAttachments(savedReview = {}, submittedReview = {}) {
+  const submittedAttachments = normalizeReviewAttachments(submittedReview.attachments);
+  if (!submittedAttachments.length) return savedReview || submittedReview;
+  const saved = savedReview && typeof savedReview === 'object' ? savedReview : {};
+  if (normalizeReviewAttachments(saved.attachments).length) return saved;
+  return {
+    ...submittedReview,
+    ...saved,
+    attachments: submittedAttachments
+  };
 }
 
 function normalizeReviewReply(reply = {}) {
@@ -4275,12 +4305,25 @@ async function submitPlayerReview() {
       if (result && result.ok === false) {
         throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '评价保存失败'}`);
       }
-      const savedReview = prependReview(result?.review || review);
+      const responseReview = result?.review || review;
+      const repairMissingAttachments = hasReviewAttachments(review) && !hasReviewAttachments(responseReview);
+      const savedReviewPayload = mergeSubmittedReviewAttachments(responseReview, review);
+      const savedReview = prependReview(savedReviewPayload);
+      let repairMode = '';
+      if (repairMissingAttachments) {
+        try {
+          repairMode = await publishReviewSnapshotFallback(createSnapshotWithReviewsData());
+        } catch (repairError) {
+          repairMode = 'failed';
+          console.warn('CloudBase review attachment repair failed:', repairError);
+        }
+      }
       localStorageAdapter.writeLastState(createSnapshot());
       if (reviewCommentInput) reviewCommentInput.value = '';
       clearMainReviewImage();
       renderReviewTool();
-      setReviewStatus(`已提交：${getReviewAttribution(savedReview)} 对 #${target.num} ${target.name} 的 ${savedReview.rating} 分评价。${mode === 'http' ? '' : '（云函数）'}`);
+      const repairText = repairMode === 'failed' ? '（图片已本机显示，云端补写失败）' : (repairMode ? '（已补写图片）' : (mode === 'http' ? '' : '（云函数）'));
+      setReviewStatus(`已提交：${getReviewAttribution(savedReview)} 对 #${target.num} ${target.name} 的 ${savedReview.rating} 分评价。${repairText}`);
       return;
     } catch (error) {
       console.warn('CloudBase review submit failed:', error);
