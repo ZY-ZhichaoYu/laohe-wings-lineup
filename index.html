@@ -2592,11 +2592,82 @@ function chooseImageFile() {
   return chooseImageFiles().then(files => files[0] || null);
 }
 
+function isGifImageFile(file) {
+  const type = String(file?.type || '').toLowerCase();
+  const name = String(file?.name || '').toLowerCase();
+  return type === 'image/gif' || name.endsWith('.gif');
+}
+
+function loadImageElementFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('image decode failed'));
+    };
+    image.src = url;
+  });
+}
+
+function canvasToJpegFile(canvas, originalFile) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) {
+        reject(new Error('image encode failed'));
+        return;
+      }
+      const baseName = String(originalFile?.name || 'review-image')
+        .replace(/\.[^.]+$/, '')
+        .slice(0, 80) || 'review-image';
+      const fileName = `${baseName}.jpg`;
+      if (typeof File === 'function') {
+        resolve(new File([blob], fileName, {
+          type: 'image/jpeg',
+          lastModified: originalFile?.lastModified || Date.now()
+        }));
+        return;
+      }
+      blob.name = fileName;
+      resolve(blob);
+    }, 'image/jpeg', 0.9);
+  });
+}
+
+async function prepareReviewImageFileForUpload(file) {
+  if (!file || isGifImageFile(file)) return file;
+  try {
+    const image = await loadImageElementFromFile(file);
+    const naturalWidth = image.naturalWidth || image.width || 1;
+    const naturalHeight = image.naturalHeight || image.height || 1;
+    const maxSide = 1800;
+    const scale = Math.min(1, maxSide / Math.max(naturalWidth, naturalHeight));
+    const width = Math.max(1, Math.round(naturalWidth * scale));
+    const height = Math.max(1, Math.round(naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+    return await canvasToJpegFile(canvas, file);
+  } catch (error) {
+    console.warn('review image compatibility encode skipped:', error);
+    return file;
+  }
+}
+
 async function uploadReviewImageAttachment(file, context = {}) {
   if (!file) return null;
   if (!isReviewImageFile(file)) {
     throw new Error('请选择图片文件');
   }
+  const preparedFile = await prepareReviewImageFileForUpload(file);
   const uploadContext = {
     kind: 'reviews',
     num: context.num || 'review',
@@ -2605,10 +2676,10 @@ async function uploadReviewImageAttachment(file, context = {}) {
   };
   let src = '';
   if (isCloudBaseSyncHost()) {
-    src = await uploadImageToCloudStorage(file, uploadContext);
+    src = await uploadImageToCloudStorage(preparedFile, uploadContext);
     if (!src) throw new Error('云存储未返回图片地址');
   } else {
-    src = await readFileAsDataUrl(file);
+    src = await readFileAsDataUrl(preparedFile);
   }
   return {
     type: 'image',
@@ -3159,6 +3230,37 @@ function applyImageFallback(image) {
   image.src = fallback || getExportPlaceholderImage();
 }
 
+function isProxyableImageSource(source) {
+  try {
+    const resolved = new URL(String(source || ''), location.href);
+    return resolved.protocol === 'http:' || resolved.protocol === 'https:';
+  } catch (error) {
+    return false;
+  }
+}
+
+function tryProxiedImageFallback(image, fileID = '', currentSource = '') {
+  if (image.dataset.cloudProxyTried === 'true') {
+    applyImageFallback(image);
+    return;
+  }
+  if (!fileID && !isProxyableImageSource(currentSource)) {
+    applyImageFallback(image);
+    return;
+  }
+  image.dataset.cloudProxyTried = 'true';
+  proxyImageAsDataUrl(currentSource, { fileID })
+    .then(dataUrl => {
+      if (dataUrl) {
+        image.dataset.fallbackApplied = 'false';
+        image.src = dataUrl;
+        return;
+      }
+      applyImageFallback(image);
+    })
+    .catch(() => applyImageFallback(image));
+}
+
 function handleImageError(event) {
   const image = event.target?.closest?.('img');
   if (!image || image.dataset.fallbackApplied === 'true') return;
@@ -3173,12 +3275,12 @@ function handleImageError(event) {
           image.src = freshSource;
           return;
         }
-        applyImageFallback(image);
+        tryProxiedImageFallback(image, fileID, currentSource);
       })
-      .catch(() => applyImageFallback(image));
+      .catch(() => tryProxiedImageFallback(image, fileID, currentSource));
     return;
   }
-  applyImageFallback(image);
+  tryProxiedImageFallback(image, fileID, currentSource);
 }
 
 function getCurrentAvatar(player) {
@@ -4097,7 +4199,7 @@ function renderReviewAttachmentsHtml(attachments = []) {
     const src = resolveImageSource(attachment.src);
     const fileID = getCloudImageFileID(attachment.src, src);
     const fileAttr = fileID ? ` data-cloud-file-id="${escapeAttr(fileID)}"` : '';
-    return src ? `<img class="review-attachment-img" src="${escapeAttr(src)}"${fileAttr} alt="${escapeAttr(attachment.name || '评价图片')}" loading="lazy">` : '';
+    return src ? `<img class="review-attachment-img" src="${escapeAttr(src)}"${fileAttr} alt="${escapeAttr(attachment.name || '评价图片')}" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : '';
   }).join('')}</div>`;
 }
 
@@ -5656,13 +5758,22 @@ async function fetchImageAsDataUrl(source) {
   return blobToDataUrl(blob);
 }
 
-async function proxyImageAsDataUrl(source) {
+async function proxyImageAsDataUrl(source, options = {}) {
   if (!CLOUDBASE_CONFIG.publishHttpPath) {
     throw new Error('未配置 CloudBase 图片代理');
   }
+  const payload = {
+    action: 'proxyImage'
+  };
+  const url = String(source || '').trim();
+  const fileID = String(options.fileID || '').trim();
+  if (url) payload.url = url;
+  if (fileID) payload.fileID = fileID;
+  if (!payload.url && !payload.fileID) {
+    throw new Error('图片代理缺少图片地址');
+  }
   const result = normalizePublishResult(await callPublishHttp({
-    action: 'proxyImage',
-    url: source
+    ...payload
   }));
   if (!result || result.ok === false || !result.dataUrl) {
     throw new Error(result?.message || result?.code || '图片代理失败');

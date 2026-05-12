@@ -229,7 +229,9 @@ IP region lookup is best effort. If lookup fails, the region is omitted and the 
 
 Each submission creates a new review. A later review from the same number and nickname does not overwrite earlier comments.
 
-Reviews and replies support up to 6 image attachments, including animated GIFs. On the CloudBase-hosted app, images are uploaded to CloudBase Storage and the saved review keeps the storage `fileID` reference.
+Reviews and replies support up to 6 image attachments, including animated GIFs. On the CloudBase-hosted app, images are uploaded to CloudBase Storage and the saved review keeps the storage `fileID` reference. Non-GIF review images are normalized to standard JPEG before upload for better mobile browser compatibility; GIFs are kept as GIFs to preserve animation.
+
+If a browser cannot render a temporary CloudBase image URL directly, the page falls back to the `publishLineup` image proxy using the saved `fileID`.
 
 A newly submitted review or reply can be deleted from the same browser/device within 10 minutes. After the window expires, or on another device, the delete button is not available.
 

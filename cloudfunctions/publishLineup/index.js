@@ -17,7 +17,7 @@ const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 96;
 const MAX_USER_AGENT_LENGTH = 240;
 const REVIEW_IP_HASH_SALT = process.env.REVIEW_IP_HASH_SALT || 'laohe-wings-review';
-const FUNCTION_VERSION = '20260512-reply-delete-multi-gif';
+const FUNCTION_VERSION = '20260512-review-image-proxy-fallback';
 
 function initCloudBaseApp(context) {
   try {
@@ -998,13 +998,37 @@ function fetchImageBuffer(url, redirects = 3) {
   });
 }
 
-async function proxyImage(input) {
-  const url = String(input.url || '').trim();
+function getTempFileUrlFromResponse(response, fileID) {
+  const item = response?.fileList?.[0] || response?.data?.fileList?.[0] || null;
+  return item?.tempFileURL || item?.download_url || item?.url || fileID;
+}
+
+async function getCloudTempFileURL(app, fileID) {
+  const id = String(fileID || '').trim();
+  if (!id || !app || typeof app.getTempFileURL !== 'function') return '';
+  const result = await app.getTempFileURL({ fileList: [id] });
+  const url = getTempFileUrlFromResponse(result, id);
+  return url && !url.startsWith('cloud://') ? url : '';
+}
+
+async function proxyImage(input, app) {
+  let url = String(input.url || '').trim();
+  const fileID = String(input.fileID || '').trim();
+  if (fileID) {
+    try {
+      url = await getCloudTempFileURL(app, fileID) || url;
+    } catch (error) {
+      console.warn('proxyImage getTempFileURL failed', {
+        fileID,
+        message: error && error.message
+      });
+    }
+  }
   if (!url) {
     return {
       ok: false,
       code: 'INVALID_IMAGE_URL',
-      message: 'url is required'
+      message: 'url or fileID is required'
     };
   }
   try {
@@ -1030,10 +1054,10 @@ async function proxyImage(input) {
 
 exports.main = async (event = {}, context = {}) => {
   const input = normalizeEvent(event);
-  if (input.action === 'proxyImage') {
-    return proxyImage(input);
-  }
   const app = initCloudBaseApp(context);
+  if (input.action === 'proxyImage') {
+    return proxyImage(input, app);
+  }
   const db = app.database();
   if (input.action === 'submitReview') {
     return submitReview(db, input, context, event);
