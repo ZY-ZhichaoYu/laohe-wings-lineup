@@ -1281,6 +1281,10 @@
     background: #141414;
   }
   .review-reply-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     margin-bottom: 3px;
     font-size: 11px;
   }
@@ -1833,7 +1837,7 @@
       <div class="review-attachment-bar">
         <button class="ctrl-btn" id="review-image-btn" type="button">添加图片</button>
         <button class="ctrl-btn" id="review-image-clear-btn" type="button" hidden>移除图片</button>
-        <span id="review-image-status">可选：上传一张评价图片。</span>
+        <span id="review-image-status">可选：上传最多 6 张评价图片，支持 GIF 动图。</span>
       </div>
     </div>
     <div class="review-status" id="review-status"></div>
@@ -2019,6 +2023,7 @@ const EDIT_SESSION_KEY = 'laohe-lineup-edit-unlocked';
 const REVIEW_MODE_TEAM = 'team';
 const REVIEW_MODE_FRIEND = 'friend';
 const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
+const MAX_REVIEW_ATTACHMENTS = 6;
 
 const cloudSyncState = {
   initialized: false,
@@ -2047,7 +2052,7 @@ let currentDrawnPlayer = null;
 let currentExportObjectUrl = '';
 let editUnlocked = sessionStorage.getItem(EDIT_SESSION_KEY) === 'true';
 let currentReviewMode = localStorage.getItem(STORAGE_KEYS.reviewMode) || REVIEW_MODE_FRIEND;
-let pendingReviewAttachmentFile = null;
+let pendingReviewAttachmentFiles = [];
 const pendingReplyAttachmentFiles = new Map();
 const cloudImageUrlCache = new Map();
 const cloudImageFileIdByUrl = new Map();
@@ -2549,21 +2554,46 @@ async function getUploadImageSource(file, context = {}) {
   return readFileAsDataUrl(file);
 }
 
-function chooseImageFile() {
+function isReviewImageFile(file) {
+  if (!file) return false;
+  const type = String(file.type || '').toLowerCase();
+  const name = String(file.name || '').toLowerCase();
+  return type.startsWith('image/') || /\.(gif|png|jpe?g|webp|bmp|avif|heic|heif)$/i.test(name);
+}
+
+function normalizeReviewImageFiles(files = []) {
+  return Array.from(files || [])
+    .filter(isReviewImageFile)
+    .slice(0, MAX_REVIEW_ATTACHMENTS);
+}
+
+function formatReviewImageStatus(files = [], emptyText = '') {
+  const items = normalizeReviewImageFiles(files);
+  if (!items.length) return emptyText || `可选：上传最多 ${MAX_REVIEW_ATTACHMENTS} 张图片，支持 GIF 动图。`;
+  const names = items.map(file => file.name || 'image').join('、');
+  return `已选择 ${items.length} 张：${names}`;
+}
+
+function chooseImageFiles() {
   return new Promise(resolve => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = 'image/*,.gif';
+    input.multiple = true;
     input.addEventListener('change', () => {
-      resolve(input.files?.[0] || null);
+      resolve(normalizeReviewImageFiles(input.files));
     });
     input.click();
   });
 }
 
+function chooseImageFile() {
+  return chooseImageFiles().then(files => files[0] || null);
+}
+
 async function uploadReviewImageAttachment(file, context = {}) {
   if (!file) return null;
-  if (!String(file.type || '').startsWith('image/')) {
+  if (!isReviewImageFile(file)) {
     throw new Error('请选择图片文件');
   }
   const uploadContext = {
@@ -2584,6 +2614,20 @@ async function uploadReviewImageAttachment(file, context = {}) {
     src,
     name: String(file.name || '').slice(0, 80)
   };
+}
+
+async function uploadReviewImageAttachments(files = [], context = {}, onProgress = null) {
+  const selectedFiles = normalizeReviewImageFiles(files);
+  const attachments = [];
+  for (let index = 0; index < selectedFiles.length; index += 1) {
+    if (typeof onProgress === 'function') onProgress(index + 1, selectedFiles.length);
+    const attachment = await uploadReviewImageAttachment(selectedFiles[index], {
+      ...context,
+      field: `${context.field || 'image'}-${index + 1}`
+    });
+    if (attachment) attachments.push(attachment);
+  }
+  return attachments;
 }
 
 function getPublishCallOptions(payload, mode) {
@@ -2921,7 +2965,7 @@ function normalizeReviewAttachments(attachments = []) {
   return attachments
     .map(normalizeReviewAttachment)
     .filter(Boolean)
-    .slice(0, 3);
+    .slice(0, MAX_REVIEW_ATTACHMENTS);
 }
 
 function hasReviewAttachments(review = {}) {
@@ -2951,6 +2995,8 @@ function normalizeReviewReply(reply = {}) {
     ? normalizeName(reply.familiarPlayerName || findLineupPersonNameByNumber(familiarPlayerNum) || '')
     : '';
   const createdAt = String(reply.createdAt || new Date().toISOString());
+  const createdTime = new Date(createdAt).getTime();
+  const fallbackDeleteUntil = new Date((Number.isFinite(createdTime) ? createdTime : Date.now()) + REVIEW_DELETE_WINDOW_MS).toISOString();
   if (!reviewerNum && !reviewerName) return null;
   return {
     id: String(reply.id || `reply:${reviewerNum || reviewerName}:${createdAt}`),
@@ -2964,6 +3010,7 @@ function normalizeReviewReply(reply = {}) {
     ipMasked: String(reply.ipMasked || reply.reviewMeta?.ipMasked || ''),
     deviceLabel: String(reply.deviceLabel || reply.reviewMeta?.deviceLabel || ''),
     reviewMeta: reply.reviewMeta && typeof reply.reviewMeta === 'object' ? reply.reviewMeta : {},
+    deleteUntil: String(reply.deleteUntil || fallbackDeleteUntil),
     comment: String(reply.comment || '').trim().slice(0, 180),
     attachments: normalizeReviewAttachments(reply.attachments),
     createdAt
@@ -3236,6 +3283,21 @@ function buildReviewsWithReply(reviewId, reply, reviews = REVIEWS_DATA) {
 function buildReviewsWithoutReview(reviewId, reviews = REVIEWS_DATA) {
   const id = String(reviewId || '');
   return normalizeReviewsForSnapshot(reviews).filter(review => review.id !== id);
+}
+
+function buildReviewsWithoutReply(reviewId, replyId, reviews = REVIEWS_DATA) {
+  const id = String(reviewId || '');
+  const childId = String(replyId || '');
+  return normalizeReviewsForSnapshot(reviews).map(review => {
+    if (review.id !== id) return review;
+    return {
+      ...review,
+      replies: (Array.isArray(review.replies) ? review.replies : [])
+        .map(normalizeReviewReply)
+        .filter(Boolean)
+        .filter(reply => reply.id !== childId)
+    };
+  });
 }
 
 function mergeSavedPlayerFields(basePlayer, savedPlayer) {
@@ -4009,12 +4071,15 @@ function renderReviewAttachmentsHtml(attachments = []) {
   }).join('')}</div>`;
 }
 
-function renderReviewRepliesHtml(replies = []) {
+function renderReviewRepliesHtml(replies = [], reviewId = '') {
   const items = Array.isArray(replies) ? replies.map(normalizeReviewReply).filter(Boolean) : [];
   if (!items.length) return '';
   return `<div class="review-replies">${items.map(reply => `
     <div class="review-reply">
-      <div class="review-reply-meta"><span class="review-meta-line">${getReviewReplyMetaHtml(reply)}</span></div>
+      <div class="review-reply-meta">
+        <span class="review-meta-line">${getReviewReplyMetaHtml(reply)}</span>
+        ${canDeleteReviewReply(reply) ? `<button class="review-delete-btn" type="button" data-action="delete-reply" data-review-id="${escapeAttr(reviewId)}" data-reply-id="${escapeAttr(reply.id)}">撤回</button>` : ''}
+      </div>
       ${reply.comment ? `<div class="review-item-comment">${escapeHtml(reply.comment)}</div>` : ''}
       ${renderReviewAttachmentsHtml(reply.attachments)}
     </div>
@@ -4023,6 +4088,14 @@ function renderReviewRepliesHtml(replies = []) {
 
 function canDeleteReview(review = {}) {
   const normalized = normalizeReview(review);
+  if (!normalized?.id || !normalized.deviceId) return false;
+  if (normalized.deviceId !== getReviewDeviceId()) return false;
+  const deleteUntil = new Date(normalized.deleteUntil).getTime();
+  return Number.isFinite(deleteUntil) && Date.now() <= deleteUntil;
+}
+
+function canDeleteReviewReply(reply = {}) {
+  const normalized = normalizeReviewReply(reply);
   if (!normalized?.id || !normalized.deviceId) return false;
   if (normalized.deviceId !== getReviewDeviceId()) return false;
   const deleteUntil = new Date(normalized.deleteUntil).getTime();
@@ -4048,6 +4121,10 @@ function removeReviewById(reviewId) {
     .map(normalizeReview)
     .filter(Boolean)
     .filter(review => review.id !== id);
+}
+
+function removeReplyById(reviewId, replyId) {
+  REVIEWS_DATA = buildReviewsWithoutReply(reviewId, replyId);
 }
 
 function setReviewMode(mode, shouldRender = true) {
@@ -4106,39 +4183,40 @@ function setReviewStatus(message = '', isError = false) {
   reviewStatus.classList.toggle('is-error', Boolean(isError));
 }
 
-function setMainReviewImage(file = null) {
-  pendingReviewAttachmentFile = file;
+function setMainReviewImages(files = []) {
+  pendingReviewAttachmentFiles = normalizeReviewImageFiles(files);
   if (reviewImageStatus) {
-    reviewImageStatus.textContent = file ? `已选择：${file.name}` : '可选：上传一张评价图片。';
+    reviewImageStatus.textContent = formatReviewImageStatus(pendingReviewAttachmentFiles, `可选：上传最多 ${MAX_REVIEW_ATTACHMENTS} 张评价图片，支持 GIF 动图。`);
   }
-  if (reviewImageClearBtn) reviewImageClearBtn.hidden = !file;
+  if (reviewImageClearBtn) reviewImageClearBtn.hidden = !pendingReviewAttachmentFiles.length;
 }
 
 function clearMainReviewImage() {
-  setMainReviewImage(null);
+  setMainReviewImages([]);
 }
 
 async function chooseMainReviewImage() {
-  const file = await chooseImageFile();
-  if (!file) return;
-  setMainReviewImage(file);
+  const files = await chooseImageFiles();
+  if (!files.length) return;
+  setMainReviewImages(files);
 }
 
-function setReplyImage(reviewId, file = null) {
+function setReplyImages(reviewId, files = []) {
   const id = String(reviewId || '');
   if (!id) return;
-  if (file) pendingReplyAttachmentFiles.set(id, file);
+  const selectedFiles = normalizeReviewImageFiles(files);
+  if (selectedFiles.length) pendingReplyAttachmentFiles.set(id, selectedFiles);
   else pendingReplyAttachmentFiles.delete(id);
   const form = Array.from(reviewSummary?.querySelectorAll('.review-reply-form') || [])
     .find(item => item.dataset.reviewId === id);
   const status = form?.querySelector('[data-role="reply-image-status"]');
-  if (status) status.textContent = file ? `已选择：${file.name}` : '可选：添加一张回复图片。';
+  if (status) status.textContent = formatReviewImageStatus(selectedFiles, `可选：添加最多 ${MAX_REVIEW_ATTACHMENTS} 张回复图片，支持 GIF 动图。`);
 }
 
 async function chooseReplyImage(reviewId) {
-  const file = await chooseImageFile();
-  if (!file) return;
-  setReplyImage(reviewId, file);
+  const files = await chooseImageFiles();
+  if (!files.length) return;
+  setReplyImages(reviewId, files);
 }
 
 function renderReviewTool() {
@@ -4180,12 +4258,12 @@ function renderReviewTool() {
             </div>
             <div class="review-item-comment">${escapeHtml(review.comment || '没有写文字评价。')}</div>
             ${renderReviewAttachmentsHtml(review.attachments)}
-            ${renderReviewRepliesHtml(review.replies)}
+            ${renderReviewRepliesHtml(review.replies, review.id)}
             <div class="review-reply-form" data-review-id="${escapeAttr(review.id)}">
               <input class="ctrl-input" data-role="reply-comment" maxlength="180" placeholder="回复这条评价">
               <button class="ctrl-btn" type="button" data-action="reply-image" data-review-id="${escapeAttr(review.id)}">加图</button>
               <button class="ctrl-btn export" type="button" data-action="submit-reply" data-review-id="${escapeAttr(review.id)}">回复</button>
-              <div class="review-reply-image-status" data-role="reply-image-status">${pendingReplyAttachmentFiles.get(review.id) ? `已选择：${escapeHtml(pendingReplyAttachmentFiles.get(review.id).name)}` : '可选：添加一张回复图片。'}</div>
+              <div class="review-reply-image-status" data-role="reply-image-status">${escapeHtml(formatReviewImageStatus(pendingReplyAttachmentFiles.get(review.id) || [], `可选：添加最多 ${MAX_REVIEW_ATTACHMENTS} 张回复图片，支持 GIF 动图。`))}</div>
             </div>
           </div>
         `).join('') : '<div class="review-empty">选择一种评价身份后，可以给这名成员提交第一条评价。</div>'}
@@ -4252,15 +4330,16 @@ async function submitPlayerReview() {
     return;
   }
   const attachments = [];
-  if (pendingReviewAttachmentFile) {
+  if (pendingReviewAttachmentFiles.length) {
     try {
-      setReviewStatus('正在上传评价图片...');
-      const attachment = await uploadReviewImageAttachment(pendingReviewAttachmentFile, {
+      const uploaded = await uploadReviewImageAttachments(pendingReviewAttachmentFiles, {
         num: target.num,
         name: target.name,
         field: 'review'
+      }, (current, total) => {
+        setReviewStatus(`正在上传评价图片 ${current}/${total}...`);
       });
-      if (attachment) attachments.push(attachment);
+      attachments.push(...uploaded);
     } catch (error) {
       setReviewStatus(`评价图片上传失败：${getCloudErrorMessage(error)}`, true);
       return;
@@ -4362,9 +4441,9 @@ async function submitReviewReply(reviewId) {
     .find(item => item.dataset.reviewId === id);
   const input = form?.querySelector('[data-role="reply-comment"]');
   const comment = String(input?.value || '').trim().slice(0, 180);
-  const imageFile = pendingReplyAttachmentFiles.get(id) || null;
-  if (!comment && !imageFile) {
-    setReviewStatus('回复需要写点文字，或添加一张图片。', true);
+  const imageFiles = normalizeReviewImageFiles(pendingReplyAttachmentFiles.get(id) || []);
+  if (!comment && !imageFiles.length) {
+    setReviewStatus('回复需要写点文字，或添加图片。', true);
     input?.focus();
     return;
   }
@@ -4392,15 +4471,16 @@ async function submitReviewReply(reviewId) {
     return;
   }
   const attachments = [];
-  if (imageFile) {
+  if (imageFiles.length) {
     try {
-      setReviewStatus('正在上传回复图片...');
-      const attachment = await uploadReviewImageAttachment(imageFile, {
+      const uploaded = await uploadReviewImageAttachments(imageFiles, {
         num: parentReview.targetNum,
         name: parentReview.targetName || 'reply',
         field: 'reply'
+      }, (current, total) => {
+        setReviewStatus(`正在上传回复图片 ${current}/${total}...`);
       });
-      if (attachment) attachments.push(attachment);
+      attachments.push(...uploaded);
     } catch (error) {
       setReviewStatus(`回复图片上传失败：${getCloudErrorMessage(error)}`, true);
       return;
@@ -4443,7 +4523,7 @@ async function submitReviewReply(reviewId) {
       const savedReply = appendReplyToReview(id, result?.reply || reply);
       localStorageAdapter.writeLastState(createSnapshot());
       if (input) input.value = '';
-      setReplyImage(id, null);
+      setReplyImages(id, []);
       renderReviewTool();
       setReviewStatus(`已回复：${getReviewReplyMetaHtml(savedReply).replace(/<[^>]*>/g, '')}`);
       return;
@@ -4452,7 +4532,7 @@ async function submitReviewReply(reviewId) {
       appendReplyToReview(id, reply);
       localStorageAdapter.writeLastState(createSnapshot());
       if (input) input.value = '';
-      setReplyImage(id, null);
+      setReplyImages(id, []);
       renderReviewTool();
       setReviewStatus(`云端回复失败，已暂存在本机：${getCloudErrorMessage(error)}`, true);
       return;
@@ -4460,7 +4540,7 @@ async function submitReviewReply(reviewId) {
   }
   appendReplyToReview(id, reply);
   if (input) input.value = '';
-  setReplyImage(id, null);
+  setReplyImages(id, []);
   renderReviewTool();
   setReviewStatus('已本地回复。');
   saveLastState();
@@ -4506,6 +4586,50 @@ async function deleteReview(reviewId) {
   saveLastState();
   renderReviewTool();
   setReviewStatus('已从本机撤回这条评价。');
+}
+
+async function deleteReviewReply(reviewId, replyId) {
+  const parentReview = REVIEWS_DATA.map(normalizeReview).filter(Boolean).find(item => item.id === reviewId);
+  const reply = parentReview?.replies?.map(normalizeReviewReply).filter(Boolean).find(item => item.id === replyId);
+  if (!parentReview || !reply) {
+    setReviewStatus('这条回复不存在或已经被删除。', true);
+    return;
+  }
+  if (!canDeleteReviewReply(reply)) {
+    setReviewStatus('只能在提交后 10 分钟内，用同一台设备撤回自己的回复。', true);
+    return;
+  }
+  if (isCloudBaseSyncHost() && cloudSyncState.initialized && CLOUDBASE_CONFIG.publishFunction) {
+    try {
+      setReviewStatus('正在撤回回复...');
+      const { response } = await callPublishFunction({
+        action: 'deleteReply',
+        docId: CLOUDBASE_CONFIG.currentDocId,
+        reviewId,
+        replyId,
+        deviceId: getReviewDeviceId(),
+        snapshot: createSnapshotWithReviewsData(buildReviewsWithoutReply(reviewId, replyId)),
+        clientUpdatedAt: new Date().toISOString()
+      });
+      const result = normalizePublishResult(response);
+      if (result && result.ok === false) {
+        throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '撤回回复失败'}`);
+      }
+      removeReplyById(reviewId, replyId);
+      localStorageAdapter.writeLastState(createSnapshot());
+      renderReviewTool();
+      setReviewStatus('已撤回这条回复。');
+      return;
+    } catch (error) {
+      console.warn('CloudBase reply delete failed:', error);
+      setReviewStatus(`撤回回复失败：${getCloudErrorMessage(error)}`, true);
+      return;
+    }
+  }
+  removeReplyById(reviewId, replyId);
+  saveLastState();
+  renderReviewTool();
+  setReviewStatus('已从本机撤回这条回复。');
 }
 
 function renderAll() {
@@ -5393,7 +5517,9 @@ function bindControls() {
     if (!button) return;
     const action = button.dataset.action;
     const reviewId = button.dataset.reviewId || '';
+    const replyId = button.dataset.replyId || '';
     if (action === 'delete-review') deleteReview(reviewId);
+    if (action === 'delete-reply') deleteReviewReply(reviewId, replyId);
     if (action === 'reply-image') chooseReplyImage(reviewId);
     if (action === 'submit-reply') submitReviewReply(reviewId);
   });

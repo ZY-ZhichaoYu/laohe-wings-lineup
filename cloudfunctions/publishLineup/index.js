@@ -10,14 +10,14 @@ const MAX_REVIEWS = 800;
 const MAX_REVIEW_COMMENT_LENGTH = 180;
 const MAX_REVIEW_REPLY_LENGTH = 180;
 const MAX_REVIEWER_NAME_LENGTH = 18;
-const MAX_REVIEW_ATTACHMENTS = 3;
+const MAX_REVIEW_ATTACHMENTS = 6;
 const MAX_REVIEW_REPLIES = 80;
 const MAX_REVIEW_ATTACHMENT_SRC_LENGTH = 4000;
 const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 96;
 const MAX_USER_AGENT_LENGTH = 240;
 const REVIEW_IP_HASH_SALT = process.env.REVIEW_IP_HASH_SALT || 'laohe-wings-review';
-const FUNCTION_VERSION = '20260512-review-attachments-ip';
+const FUNCTION_VERSION = '20260512-reply-delete-multi-gif';
 
 function initCloudBaseApp(context) {
   try {
@@ -537,12 +537,15 @@ async function normalizeSubmittedReviewReply(reply, snapshot, rawEvent = {}, cli
   if (!comment && !attachments.length) {
     throw createError('EMPTY_REPLY', 'reply text or image is required');
   }
+  const nowTime = Date.now();
+  const now = new Date(nowTime).toISOString();
   return {
-    id: `reply:${new Date().toISOString()}:${Math.random().toString(36).slice(2, 10)}`,
+    id: `reply:${now}:${Math.random().toString(36).slice(2, 10)}`,
     ...identity,
+    deleteUntil: new Date(nowTime + REVIEW_DELETE_WINDOW_MS).toISOString(),
     comment,
     attachments,
-    createdAt: new Date().toISOString()
+    createdAt: now
   };
 }
 
@@ -809,6 +812,115 @@ async function deleteReview(db, input, context) {
   }
 }
 
+async function deleteReply(db, input, context) {
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
+    : DEFAULT_DOC_ID;
+  const reviewId = String(input.reviewId || '').trim();
+  const replyId = String(input.replyId || '').trim();
+  const deviceId = normalizeText(input.deviceId, MAX_DEVICE_ID_LENGTH);
+  if (!reviewId || !replyId || !deviceId) {
+    return {
+      ok: false,
+      code: 'INVALID_DELETE_REPLY_REQUEST',
+      message: 'reviewId, replyId, and deviceId are required'
+    };
+  }
+
+  const docRef = db.collection(COLLECTION).doc(docId);
+  const record = extractDatabaseRecord(await docRef.get());
+  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
+  if (!snapshot) {
+    return {
+      ok: false,
+      code: 'SNAPSHOT_NOT_FOUND',
+      message: 'current lineup snapshot was not found'
+    };
+  }
+  const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+  const reviewIndex = reviews.findIndex(item => item && item.id === reviewId);
+  if (reviewIndex < 0) {
+    return {
+      ok: false,
+      code: 'REVIEW_NOT_FOUND',
+      message: 'review was not found'
+    };
+  }
+
+  const review = isPlainObject(reviews[reviewIndex]) ? reviews[reviewIndex] : {};
+  const replies = Array.isArray(review.replies) ? review.replies : [];
+  const reply = replies.find(item => item && item.id === replyId);
+  if (!reply) {
+    return {
+      ok: false,
+      code: 'REPLY_NOT_FOUND',
+      message: 'reply was not found'
+    };
+  }
+  if (String(reply.deviceId || '') !== deviceId) {
+    return {
+      ok: false,
+      code: 'DELETE_FORBIDDEN',
+      message: 'only the original device can delete this reply'
+    };
+  }
+  const createdAt = new Date(reply.createdAt || 0).getTime();
+  const deleteUntil = new Date(reply.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
+  if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
+    return {
+      ok: false,
+      code: 'DELETE_EXPIRED',
+      message: 'reply delete window has expired'
+    };
+  }
+
+  reviews[reviewIndex] = {
+    ...review,
+    replies: replies.filter(item => !item || item.id !== replyId).slice(-MAX_REVIEW_REPLIES)
+  };
+  snapshot.reviewsData = reviews.slice(0, MAX_REVIEWS);
+  const now = new Date();
+  const auth = context.auth || context.userInfo || {};
+  const updatedBy = auth.uid || auth.openId || auth.openid || 'reply-delete-web';
+
+  try {
+    await docRef.set({
+      snapshot,
+      schemaVersion: record.schemaVersion || 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy,
+      clientUpdatedAt: input.clientUpdatedAt || ''
+    });
+    console.log('deleteReply saved', {
+      docId,
+      reviewId,
+      replyId,
+      functionVersion: FUNCTION_VERSION
+    });
+    return {
+      ok: true,
+      docId,
+      reviewId,
+      replyId,
+      updatedAt: now.toISOString(),
+      functionVersion: FUNCTION_VERSION
+    };
+  } catch (error) {
+    console.error('deleteReply failed', {
+      code: error && error.code,
+      message: error && error.message,
+      requestId: error && error.requestId
+    });
+    return {
+      ok: false,
+      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
+      message: error && error.message ? error.message : String(error),
+      requestId: error && error.requestId ? error.requestId : ''
+    };
+  }
+}
+
 function parseBody(body) {
   if (!body) return {};
   if (isPlainObject(body)) return body;
@@ -931,6 +1043,9 @@ exports.main = async (event = {}, context = {}) => {
   }
   if (input.action === 'deleteReview') {
     return deleteReview(db, input, context);
+  }
+  if (input.action === 'deleteReply') {
+    return deleteReply(db, input, context);
   }
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
