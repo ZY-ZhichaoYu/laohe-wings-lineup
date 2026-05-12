@@ -2614,6 +2614,15 @@ function normalizePublishResult(response) {
   return result;
 }
 
+function shouldRetryPublishResult(result, payload = {}) {
+  return Boolean(
+    payload?.action &&
+    result &&
+    result.ok === false &&
+    result.code === 'INVALID_SNAPSHOT'
+  );
+}
+
 async function callPublishHttp(payload) {
   if (!CLOUDBASE_CONFIG.publishHttpPath) {
     throw new Error('HTTP 发布路径未配置');
@@ -2650,6 +2659,10 @@ async function callPublishFunction(payload) {
 
   try {
     const response = await callPublishHttp(payload);
+    const result = normalizePublishResult(response);
+    if (shouldRetryPublishResult(result, payload)) {
+      throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '云函数保存失败'}`);
+    }
     return { response, mode: 'http' };
   } catch (error) {
     errors.push(`http: ${getCloudErrorMessage(error)}`);
@@ -2660,6 +2673,11 @@ async function callPublishFunction(payload) {
   for (const mode of modes) {
     try {
       const response = await cloudSyncState.app.callFunction(getPublishCallOptions(payload, mode));
+      const result = normalizePublishResult(response);
+      if (shouldRetryPublishResult(result, payload)) {
+        errors.push(`${mode}: ${result.code || 'FUNCTION_ERROR'} · ${result.message || '云函数保存失败'}`);
+        continue;
+      }
       return { response, mode };
     } catch (error) {
       errors.push(`${mode}: ${getCloudErrorMessage(error)}`);
@@ -3142,6 +3160,52 @@ function createSnapshot() {
     reportLink,
     editables: getEditableTexts()
   };
+}
+
+function normalizeReviewsForSnapshot(reviews = REVIEWS_DATA) {
+  return (Array.isArray(reviews) ? reviews : [])
+    .map(normalizeReview)
+    .filter(Boolean)
+    .slice(0, 800);
+}
+
+function createSnapshotWithReviewsData(reviews = REVIEWS_DATA) {
+  const snapshot = createSnapshot();
+  snapshot.reviewsData = clone(normalizeReviewsForSnapshot(reviews));
+  return snapshot;
+}
+
+function buildReviewsWithSubmittedReview(review, reviews = REVIEWS_DATA) {
+  const normalized = normalizeReview(review);
+  const existing = normalizeReviewsForSnapshot(reviews);
+  if (!normalized) return existing;
+  return [
+    normalized,
+    ...existing.filter(item => item.id !== normalized.id)
+  ].slice(0, 800);
+}
+
+function buildReviewsWithReply(reviewId, reply, reviews = REVIEWS_DATA) {
+  const id = String(reviewId || '');
+  const normalizedReply = normalizeReviewReply(reply);
+  const existingReviews = normalizeReviewsForSnapshot(reviews);
+  if (!id || !normalizedReply) return existingReviews;
+  return existingReviews.map(review => {
+    if (review.id !== id) return review;
+    const existingReplies = Array.isArray(review.replies) ? review.replies : [];
+    return {
+      ...review,
+      replies: [
+        ...existingReplies.filter(item => item && item.id !== normalizedReply.id),
+        normalizedReply
+      ].slice(-80)
+    };
+  });
+}
+
+function buildReviewsWithoutReview(reviewId, reviews = REVIEWS_DATA) {
+  const id = String(reviewId || '');
+  return normalizeReviewsForSnapshot(reviews).filter(review => review.id !== id);
 }
 
 function mergeSavedPlayerFields(basePlayer, savedPlayer) {
@@ -4198,10 +4262,12 @@ async function submitPlayerReview() {
   if (isCloudBaseSyncHost() && cloudSyncState.initialized && CLOUDBASE_CONFIG.publishFunction) {
     try {
       setReviewStatus('正在提交评价...');
+      const fallbackReviews = buildReviewsWithSubmittedReview(review);
       const { response, mode } = await callPublishFunction({
         action: 'submitReview',
         docId: CLOUDBASE_CONFIG.currentDocId,
         review,
+        snapshot: createSnapshotWithReviewsData(fallbackReviews),
         clientInfo: getReviewClientInfo(),
         clientUpdatedAt: new Date().toISOString()
       });
@@ -4238,20 +4304,7 @@ async function submitPlayerReview() {
 function appendReplyToReview(reviewId, reply) {
   const normalizedReply = normalizeReviewReply(reply);
   if (!normalizedReply) return null;
-  REVIEWS_DATA = REVIEWS_DATA
-    .map(normalizeReview)
-    .filter(Boolean)
-    .map(review => {
-      if (review.id !== reviewId) return review;
-      const existing = Array.isArray(review.replies) ? review.replies : [];
-      return {
-        ...review,
-        replies: [
-          ...existing.filter(item => item && item.id !== normalizedReply.id),
-          normalizedReply
-        ].slice(-80)
-      };
-    });
+  REVIEWS_DATA = buildReviewsWithReply(reviewId, normalizedReply);
   return normalizedReply;
 }
 
@@ -4330,11 +4383,13 @@ async function submitReviewReply(reviewId) {
   if (isCloudBaseSyncHost() && cloudSyncState.initialized && CLOUDBASE_CONFIG.publishFunction) {
     try {
       setReviewStatus('正在提交回复...');
+      const fallbackReviews = buildReviewsWithReply(id, reply);
       const { response } = await callPublishFunction({
         action: 'replyReview',
         docId: CLOUDBASE_CONFIG.currentDocId,
         reviewId: id,
         reply,
+        snapshot: createSnapshotWithReviewsData(fallbackReviews),
         clientInfo: getReviewClientInfo(),
         clientUpdatedAt: new Date().toISOString()
       });
@@ -4386,6 +4441,7 @@ async function deleteReview(reviewId) {
         docId: CLOUDBASE_CONFIG.currentDocId,
         reviewId,
         deviceId: getReviewDeviceId(),
+        snapshot: createSnapshotWithReviewsData(buildReviewsWithoutReview(reviewId)),
         clientUpdatedAt: new Date().toISOString()
       });
       const result = normalizePublishResult(response);
