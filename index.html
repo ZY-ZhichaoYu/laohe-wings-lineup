@@ -2024,6 +2024,7 @@ const REVIEW_MODE_TEAM = 'team';
 const REVIEW_MODE_FRIEND = 'friend';
 const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_REVIEW_ATTACHMENTS = 6;
+const CLOUD_IMAGE_REFERENCE_TTL_MS = 5 * 60 * 1000;
 
 const cloudSyncState = {
   initialized: false,
@@ -2465,7 +2466,7 @@ function parseCloudImageReference(value) {
 
 function isCloudImageUrlFresh(ref) {
   const refreshedAt = Number(ref?.refreshedAt || 0);
-  return Boolean(ref?.url && refreshedAt && Date.now() - refreshedAt < 6 * 60 * 60 * 1000);
+  return Boolean(ref?.url && refreshedAt && Date.now() - refreshedAt < CLOUD_IMAGE_REFERENCE_TTL_MS);
 }
 
 function refreshCloudImageUrl(fileID) {
@@ -3124,6 +3125,13 @@ function resolveImageSource(value) {
   return source.startsWith('data:') ? source : source.replace(/\\/g, '/');
 }
 
+function getCloudImageFileID(value, resolvedSource = '') {
+  const cloudRef = parseCloudImageReference(value);
+  if (cloudRef?.fileID) return cloudRef.fileID;
+  const source = String(resolvedSource || value || '').trim();
+  return cloudImageFileIdByUrl.get(source) || '';
+}
+
 function findDefaultPlayerByNum(num) {
   const key = String(num ?? '');
   return [...(INLINE_PLAYER_DATA.starters || []), ...(INLINE_PLAYER_DATA.bench || [])]
@@ -3145,12 +3153,32 @@ function renderImageTag(className, source, fallback = '', alt = '') {
   return `<img${classAttr} src="${escapeAttr(source || fallback)}"${fallbackAttr} alt="${escapeAttr(alt)}">`;
 }
 
-function handleImageError(event) {
-  const image = event.target?.closest?.('img');
-  if (!image || image.dataset.fallbackApplied === 'true') return;
+function applyImageFallback(image) {
   const fallback = image.dataset.fallbackSrc;
   image.dataset.fallbackApplied = 'true';
   image.src = fallback || getExportPlaceholderImage();
+}
+
+function handleImageError(event) {
+  const image = event.target?.closest?.('img');
+  if (!image || image.dataset.fallbackApplied === 'true') return;
+  const currentSource = image.currentSrc || image.src || image.getAttribute('src') || '';
+  const fileID = image.dataset.cloudFileId || getCloudImageFileID(currentSource);
+  if (fileID && image.dataset.cloudRefreshTried !== 'true') {
+    image.dataset.cloudRefreshTried = 'true';
+    getFreshCloudImageUrl(fileID)
+      .then(freshSource => {
+        if (freshSource) {
+          image.dataset.fallbackApplied = 'false';
+          image.src = freshSource;
+          return;
+        }
+        applyImageFallback(image);
+      })
+      .catch(() => applyImageFallback(image));
+    return;
+  }
+  applyImageFallback(image);
 }
 
 function getCurrentAvatar(player) {
@@ -4067,7 +4095,9 @@ function renderReviewAttachmentsHtml(attachments = []) {
   if (!items.length) return '';
   return `<div class="review-attachments">${items.map(attachment => {
     const src = resolveImageSource(attachment.src);
-    return src ? `<img class="review-attachment-img" src="${escapeAttr(src)}" alt="${escapeAttr(attachment.name || '评价图片')}" loading="lazy">` : '';
+    const fileID = getCloudImageFileID(attachment.src, src);
+    const fileAttr = fileID ? ` data-cloud-file-id="${escapeAttr(fileID)}"` : '';
+    return src ? `<img class="review-attachment-img" src="${escapeAttr(src)}"${fileAttr} alt="${escapeAttr(attachment.name || '评价图片')}" loading="lazy">` : '';
   }).join('')}</div>`;
 }
 
