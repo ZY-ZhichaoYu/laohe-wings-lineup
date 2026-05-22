@@ -1,0 +1,36 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/draw/draw",
+    "pages/about/about"
+  ],
+  "window": {
+    "navigationBarTitleText": "LAOHE WINGS",
+    "navigationBarBackgroundColor": "#111111",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#111111",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#a3a3a3",
+    "selectedColor": "#22c55e",
+    "backgroundColor": "#111111",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "阵容"
+      },
+      {
+        "pagePath": "pages/draw/draw",
+        "text": "抽卡"
+      },
+      {
+        "pagePath": "pages/about/about",
+        "text": "关于"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

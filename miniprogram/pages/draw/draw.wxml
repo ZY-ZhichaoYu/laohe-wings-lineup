@@ -1,0 +1,23 @@
+<view class="page draw-page">
+  <view class="draw-head">
+    <view>
+      <view class="eyebrow">RANDOM CARD</view>
+      <view class="title">随机抽卡</view>
+    </view>
+    <view class="pool-count">{{pool.length}} 张</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="panel empty">正在读取卡池...</view>
+  <view wx:elif="{{error}}" class="panel empty">{{error}}</view>
+
+  <block wx:else>
+    <view wx:if="{{card}}" class="card-panel panel {{card.cardType}}">
+      <view class="avatar">{{card.num}}</view>
+      <view class="card-name">{{card.name}}</view>
+      <view class="card-role">{{card.pos || card.role || '老和山之翼'}}</view>
+      <view class="card-tag">{{card.cardType}}</view>
+    </view>
+    <view wx:else class="panel empty">暂无可抽卡成员。</view>
+    <button class="button-primary draw-button" bindtap="drawCard">再抽一张</button>
+  </block>
+</view>

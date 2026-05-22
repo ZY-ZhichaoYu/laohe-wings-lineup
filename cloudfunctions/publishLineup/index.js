@@ -16,8 +16,11 @@ const MAX_REVIEW_ATTACHMENT_SRC_LENGTH = 4000;
 const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 96;
 const MAX_USER_AGENT_LENGTH = 240;
+const MAX_ATTENDANCE_RECORDS = 200;
+const MAX_MVP_VOTES = 400;
+const ATTENDANCE_STATUS_SET = new Set(['in', 'out', 'maybe']);
 const REVIEW_IP_HASH_SALT = process.env.REVIEW_IP_HASH_SALT || 'laohe-wings-review';
-const FUNCTION_VERSION = '20260512-review-image-proxy-fallback';
+const FUNCTION_VERSION = '20260522-team-play-interactions';
 
 function initCloudBaseApp(context) {
   try {
@@ -549,6 +552,229 @@ async function normalizeSubmittedReviewReply(reply, snapshot, rawEvent = {}, cli
   };
 }
 
+function findAttendancePerson(snapshot, num) {
+  const key = String(num ?? '').trim();
+  return getSquadPeople(snapshot).find(person => person.num === key) || null;
+}
+
+async function normalizeSubmittedAttendance(attendance, snapshot, rawEvent = {}, clientInfo = {}, existingRecord = null) {
+  if (!isPlainObject(attendance)) {
+    throw createError('INVALID_ATTENDANCE', 'attendance must be an object');
+  }
+  const playerNum = String(attendance.playerNum ?? '').trim();
+  if (!/^\d{1,3}$/.test(playerNum)) {
+    throw createError('INVALID_ATTENDANCE_PLAYER', 'attendance player number is required');
+  }
+  const player = findAttendancePerson(snapshot, playerNum);
+  if (!player) {
+    throw createError('UNKNOWN_ATTENDANCE_PLAYER', 'attendance player is not in the current roster');
+  }
+  const status = ATTENDANCE_STATUS_SET.has(attendance.status) ? attendance.status : 'in';
+  const deviceId = normalizeText(attendance.deviceId, MAX_DEVICE_ID_LENGTH);
+  if (!deviceId) {
+    throw createError('INVALID_DEVICE_ID', 'deviceId is required');
+  }
+  const reviewMeta = await buildReviewMeta(rawEvent, isPlainObject(clientInfo) ? clientInfo : {}, true);
+  const now = new Date().toISOString();
+  const createdAt = existingRecord && existingRecord.createdAt ? String(existingRecord.createdAt) : now;
+  return {
+    id: existingRecord && existingRecord.id ? String(existingRecord.id) : `attendance:${now}:${Math.random().toString(36).slice(2, 10)}`,
+    playerNum: player.num,
+    playerName: player.name,
+    status,
+    nickname: normalizeText(attendance.nickname, MAX_REVIEWER_NAME_LENGTH),
+    deviceId,
+    ipRegion: reviewMeta.ipRegion,
+    ipMasked: reviewMeta.ipMasked,
+    deviceLabel: reviewMeta.deviceLabel,
+    reviewMeta,
+    createdAt,
+    updatedAt: now
+  };
+}
+
+async function normalizeSubmittedMvpVote(vote, snapshot, rawEvent = {}, clientInfo = {}, existingVote = null) {
+  if (!isPlainObject(vote)) {
+    throw createError('INVALID_MVP_VOTE', 'vote must be an object');
+  }
+  const targetKey = String(vote.targetKey || '').trim();
+  const targetNum = String(vote.targetNum ?? '').trim();
+  const target = getReviewTargets(snapshot).find(item =>
+    item.reviewKey === targetKey || (targetNum && String(item.num) === targetNum)
+  );
+  if (!target) {
+    throw createError('INVALID_MVP_TARGET', 'MVP target is not in the current lineup');
+  }
+  const identity = await normalizeSubmittedReviewIdentity(vote, snapshot, rawEvent, clientInfo);
+  if (identity.reviewerAuth !== 'friend_number') {
+    throw createError('INVALID_MVP_IDENTITY', 'MVP vote requires friend identity');
+  }
+  const now = new Date().toISOString();
+  const createdAt = existingVote && existingVote.createdAt ? String(existingVote.createdAt) : now;
+  return {
+    id: existingVote && existingVote.id ? String(existingVote.id) : `mvp:${now}:${Math.random().toString(36).slice(2, 10)}`,
+    targetKey: target.reviewKey,
+    targetNum: String(target.num),
+    targetName: target.name,
+    targetType: target.reviewType,
+    ...identity,
+    createdAt,
+    updatedAt: now
+  };
+}
+
+async function submitAttendance(db, input, context, rawEvent = {}) {
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
+    : DEFAULT_DOC_ID;
+  const docRef = db.collection(COLLECTION).doc(docId);
+  const record = extractDatabaseRecord(await docRef.get());
+  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
+  if (!snapshot) {
+    return {
+      ok: false,
+      code: 'SNAPSHOT_NOT_FOUND',
+      message: 'current lineup snapshot was not found'
+    };
+  }
+
+  const existingRecords = Array.isArray(snapshot.attendanceData) ? snapshot.attendanceData : [];
+  const deviceId = normalizeText(input.attendance && input.attendance.deviceId, MAX_DEVICE_ID_LENGTH);
+  const existingRecord = existingRecords.find(item => item && item.deviceId === deviceId) || null;
+  let attendance;
+  try {
+    attendance = await normalizeSubmittedAttendance(input.attendance, snapshot, rawEvent, input.clientInfo, existingRecord);
+  } catch (error) {
+    return {
+      ok: false,
+      code: error.code || 'INVALID_ATTENDANCE',
+      message: error.message || String(error)
+    };
+  }
+
+  snapshot.attendanceData = [
+    attendance,
+    ...existingRecords.filter(item => !item || (item.id !== attendance.id && item.deviceId !== attendance.deviceId))
+  ].slice(0, MAX_ATTENDANCE_RECORDS);
+
+  const now = new Date();
+  const auth = context.auth || context.userInfo || {};
+  const updatedBy = auth.uid || auth.openId || auth.openid || 'attendance-web';
+
+  try {
+    await docRef.set({
+      snapshot,
+      schemaVersion: record.schemaVersion || 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy,
+      clientUpdatedAt: input.clientUpdatedAt || ''
+    });
+    console.log('submitAttendance saved', {
+      docId,
+      playerNum: attendance.playerNum,
+      status: attendance.status,
+      ipRegion: attendance.ipRegion,
+      functionVersion: FUNCTION_VERSION
+    });
+    return {
+      ok: true,
+      docId,
+      record: attendance,
+      updatedAt: now.toISOString(),
+      functionVersion: FUNCTION_VERSION
+    };
+  } catch (error) {
+    console.error('submitAttendance failed', {
+      code: error && error.code,
+      message: error && error.message,
+      requestId: error && error.requestId
+    });
+    return {
+      ok: false,
+      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
+      message: error && error.message ? error.message : String(error),
+      requestId: error && error.requestId ? error.requestId : ''
+    };
+  }
+}
+
+async function submitMvpVote(db, input, context, rawEvent = {}) {
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
+    : DEFAULT_DOC_ID;
+  const docRef = db.collection(COLLECTION).doc(docId);
+  const record = extractDatabaseRecord(await docRef.get());
+  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
+  if (!snapshot) {
+    return {
+      ok: false,
+      code: 'SNAPSHOT_NOT_FOUND',
+      message: 'current lineup snapshot was not found'
+    };
+  }
+
+  const existingVotes = Array.isArray(snapshot.mvpVotesData) ? snapshot.mvpVotesData : [];
+  const deviceId = normalizeText(input.vote && input.vote.deviceId, MAX_DEVICE_ID_LENGTH);
+  const existingVote = existingVotes.find(item => item && item.deviceId === deviceId) || null;
+  let vote;
+  try {
+    vote = await normalizeSubmittedMvpVote(input.vote, snapshot, rawEvent, input.clientInfo, existingVote);
+  } catch (error) {
+    return {
+      ok: false,
+      code: error.code || 'INVALID_MVP_VOTE',
+      message: error.message || String(error)
+    };
+  }
+
+  snapshot.mvpVotesData = [
+    vote,
+    ...existingVotes.filter(item => !item || (item.id !== vote.id && item.deviceId !== vote.deviceId))
+  ].slice(0, MAX_MVP_VOTES);
+
+  const now = new Date();
+  const auth = context.auth || context.userInfo || {};
+  const updatedBy = auth.uid || auth.openId || auth.openid || 'mvp-vote-web';
+
+  try {
+    await docRef.set({
+      snapshot,
+      schemaVersion: record.schemaVersion || 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy,
+      clientUpdatedAt: input.clientUpdatedAt || ''
+    });
+    console.log('submitMvpVote saved', {
+      docId,
+      targetKey: vote.targetKey,
+      reviewerNum: vote.reviewerNum,
+      ipRegion: vote.ipRegion,
+      functionVersion: FUNCTION_VERSION
+    });
+    return {
+      ok: true,
+      docId,
+      vote,
+      updatedAt: now.toISOString(),
+      functionVersion: FUNCTION_VERSION
+    };
+  } catch (error) {
+    console.error('submitMvpVote failed', {
+      code: error && error.code,
+      message: error && error.message,
+      requestId: error && error.requestId
+    });
+    return {
+      ok: false,
+      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
+      message: error && error.message ? error.message : String(error),
+      requestId: error && error.requestId ? error.requestId : ''
+    };
+  }
+}
+
 async function submitReview(db, input, context, rawEvent = {}) {
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
@@ -1059,6 +1285,12 @@ exports.main = async (event = {}, context = {}) => {
     return proxyImage(input, app);
   }
   const db = app.database();
+  if (input.action === 'submitAttendance') {
+    return submitAttendance(db, input, context, event);
+  }
+  if (input.action === 'submitMvpVote') {
+    return submitMvpVote(db, input, context, event);
+  }
   if (input.action === 'submitReview') {
     return submitReview(db, input, context, event);
   }

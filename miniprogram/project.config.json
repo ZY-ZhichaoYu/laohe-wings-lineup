@@ -1,0 +1,16 @@
+{
+  "miniprogramRoot": "./",
+  "cloudfunctionRoot": "../cloudfunctions/",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "compileHotReLoad": true
+  },
+  "appid": "touristappid",
+  "projectname": "laohe-wings-lineup",
+  "description": "老和山之翼阵容小程序",
+  "cloudbaseRoot": "../cloudfunctions/"
+}

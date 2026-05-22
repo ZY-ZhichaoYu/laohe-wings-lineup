@@ -17,6 +17,7 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 - 首发、替补、教练与领队、绝版人物卡片展示。
 - 首发替换支持替补、教练和绝版人物；支持下拉换人和拖拽换人。
 - 随机抽卡，包含首发、替补、教练、领队、绝版人物，以及隐藏 `UNBELIEVABLE` 彩蛋卡。
+- 赛前互动：队友和朋友可以提交到场报名、本场 MVP 投票，数据同步到 CloudBase。
 - 球员评价：队内评价需要解锁编辑口令；队外朋友可用“熟悉球员号 + 昵称”提交朋友评价。
 - 海报文字、球员资料、照片、队徽在线编辑。
 - PNG 海报导出，手机端会打开图片预览页，可长按保存；云端照片会先经过导出安全处理。
@@ -71,6 +72,8 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 在 CloudBase 正式地址打开时，页面会优先读取 `lineups/current`。编辑模式下修改后点击 `发布到云端`，其他人刷新页面即可看到新阵容。
 
 评价也保存在同一个 `lineups/current` 快照里，字段为 `reviewsData`。每次提交都会新增一条评价，不再按号码覆盖旧评价。朋友评价、评价回复和评价撤回会通过 `publishLineup` 云函数只更新评价字段，不授予阵容编辑权限。
+
+赛前互动同样保存在 `lineups/current` 快照里：到场报名字段为 `attendanceData`，MVP 投票字段为 `mvpVotesData`。这两个公开互动入口也通过 `publishLineup` 的受限动作写入，只更新对应互动字段，不允许游客覆盖整份阵容。
 
 GitHub Pages 备用地址不连接 CloudBase 写入能力，主要用于静态备份和海外访问。
 
@@ -127,6 +130,7 @@ assets/legends/                    绝版人物照片
 assets/staff/                      教练与领队照片
 assets/team/                       队徽
 cloudfunctions/publishLineup/      发布当前阵容并代理导出图片的 CloudBase 云函数
+miniprogram/                       微信小程序初版工程
 ```
 
 ## CloudBase 部署
@@ -203,6 +207,7 @@ https://zy-zhichaoyu.github.io/laohe-wings-lineup/
 - Starting XI, bench, coach, manager, and Hall of Fame cards.
 - Drag-and-drop or dropdown substitutions, including bench players, coach, and Hall of Fame members.
 - Random card draw, including a hidden `UNBELIEVABLE` special card.
+- Pre-match interactions: attendance check-in and MVP voting synced through CloudBase.
 - Player reviews for players, coach, manager, and Hall of Fame members, with separate team-member and friend review modes.
 - Online editing for poster text, player data, photos, and team logos.
 - PNG poster export. On mobile, the app opens a preview image so users can long-press and save.
@@ -240,6 +245,12 @@ A newly submitted review or reply can be deleted from the same browser/device wi
 CloudBase document `lineups/current` is the shared source of truth. Browser `localStorage` is only used for personal drafts, presets, and local fallback.
 
 Reviews are stored in `reviewsData` inside the same shared snapshot. Public friend review submissions, review replies, review deletion, and reply deletion go through the `publishLineup` CloudBase function and only update the review list; they do not grant lineup editing rights.
+
+Pre-match interactions are stored in `attendanceData` and `mvpVotesData` inside the same snapshot. Public submissions go through restricted `publishLineup` actions and only update those interaction fields.
+
+### WeChat Mini Program
+
+`miniprogram/` is the first native WeChat Mini Program scaffold. It reads the same CloudBase document, shows the current lineup, and provides random card draw. Import `miniprogram/` in WeChat DevTools and replace the placeholder `appid` in `project.config.json` before real-device testing or publishing.
 
 ### Deployment Notes
 

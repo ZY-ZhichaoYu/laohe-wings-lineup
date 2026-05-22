@@ -1,0 +1,25 @@
+<view class="page about-page">
+  <view class="title">老和山之翼</view>
+  <view class="panel info">
+    <view class="row">
+      <text class="label">正式入口</text>
+      <text class="value">CloudBase H5</text>
+    </view>
+    <view class="row">
+      <text class="label">共享数据</text>
+      <text class="value">lineups/current</text>
+    </view>
+    <view class="row">
+      <text class="label">小程序阶段</text>
+      <text class="value">阵容查看与抽卡初版</text>
+    </view>
+  </view>
+
+  <view class="section-title">后续迁移</view>
+  <view class="panel list">
+    <view>1. 评论和回复</view>
+    <view>2. 到场报名</view>
+    <view>3. MVP 投票</view>
+    <view>4. 队员照片上传管理</view>
+  </view>
+</view>

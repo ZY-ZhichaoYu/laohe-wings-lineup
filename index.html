@@ -1141,6 +1141,115 @@
     font-size: 12px;
     line-height: 1.45;
   }
+  .team-play-tool {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #2a2a2a;
+  }
+  .team-play-tool h2 {
+    margin-bottom: 10px;
+  }
+  .team-play-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .team-play-card {
+    padding: 12px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #151515;
+  }
+  .team-play-card h3 {
+    margin: 0 0 10px;
+    color: #f5f5f5;
+    font-size: 15px;
+    font-weight: 900;
+  }
+  .team-play-form {
+    display: grid;
+    grid-template-columns: minmax(128px, 1fr) minmax(104px, 0.72fr);
+    gap: 8px;
+  }
+  .team-play-form .is-wide {
+    grid-column: 1 / -1;
+  }
+  .team-play-form .ctrl-btn {
+    min-height: 38px;
+    padding: 8px 11px;
+  }
+  .team-play-status {
+    min-height: 18px;
+    margin-top: 8px;
+    color: #a3e635;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .team-play-status.is-error {
+    color: #fca5a5;
+  }
+  .team-play-summary {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .team-play-counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .team-play-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    color: #d4d4d4;
+    background: #101010;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .team-play-chip.is-in {
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #bbf7d0;
+    background: rgba(34, 197, 94, 0.12);
+  }
+  .team-play-chip.is-out {
+    border-color: rgba(248, 113, 113, 0.45);
+    color: #fecaca;
+    background: rgba(127, 29, 29, 0.18);
+  }
+  .team-play-chip.is-maybe {
+    border-color: rgba(250, 204, 21, 0.45);
+    color: #fef08a;
+    background: rgba(250, 204, 21, 0.12);
+  }
+  .team-play-list {
+    display: grid;
+    gap: 6px;
+  }
+  .team-play-item {
+    display: grid;
+    gap: 3px;
+    padding: 7px 8px;
+    border: 1px solid #292929;
+    border-radius: 6px;
+    background: #101010;
+    color: #ddd;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .team-play-item strong {
+    color: #93c5fd;
+  }
+  .team-play-item .muted {
+    color: #9ca3af;
+  }
+  .team-play-empty {
+    color: #888;
+    font-size: 12px;
+  }
   .review-comment {
     grid-column: 1 / 4;
     min-height: 64px;
@@ -1543,6 +1652,9 @@
     .review-form {
       grid-template-columns: 1fr 1fr;
     }
+    .team-play-grid {
+      grid-template-columns: 1fr;
+    }
     .review-submit {
       grid-column: 1 / -1;
     }
@@ -1582,6 +1694,9 @@
       grid-template-columns: 1fr;
     }
     .review-form {
+      grid-template-columns: 1fr;
+    }
+    .team-play-form {
       grid-template-columns: 1fr;
     }
     .review-summary-head {
@@ -1802,6 +1917,37 @@
       <div class="draw-intro">点击按钮，随机抽出一位老和山之翼成员。</div>
     </div>
   </div>
+  <div class="team-play-tool" id="team-play-tool">
+    <h2>🎮 赛前互动</h2>
+    <div class="team-play-grid">
+      <section class="team-play-card" aria-labelledby="attendance-title">
+        <h3 id="attendance-title">到场报名</h3>
+        <div class="team-play-form">
+          <select class="ctrl-select" id="attendance-player-select" aria-label="选择报名球员"></select>
+          <select class="ctrl-select" id="attendance-status-select" aria-label="选择到场状态">
+            <option value="in">到场</option>
+            <option value="maybe">待定</option>
+            <option value="out">请假</option>
+          </select>
+          <input class="ctrl-input is-wide" id="attendance-nickname-input" type="text" maxlength="18" autocomplete="nickname" placeholder="昵称（可选）">
+          <button class="ctrl-btn export is-wide" id="attendance-submit-btn" type="button">提交报名</button>
+        </div>
+        <div class="team-play-status" id="attendance-status"></div>
+        <div class="team-play-summary" id="attendance-summary"></div>
+      </section>
+      <section class="team-play-card" aria-labelledby="mvp-title">
+        <h3 id="mvp-title">本场 MVP</h3>
+        <div class="team-play-form">
+          <select class="ctrl-select" id="mvp-target-select" aria-label="选择 MVP 球员"></select>
+          <input class="ctrl-input" id="mvp-familiar-num-input" type="number" min="1" step="1" inputmode="numeric" placeholder="熟悉号码">
+          <input class="ctrl-input is-wide" id="mvp-nickname-input" type="text" maxlength="18" autocomplete="nickname" placeholder="昵称 / 微信昵称">
+          <button class="ctrl-btn export is-wide" id="mvp-submit-btn" type="button">投 MVP</button>
+        </div>
+        <div class="team-play-status" id="mvp-status"></div>
+        <div class="team-play-summary" id="mvp-summary"></div>
+      </section>
+    </div>
+  </div>
   <div class="review-tool" id="review-tool">
     <h2>⭐ 球员评价</h2>
     <div class="review-mode-tabs" role="group" aria-label="评价身份类型">
@@ -1875,6 +2021,8 @@ let LEGENDS_DATA = [];
 const DEFAULT_PRESET_NAME = '老和山之翼 4-2-3-1 本场名单';
 let CARD_INTROS = {};
 let REVIEWS_DATA = [];
+let ATTENDANCE_DATA = [];
+let MVP_VOTES_DATA = [];
 const EXTRA_DRAW_CARDS = [
   {
     num: '∞',
@@ -1989,6 +2137,7 @@ const STORAGE_KEYS = {
   reviewIdentity: 'laohe-lineup-review-identity',
   reviewMode: 'laohe-lineup-review-mode',
   reviewDeviceId: 'laohe-lineup-review-device-id',
+  teamPlayIdentity: 'laohe-lineup-team-play-identity',
   legacyLastStateV8: 'laohe-lineup-v8-last-state',
   legacyPresetsV8: 'laohe-lineup-v8-presets',
   legacyLastStateV7: 'laohe-lineup-v7-last-state',
@@ -2025,6 +2174,11 @@ const REVIEW_MODE_FRIEND = 'friend';
 const REVIEW_DELETE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_REVIEW_ATTACHMENTS = 6;
 const CLOUD_IMAGE_REFERENCE_TTL_MS = 5 * 60 * 1000;
+const ATTENDANCE_STATUS_META = {
+  in: { label: '到场', className: 'is-in' },
+  out: { label: '请假', className: 'is-out' },
+  maybe: { label: '待定', className: 'is-maybe' }
+};
 
 const cloudSyncState = {
   initialized: false,
@@ -2104,6 +2258,18 @@ const managerUploadAwayBtn = document.getElementById('manager-upload-away-btn');
 const managerClearBtn = document.getElementById('manager-clear-btn');
 const randomDrawBtn = document.getElementById('random-draw-btn');
 const drawCard = document.getElementById('draw-card');
+const attendancePlayerSelect = document.getElementById('attendance-player-select');
+const attendanceStatusSelect = document.getElementById('attendance-status-select');
+const attendanceNicknameInput = document.getElementById('attendance-nickname-input');
+const attendanceSubmitBtn = document.getElementById('attendance-submit-btn');
+const attendanceStatus = document.getElementById('attendance-status');
+const attendanceSummary = document.getElementById('attendance-summary');
+const mvpTargetSelect = document.getElementById('mvp-target-select');
+const mvpFamiliarNumInput = document.getElementById('mvp-familiar-num-input');
+const mvpNicknameInput = document.getElementById('mvp-nickname-input');
+const mvpSubmitBtn = document.getElementById('mvp-submit-btn');
+const mvpStatus = document.getElementById('mvp-status');
+const mvpSummary = document.getElementById('mvp-summary');
 const reviewTargetSelect = document.getElementById('review-target-select');
 const reviewForm = document.querySelector('.review-form');
 const reviewModeTeamBtn = document.getElementById('review-mode-team-btn');
@@ -3131,6 +3297,68 @@ function normalizeReview(review = {}) {
   };
 }
 
+function normalizeAttendanceRecord(record = {}) {
+  if (!record || typeof record !== 'object') return null;
+  const playerNum = String(record.playerNum ?? '').trim();
+  const playerName = normalizeName(record.playerName || findLineupPersonNameByNumber(playerNum) || '');
+  const status = ATTENDANCE_STATUS_META[record.status] ? record.status : 'in';
+  const nickname = String(record.nickname || '').trim().slice(0, 18);
+  const createdAt = String(record.createdAt || new Date().toISOString());
+  const updatedAt = String(record.updatedAt || createdAt);
+  if (!playerNum || !playerName) return null;
+  return {
+    id: String(record.id || `attendance:${playerNum}:${record.deviceId || createdAt}`),
+    playerNum,
+    playerName,
+    status,
+    nickname,
+    deviceId: String(record.deviceId || ''),
+    ipRegion: String(record.ipRegion || record.reviewMeta?.ipRegion || ''),
+    ipMasked: String(record.ipMasked || record.reviewMeta?.ipMasked || ''),
+    deviceLabel: String(record.deviceLabel || record.reviewMeta?.deviceLabel || ''),
+    reviewMeta: record.reviewMeta && typeof record.reviewMeta === 'object' ? record.reviewMeta : {},
+    createdAt,
+    updatedAt
+  };
+}
+
+function normalizeMvpVote(vote = {}) {
+  if (!vote || typeof vote !== 'object') return null;
+  const rawTargetKey = String(vote.targetKey || '').trim();
+  const rawTargetNum = String(vote.targetNum ?? '').trim();
+  const target = findReviewablePlayer(rawTargetKey || rawTargetNum);
+  const targetNum = String(vote.targetNum ?? target?.num ?? '').trim();
+  const targetKey = rawTargetKey || (target?.reviewKey || (targetNum ? `player:${targetNum}` : ''));
+  const targetName = normalizeName(vote.targetName || target?.name || '');
+  const targetType = String(vote.targetType || target?.reviewType || 'player');
+  const reviewerNum = String(vote.reviewerNum ?? vote.familiarPlayerNum ?? '').trim();
+  const reviewerName = String(vote.reviewerName || '').trim().slice(0, 18);
+  const familiarPlayerNum = String(vote.familiarPlayerNum ?? reviewerNum).trim();
+  const familiarPlayerName = normalizeName(vote.familiarPlayerName || findLineupPersonNameByNumber(familiarPlayerNum) || '');
+  const createdAt = String(vote.createdAt || new Date().toISOString());
+  const updatedAt = String(vote.updatedAt || createdAt);
+  if (!targetKey || !targetName || !reviewerNum || !reviewerName) return null;
+  return {
+    id: String(vote.id || `mvp:${vote.deviceId || reviewerNum}:${createdAt}`),
+    targetKey,
+    targetNum,
+    targetName,
+    targetType,
+    reviewerNum,
+    reviewerName,
+    familiarPlayerNum,
+    familiarPlayerName,
+    reviewerAuth: 'friend_number',
+    deviceId: String(vote.deviceId || ''),
+    ipRegion: String(vote.ipRegion || vote.reviewMeta?.ipRegion || ''),
+    ipMasked: String(vote.ipMasked || vote.reviewMeta?.ipMasked || ''),
+    deviceLabel: String(vote.deviceLabel || vote.reviewMeta?.deviceLabel || ''),
+    reviewMeta: vote.reviewMeta && typeof vote.reviewMeta === 'object' ? vote.reviewMeta : {},
+    createdAt,
+    updatedAt
+  };
+}
+
 function normalizeIntroMap(intros = {}) {
   const result = {};
   if (!intros || typeof intros !== 'object' || Array.isArray(intros)) return result;
@@ -3354,13 +3582,15 @@ function syncFormationMetaText() {
 
 function createSnapshot() {
   return {
-    version: 9,
+    version: 10,
     squadData: clone(SQUAD_DATA),
     coachData: clone(COACH_DATA),
     managerData: clone(MANAGER_DATA),
     teamData: clone(TEAM_DATA),
     legendsData: clone(LEGENDS_DATA),
     reviewsData: clone(REVIEWS_DATA),
+    attendanceData: clone(ATTENDANCE_DATA),
+    mvpVotesData: clone(MVP_VOTES_DATA),
     formation: currentFormation,
     kit: currentKit,
     showStats: currentShowStats,
@@ -3376,9 +3606,30 @@ function normalizeReviewsForSnapshot(reviews = REVIEWS_DATA) {
     .slice(0, 800);
 }
 
+function normalizeAttendanceForSnapshot(records = ATTENDANCE_DATA) {
+  return (Array.isArray(records) ? records : [])
+    .map(normalizeAttendanceRecord)
+    .filter(Boolean)
+    .slice(0, 200);
+}
+
+function normalizeMvpVotesForSnapshot(votes = MVP_VOTES_DATA) {
+  return (Array.isArray(votes) ? votes : [])
+    .map(normalizeMvpVote)
+    .filter(Boolean)
+    .slice(0, 400);
+}
+
 function createSnapshotWithReviewsData(reviews = REVIEWS_DATA) {
   const snapshot = createSnapshot();
   snapshot.reviewsData = clone(normalizeReviewsForSnapshot(reviews));
+  return snapshot;
+}
+
+function createSnapshotWithInteractionData(attendance = ATTENDANCE_DATA, mvpVotes = MVP_VOTES_DATA) {
+  const snapshot = createSnapshot();
+  snapshot.attendanceData = clone(normalizeAttendanceForSnapshot(attendance));
+  snapshot.mvpVotesData = clone(normalizeMvpVotesForSnapshot(mvpVotes));
   return snapshot;
 }
 
@@ -3605,6 +3856,12 @@ function applySnapshot(snapshot, shouldSave = true) {
   }
   if (Array.isArray(snapshot.reviewsData)) {
     REVIEWS_DATA = snapshot.reviewsData.map(normalizeReview).filter(Boolean);
+  }
+  if (Array.isArray(snapshot.attendanceData)) {
+    ATTENDANCE_DATA = snapshot.attendanceData.map(normalizeAttendanceRecord).filter(Boolean);
+  }
+  if (Array.isArray(snapshot.mvpVotesData)) {
+    MVP_VOTES_DATA = snapshot.mvpVotesData.map(normalizeMvpVote).filter(Boolean);
   }
   setEditableTexts(snapshot.editables);
   currentFormation = FORMATIONS[snapshot.formation] ? snapshot.formation : '433';
@@ -4087,6 +4344,331 @@ function findLineupPersonByNumber(value) {
 function findLineupPersonNameByNumber(value) {
   const player = findLineupPersonByNumber(value);
   return player ? player.name : '';
+}
+
+function getAttendancePlayers() {
+  const byNum = new Map();
+  [...SQUAD_DATA.starters, ...SQUAD_DATA.bench].forEach(player => {
+    const normalized = normalizePlayer(player);
+    const key = String(normalized.num ?? '').trim();
+    if (key && normalized.name && !byNum.has(key)) {
+      byNum.set(key, normalized);
+    }
+  });
+  return Array.from(byNum.values()).sort((a, b) => {
+    const numA = Number.parseInt(a.num, 10);
+    const numB = Number.parseInt(b.num, 10);
+    if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) return numA - numB;
+    return String(a.num).localeCompare(String(b.num), 'zh-CN');
+  });
+}
+
+function findAttendancePlayer(value) {
+  const key = String(value ?? '').trim();
+  return getAttendancePlayers().find(player => String(player.num) === key) || null;
+}
+
+function getAttendanceStatusInfo(status) {
+  return ATTENDANCE_STATUS_META[status] || ATTENDANCE_STATUS_META.in;
+}
+
+function setTeamPlayStatus(element, message = '', isError = false) {
+  if (!element) return;
+  element.textContent = message;
+  element.classList.toggle('is-error', Boolean(isError));
+}
+
+function getTeamPlayIdentity() {
+  try {
+    return localStorageAdapter.readJson(STORAGE_KEYS.teamPlayIdentity, {});
+  } catch (error) {
+    console.warn('读取互动身份失败：', error);
+    return {};
+  }
+}
+
+function saveTeamPlayIdentity(identity = {}) {
+  try {
+    localStorageAdapter.writeJson(STORAGE_KEYS.teamPlayIdentity, {
+      attendancePlayerNum: String(identity.attendancePlayerNum || attendancePlayerSelect?.value || ''),
+      attendanceNickname: String(identity.attendanceNickname || attendanceNicknameInput?.value || '').slice(0, 18),
+      familiarPlayerNum: String(identity.familiarPlayerNum || mvpFamiliarNumInput?.value || ''),
+      nickname: String(identity.nickname || mvpNicknameInput?.value || '').slice(0, 18)
+    });
+  } catch (error) {
+    console.warn('保存互动身份失败：', error);
+  }
+}
+
+function applyTeamPlayIdentityToInputs() {
+  const identity = getTeamPlayIdentity();
+  if (attendanceNicknameInput && !attendanceNicknameInput.value) {
+    attendanceNicknameInput.value = identity.attendanceNickname || identity.nickname || '';
+  }
+  if (mvpFamiliarNumInput && !mvpFamiliarNumInput.value) {
+    mvpFamiliarNumInput.value = identity.familiarPlayerNum || '';
+  }
+  if (mvpNicknameInput && !mvpNicknameInput.value) {
+    mvpNicknameInput.value = identity.nickname || identity.attendanceNickname || '';
+  }
+}
+
+function buildAttendanceWithRecord(record, records = ATTENDANCE_DATA) {
+  const normalized = normalizeAttendanceRecord(record);
+  const existing = normalizeAttendanceForSnapshot(records);
+  if (!normalized) return existing;
+  const deviceId = normalized.deviceId;
+  return [
+    normalized,
+    ...existing.filter(item => item.id !== normalized.id && (!deviceId || item.deviceId !== deviceId))
+  ].slice(0, 200);
+}
+
+function buildMvpVotesWithVote(vote, votes = MVP_VOTES_DATA) {
+  const normalized = normalizeMvpVote(vote);
+  const existing = normalizeMvpVotesForSnapshot(votes);
+  if (!normalized) return existing;
+  const deviceId = normalized.deviceId;
+  return [
+    normalized,
+    ...existing.filter(item => item.id !== normalized.id && (!deviceId || item.deviceId !== deviceId))
+  ].slice(0, 400);
+}
+
+function upsertAttendanceRecord(record) {
+  ATTENDANCE_DATA = buildAttendanceWithRecord(record);
+  return normalizeAttendanceRecord(record);
+}
+
+function upsertMvpVote(vote) {
+  MVP_VOTES_DATA = buildMvpVotesWithVote(vote);
+  return normalizeMvpVote(vote);
+}
+
+function renderAttendanceSummary() {
+  if (!attendanceSummary) return;
+  const records = normalizeAttendanceForSnapshot().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const counts = records.reduce((acc, record) => {
+    acc[record.status] = (acc[record.status] || 0) + 1;
+    return acc;
+  }, { in: 0, maybe: 0, out: 0 });
+  const countHtml = ['in', 'maybe', 'out'].map(status => {
+    const info = getAttendanceStatusInfo(status);
+    return `<span class="team-play-chip ${info.className}">${escapeHtml(info.label)} ${counts[status] || 0}</span>`;
+  }).join('');
+  const listHtml = records.length
+    ? records.slice(0, 12).map(record => {
+      const info = getAttendanceStatusInfo(record.status);
+      const time = formatReviewTime(record.updatedAt);
+      const nickname = record.nickname ? ` · ${record.nickname}` : '';
+      const region = record.ipRegion ? ` · IP：${record.ipRegion}` : '';
+      return `<div class="team-play-item">
+        <div><strong>#${escapeHtml(record.playerNum)} ${escapeHtml(record.playerName)}</strong> <span class="team-play-chip ${info.className}">${escapeHtml(info.label)}</span></div>
+        <div class="muted">${escapeHtml(`${time || '刚刚'}${nickname}${region}`)}</div>
+      </div>`;
+    }).join('')
+    : '<div class="team-play-empty">还没有报名记录。</div>';
+  attendanceSummary.innerHTML = `<div class="team-play-counts">${countHtml}</div><div class="team-play-list">${listHtml}</div>`;
+}
+
+function renderMvpSummary() {
+  if (!mvpSummary) return;
+  const votes = normalizeMvpVotesForSnapshot().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const grouped = new Map();
+  votes.forEach(vote => {
+    const key = vote.targetKey || `player:${vote.targetNum}`;
+    const current = grouped.get(key) || { vote, count: 0, latestAt: vote.updatedAt };
+    current.count += 1;
+    if (new Date(vote.updatedAt) > new Date(current.latestAt)) {
+      current.vote = vote;
+      current.latestAt = vote.updatedAt;
+    }
+    grouped.set(key, current);
+  });
+  const ranking = Array.from(grouped.values()).sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return new Date(b.latestAt) - new Date(a.latestAt);
+  });
+  const countHtml = `<span class="team-play-chip is-in">已投 ${votes.length}</span><span class="team-play-chip">候选 ${ranking.length}</span>`;
+  const listHtml = ranking.length
+    ? ranking.slice(0, 8).map((item, index) => {
+      const vote = item.vote;
+      const voter = vote.reviewerName ? ` · 最新：${vote.reviewerName}` : '';
+      const region = vote.ipRegion ? ` · IP：${vote.ipRegion}` : '';
+      return `<div class="team-play-item">
+        <div><strong>${index + 1}. ${vote.targetType === 'player' ? '#' : ''}${escapeHtml(vote.targetNum)} ${escapeHtml(vote.targetName)}</strong> <span class="team-play-chip is-maybe">${item.count} 票</span></div>
+        <div class="muted">${escapeHtml(`${formatReviewTime(item.latestAt) || '刚刚'}${voter}${region}`)}</div>
+      </div>`;
+    }).join('')
+    : '<div class="team-play-empty">还没有 MVP 投票。</div>';
+  mvpSummary.innerHTML = `<div class="team-play-counts">${countHtml}</div><div class="team-play-list">${listHtml}</div>`;
+}
+
+function renderTeamPlayTool() {
+  const attendancePlayers = getAttendancePlayers();
+  const previousAttendance = attendancePlayerSelect?.value || getTeamPlayIdentity().attendancePlayerNum || '';
+  if (attendancePlayerSelect) {
+    attendancePlayerSelect.innerHTML = attendancePlayers.map(player => (
+      `<option value="${escapeAttr(player.num)}">#${escapeHtml(player.num)} ${escapeHtml(player.name)}</option>`
+    )).join('');
+    if (attendancePlayers.some(player => String(player.num) === previousAttendance)) {
+      attendancePlayerSelect.value = previousAttendance;
+    } else if (attendancePlayers[0]) {
+      attendancePlayerSelect.value = String(attendancePlayers[0].num);
+    }
+  }
+  if (attendanceSubmitBtn) attendanceSubmitBtn.disabled = !attendancePlayers.length;
+
+  const mvpTargets = getReviewablePlayers();
+  const previousMvpTarget = mvpTargetSelect?.value || '';
+  if (mvpTargetSelect) {
+    mvpTargetSelect.innerHTML = mvpTargets.map(player => (
+      `<option value="${escapeAttr(player.reviewKey)}">${player.reviewType === 'player' ? '#' : ''}${escapeHtml(player.num)} ${escapeHtml(player.name)}</option>`
+    )).join('');
+    if (mvpTargets.some(player => player.reviewKey === previousMvpTarget)) {
+      mvpTargetSelect.value = previousMvpTarget;
+    } else if (mvpTargets[0]) {
+      mvpTargetSelect.value = String(mvpTargets[0].reviewKey);
+    }
+  }
+  if (mvpSubmitBtn) mvpSubmitBtn.disabled = !mvpTargets.length;
+  applyTeamPlayIdentityToInputs();
+  renderAttendanceSummary();
+  renderMvpSummary();
+}
+
+async function submitAttendance() {
+  const player = findAttendancePlayer(attendancePlayerSelect?.value || '');
+  if (!player) {
+    setTeamPlayStatus(attendanceStatus, '请选择要报名的球员。', true);
+    return;
+  }
+  const status = ATTENDANCE_STATUS_META[attendanceStatusSelect?.value] ? attendanceStatusSelect.value : 'in';
+  const nickname = String(attendanceNicknameInput?.value || '').trim().slice(0, 18);
+  const now = new Date().toISOString();
+  const record = normalizeAttendanceRecord({
+    playerNum: String(player.num),
+    playerName: player.name,
+    status,
+    nickname,
+    deviceId: getReviewDeviceId(),
+    createdAt: now,
+    updatedAt: now
+  });
+  if (!record) {
+    setTeamPlayStatus(attendanceStatus, '报名内容不完整。', true);
+    return;
+  }
+  saveTeamPlayIdentity({ attendancePlayerNum: record.playerNum, attendanceNickname: nickname });
+  if (isCloudBaseSyncHost() && cloudSyncState.initialized && CLOUDBASE_CONFIG.publishFunction) {
+    try {
+      setTeamPlayStatus(attendanceStatus, '正在提交报名...');
+      const { response } = await callPublishFunction({
+        action: 'submitAttendance',
+        docId: CLOUDBASE_CONFIG.currentDocId,
+        attendance: record,
+        clientInfo: getReviewClientInfo(),
+        clientUpdatedAt: new Date().toISOString()
+      });
+      const result = normalizePublishResult(response);
+      if (result && result.ok === false) {
+        throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '报名保存失败'}`);
+      }
+      const savedRecord = upsertAttendanceRecord(result?.record || record);
+      localStorageAdapter.writeLastState(createSnapshot());
+      renderTeamPlayTool();
+      setTeamPlayStatus(attendanceStatus, `已报名：#${savedRecord.playerNum} ${savedRecord.playerName} · ${getAttendanceStatusInfo(savedRecord.status).label}`);
+      return;
+    } catch (error) {
+      console.warn('CloudBase attendance submit failed:', error);
+      upsertAttendanceRecord(record);
+      localStorageAdapter.writeLastState(createSnapshot());
+      renderTeamPlayTool();
+      setTeamPlayStatus(attendanceStatus, `云端报名失败，已暂存在本机：${getCloudErrorMessage(error)}`, true);
+      return;
+    }
+  }
+  const savedRecord = upsertAttendanceRecord(record);
+  renderTeamPlayTool();
+  setTeamPlayStatus(attendanceStatus, `已本地报名：#${savedRecord.playerNum} ${savedRecord.playerName} · ${getAttendanceStatusInfo(savedRecord.status).label}`);
+  saveLastState();
+}
+
+async function submitMvpVote() {
+  const target = findReviewablePlayer(mvpTargetSelect?.value || '');
+  if (!target) {
+    setTeamPlayStatus(mvpStatus, '请选择 MVP 球员。', true);
+    return;
+  }
+  const reviewerNum = String(mvpFamiliarNumInput?.value || '').trim();
+  if (!/^\d{1,3}$/.test(reviewerNum)) {
+    setTeamPlayStatus(mvpStatus, '投票前请先输入一个你熟悉的老和山球员号码。', true);
+    mvpFamiliarNumInput?.focus();
+    return;
+  }
+  const familiarPlayer = findLineupPersonByNumber(reviewerNum);
+  if (!familiarPlayer) {
+    setTeamPlayStatus(mvpStatus, '这个号码暂时不在老和山名单里，请换一个熟悉球员号码。', true);
+    mvpFamiliarNumInput?.focus();
+    return;
+  }
+  const reviewerName = String(mvpNicknameInput?.value || '').trim().slice(0, 18);
+  if (!reviewerName) {
+    setTeamPlayStatus(mvpStatus, '投票前请先输入你的昵称。', true);
+    mvpNicknameInput?.focus();
+    return;
+  }
+  const now = new Date().toISOString();
+  const vote = normalizeMvpVote({
+    targetKey: target.reviewKey,
+    targetNum: String(target.num),
+    targetName: target.name,
+    targetType: target.reviewType,
+    reviewerNum,
+    reviewerName,
+    familiarPlayerNum: reviewerNum,
+    familiarPlayerName: familiarPlayer.name,
+    deviceId: getReviewDeviceId(),
+    createdAt: now,
+    updatedAt: now
+  });
+  if (!vote) {
+    setTeamPlayStatus(mvpStatus, '投票内容不完整。', true);
+    return;
+  }
+  saveTeamPlayIdentity({ familiarPlayerNum: reviewerNum, nickname: reviewerName });
+  if (isCloudBaseSyncHost() && cloudSyncState.initialized && CLOUDBASE_CONFIG.publishFunction) {
+    try {
+      setTeamPlayStatus(mvpStatus, '正在提交 MVP 投票...');
+      const { response } = await callPublishFunction({
+        action: 'submitMvpVote',
+        docId: CLOUDBASE_CONFIG.currentDocId,
+        vote,
+        clientInfo: getReviewClientInfo(),
+        clientUpdatedAt: new Date().toISOString()
+      });
+      const result = normalizePublishResult(response);
+      if (result && result.ok === false) {
+        throw new Error(`${result.code || 'FUNCTION_ERROR'} · ${result.message || '投票保存失败'}`);
+      }
+      const savedVote = upsertMvpVote(result?.vote || vote);
+      localStorageAdapter.writeLastState(createSnapshot());
+      renderTeamPlayTool();
+      setTeamPlayStatus(mvpStatus, `已投 MVP：${savedVote.targetType === 'player' ? '#' : ''}${savedVote.targetNum} ${savedVote.targetName}`);
+      return;
+    } catch (error) {
+      console.warn('CloudBase MVP submit failed:', error);
+      upsertMvpVote(vote);
+      localStorageAdapter.writeLastState(createSnapshot());
+      renderTeamPlayTool();
+      setTeamPlayStatus(mvpStatus, `云端投票失败，已暂存在本机：${getCloudErrorMessage(error)}`, true);
+      return;
+    }
+  }
+  const savedVote = upsertMvpVote(vote);
+  renderTeamPlayTool();
+  setTeamPlayStatus(mvpStatus, `已本地投 MVP：${savedVote.targetType === 'player' ? '#' : ''}${savedVote.targetNum} ${savedVote.targetName}`);
+  saveLastState();
 }
 
 function formatReviewTime(value) {
@@ -4772,6 +5354,7 @@ function renderAll() {
   renderStaffSection();
   renderLegends();
   renderPhotoManager();
+  renderTeamPlayTool();
   renderReviewTool();
   renderReportQr();
   updateControls();
@@ -5638,6 +6221,12 @@ function bindControls() {
   managerUploadAwayBtn.addEventListener('click', () => uploadManagerPhoto('avatarAway'));
   managerClearBtn.addEventListener('click', clearManagerPhoto);
   randomDrawBtn.addEventListener('click', drawRandomPlayer);
+  attendancePlayerSelect?.addEventListener('change', () => saveTeamPlayIdentity({ attendancePlayerNum: attendancePlayerSelect.value }));
+  attendanceNicknameInput?.addEventListener('input', () => saveTeamPlayIdentity({ attendanceNickname: attendanceNicknameInput.value }));
+  attendanceSubmitBtn?.addEventListener('click', submitAttendance);
+  mvpFamiliarNumInput?.addEventListener('input', () => saveTeamPlayIdentity({ familiarPlayerNum: mvpFamiliarNumInput.value }));
+  mvpNicknameInput?.addEventListener('input', () => saveTeamPlayIdentity({ nickname: mvpNicknameInput.value }));
+  mvpSubmitBtn?.addEventListener('click', submitMvpVote);
   reviewTargetSelect?.addEventListener('change', renderReviewTool);
   reviewModeTeamBtn?.addEventListener('click', () => setReviewMode(REVIEW_MODE_TEAM));
   reviewModeFriendBtn?.addEventListener('click', () => setReviewMode(REVIEW_MODE_FRIEND));
@@ -5970,6 +6559,7 @@ async function init() {
   normalizeSquadData();
   bindControls();
   loadReviewIdentity();
+  applyTeamPlayIdentityToInputs();
   await initCloudBaseSync();
 
   const initialState = await readInitialState();

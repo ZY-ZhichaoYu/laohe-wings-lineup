@@ -1,0 +1,94 @@
+.draw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.eyebrow {
+  color: #22c55e;
+  font-size: 22rpx;
+  font-weight: 900;
+  letter-spacing: 2rpx;
+}
+
+.title {
+  margin-top: 6rpx;
+  color: #fff;
+  font-size: 44rpx;
+  font-weight: 900;
+}
+
+.pool-count {
+  padding: 10rpx 16rpx;
+  border: 1rpx solid #333;
+  border-radius: 8rpx;
+  color: #facc15;
+  font-size: 24rpx;
+  font-weight: 900;
+  background: #171717;
+}
+
+.card-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 560rpx;
+  padding: 48rpx 28rpx;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220rpx;
+  height: 280rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.18);
+  border-radius: 18rpx;
+  color: #fff;
+  font-size: 72rpx;
+  font-weight: 900;
+  background: linear-gradient(180deg, #dc2626, #7f1d1d);
+}
+
+.card-panel.bench .avatar {
+  background: linear-gradient(180deg, #2563eb, #1e3a8a);
+}
+
+.card-panel.legend .avatar,
+.card-panel.special .avatar {
+  color: #2a1f08;
+  background: radial-gradient(circle at 50% 20%, #f8e29a 0%, #d4af37 42%, #5d430e 100%);
+}
+
+.card-panel.staff .avatar {
+  background: linear-gradient(180deg, #6366f1, #312e81);
+}
+
+.card-name {
+  margin-top: 30rpx;
+  color: #fff;
+  font-size: 46rpx;
+  font-weight: 900;
+}
+
+.card-role {
+  margin-top: 10rpx;
+  color: #d4d4d4;
+  font-size: 28rpx;
+}
+
+.card-tag {
+  margin-top: 22rpx;
+  padding: 8rpx 14rpx;
+  border: 1rpx solid rgba(250, 204, 21, 0.35);
+  border-radius: 8rpx;
+  color: #fef08a;
+  font-size: 22rpx;
+  font-weight: 900;
+  background: rgba(250, 204, 21, 0.12);
+}
+
+.draw-button {
+  margin-top: 24rpx;
+}

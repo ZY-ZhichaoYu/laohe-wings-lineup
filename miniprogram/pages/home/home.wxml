@@ -1,0 +1,58 @@
+<view class="page home-page">
+  <view class="hero">
+    <view>
+      <view class="eyebrow">LAOHE WINGS</view>
+      <view class="title">老和山之翼</view>
+      <view class="subtitle">{{formation}} · {{kitLabel}}名单</view>
+    </view>
+    <view class="mark">LW</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="panel empty">正在读取云端阵容...</view>
+  <view wx:elif="{{error}}" class="panel empty">{{error}}</view>
+
+  <block wx:else>
+    <view class="stats-row">
+      <view class="stat panel">
+        <text class="stat-num">{{reviewCount}}</text>
+        <text class="stat-label">评价</text>
+      </view>
+      <view class="stat panel">
+        <text class="stat-num">{{attendanceCount}}</text>
+        <text class="stat-label">报名</text>
+      </view>
+      <view class="stat panel">
+        <text class="stat-num">{{mvpVoteCount}}</text>
+        <text class="stat-label">MVP票</text>
+      </view>
+    </view>
+
+    <view class="section-title">首发</view>
+    <view class="player-list">
+      <view wx:for="{{starters}}" wx:key="num" class="player-row panel">
+        <view class="num">#{{item.num}}</view>
+        <view class="info">
+          <view class="name">{{item.name}}</view>
+          <view class="muted">{{item.pos || item.role || '队员'}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section-title">替补</view>
+    <view class="bench-grid">
+      <view wx:for="{{bench}}" wx:key="num" class="bench-card panel">
+        <view class="bench-num">#{{item.num}}</view>
+        <view class="bench-name">{{item.name}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{staff.length}}" class="section-title">教练与领队</view>
+    <view wx:if="{{staff.length}}" class="bench-grid">
+      <view wx:for="{{staff}}" wx:key="name" class="bench-card panel">
+        <view class="bench-num">{{item.pos}}</view>
+        <view class="bench-name">{{item.name}}</view>
+        <view class="muted">{{item.role}}</view>
+      </view>
+    </view>
+  </block>
+</view>
