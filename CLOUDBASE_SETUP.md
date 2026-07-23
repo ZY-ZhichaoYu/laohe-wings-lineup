@@ -33,6 +33,21 @@
 
 这个函数会把当前阵容写入 `lineups/current`，也会处理朋友评价、评价回复、评价/回复撤回、到场报名、MVP 投票，并在手机端导出 PNG 时代理读取云存储图片，避免 iOS/微信浏览器因为跨域图片阻止 `canvas` 导出。因为 `lineups` 是 `ADMINWRITE`，普通网页用户只能读，不能直接改数据库；写入统一走这个云函数。
 
+### 2.1 配置编辑口令环境变量 `EDIT_SECRET`（必做，否则无法发布）
+
+从本次加固版起，"发布整份阵容"和"以队内身份（team_edit）发表评价/回复"会在**服务端**校验口令，而不再只靠前端判断（前端口令可被直接 POST 绕过）。真正的口令保存在云函数环境变量 `EDIT_SECRET` 里，**不写进任何公开代码**。
+
+1. 进入 `publishLineup` 云函数详情 → `函数配置` / `环境变量`。
+2. 新增环境变量：
+   - 名称：`EDIT_SECRET`
+   - 值：你自定义的强口令（**请与页面里的软口令 `老和山无内鬼` 不同**；页面里那个只用于离线本机解锁，源码公开可见，不是安全边界）。
+3. 保存并让函数重新部署生效。
+4. 把这个新口令线下发给需要编辑的队务人员。线上解锁编辑时输入的就是它（页面会把它发给云函数校验，不在本地保存明文之外的东西）。
+
+> ⚠️ 如果不配置 `EDIT_SECRET`，云函数会**默认拒绝**所有发布和 team_edit 写入（fail-closed，返回 `EDIT_SECRET_REQUIRED`）。这是有意为之：宁可暂时发布不了，也不留"谁都能覆盖全队数据"的洞。朋友评价、报名、MVP 投票**不受影响**，仍然开放。
+
+（可选）图片代理已加 SSRF 防护：`proxyImage` 会拒绝解析到内网 / 环回 / 云元数据段（如 `169.254.169.254`）的地址，仍然允许代理任意**公网**图片。如需进一步限制，可自行在函数里加 host 白名单。
+
 ## 3. 首次发布阵容
 
 1. 用 CloudBase 默认域名打开网页。
@@ -76,9 +91,12 @@
 
 ## 5. 编辑口令与照片同步
 
-页面默认是只读模式，队友可以查看阵型、切换主客场、抽卡、查看评价、提交朋友评价和导出海报。需要发布阵容、换人、上传照片、编辑资料或提交队内评价时，输入编辑口令：
+页面默认是只读模式，队友可以查看阵型、切换主客场、抽卡、查看评价、提交朋友评价和导出海报。需要发布阵容、换人、上传照片、编辑资料或提交队内评价时，输入编辑口令。
 
-`老和山无内鬼`
+- **线上（CloudBase 域名）**：输入的口令会发到云函数用 `EDIT_SECRET` 校验，校验通过才解锁；发布/队内评价也会带着这个口令让服务端再校验一次。所以线上口令就是你在 [2.1](#21-配置编辑口令环境变量-edit_secret必做否则无法发布) 里设置的 `EDIT_SECRET`。
+- **离线 / 无云函数（file:// 或 GitHub Pages）**：没有云端可校验，退回页面内置软口令 `老和山无内鬼` 解锁，仅用于本机编辑，此时也无法发布到云端。
+
+> 旧版把口令硬编码在 `index.html` 里、且云端不校验，任何人直接 POST 就能覆盖全队数据。现在服务端校验后，这条路被堵死。若要改口令，改云函数的 `EDIT_SECRET` 环境变量即可，不用改代码。
 
 CloudBase 域名下上传照片时，页面会先把图片传到云存储，再把云存储 `fileID` 引用和当前临时 URL 写进 `lineups/current`。后续显示或导出时，页面会用 `fileID` 重新换取新临时 URL，避免旧临时图片地址过期。如果照片上传失败，检查：
 
@@ -95,3 +113,11 @@ CloudBase 域名下上传照片时，页面会先把图片传到云存储，再�
 ## Review image fallback
 
 Review and reply images are stored in CloudBase Storage and referenced from `lineups/current` by `fileID`. Non-GIF review images are normalized to standard JPEG before upload; GIFs are kept as GIFs to preserve animation. The frontend first tries a fresh temporary CloudBase URL. If a browser, especially mobile WeChat or iOS Safari, cannot render that URL, `index.html` calls the `publishLineup` HTTP route with `action=proxyImage` and the saved `fileID`; the function fetches the image server-side and returns a data URL. After changing this behavior, redeploy `cloudfunctions/publishLineup/` and upload the latest `index.html`.
+
+## 6. 本次加固说明（并发 / 版本 / 数据源）
+
+- **并发写入**：评价 / 回复 / 报名 / MVP / 撤回等"读-改-写"改为走 CloudBase 事务（`db.startTransaction`），避免两人同时提交互相覆盖（last-write-wins）。若某些运行环境不支持事务，函数会**自动回退**到原来的读-改-写逻辑（功能正常，但退化为 last-write-wins）。
+  > ⚠️ 事务这段无法在本地对着线上库跑通，请在**首次部署新函数后**做一次验证：用两台设备/两个标签几乎同时提交评价，确认两条都在，没有互相覆盖；并在函数日志里留意有没有 `transaction path failed, falling back` 的告警。
+- **依赖锁版本**：`cloudfunctions/publishLineup/package.json` 里 `@cloudbase/node-sdk` 已从 `latest` 锁到确切版本 `3.18.3`，保证每次部署可复现。以后要升级手动改这里。
+- **前端 CDN**：`index.html` 引入的 `html2canvas` / `qrcodejs` 已加 SRI（`integrity`）校验，防止 CDN 内容被篡改。客户端 CloudBase SDK 的 `sdkUrl` 暂仍用 `latest`（原因见 `cloudbase-config.js` 里的注释），如需锁版本请先线上实测。
+- **球员数据单一来源**：`data/players.json` 是唯一数据源；`index.html` 里的 `INLINE_PLAYER_DATA`（离线回退副本）改完球员数据后跑一次 `node scripts/sync-inline-players.js` 同步，`--check` 可在提交前校验是否漂移。
