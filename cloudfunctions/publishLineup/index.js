@@ -2,6 +2,7 @@ const cloudbase = require('@cloudbase/node-sdk');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const dns = require('dns');
 
 const COLLECTION = 'lineups';
 const DEFAULT_DOC_ID = 'current';
@@ -20,7 +21,99 @@ const MAX_ATTENDANCE_RECORDS = 200;
 const MAX_MVP_VOTES = 400;
 const ATTENDANCE_STATUS_SET = new Set(['in', 'out', 'maybe']);
 const REVIEW_IP_HASH_SALT = process.env.REVIEW_IP_HASH_SALT || 'laohe-wings-review';
-const FUNCTION_VERSION = '20260522-team-play-interactions';
+const FUNCTION_VERSION = '20260723-auth-ssrf-concurrency';
+
+// 编辑秘钥：只从环境变量读取，绝不硬编码进代码/前端。
+// 未配置时，所有"需授权写入"（全量发布 publishLineup、队内身份 team_edit 评论）一律拒绝（fail-closed）。
+const EDIT_SECRET = String(process.env.EDIT_SECRET || '');
+
+function timingSafeEqualStr(a, b) {
+  const bufA = Buffer.from(String(a || ''), 'utf8');
+  const bufB = Buffer.from(String(b || ''), 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  try {
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch (error) {
+    return false;
+  }
+}
+
+// 授权判定：请求携带的 editToken 必须与服务端 EDIT_SECRET 完全一致。
+// EDIT_SECRET 未配置 => 视为未授权（不放行任何需授权写入）。
+function hasValidEditSecret(input = {}) {
+  if (!EDIT_SECRET) return false;
+  return timingSafeEqualStr(input && input.editToken, EDIT_SECRET);
+}
+
+// ---- SSRF 防护：拒绝解析到私网 / 环回 / 链路本地 / 云元数据段的地址 ----
+function ipv4ToLong(ip) {
+  const parts = String(ip).split('.').map(Number);
+  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+  return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
+}
+
+function isPrivateIpv4(ip) {
+  const long = ipv4ToLong(ip);
+  if (long === null) return false;
+  const inRange = (base, maskBits) => {
+    const mask = maskBits === 0 ? 0 : (0xffffffff << (32 - maskBits)) >>> 0;
+    const baseLong = ipv4ToLong(base);
+    return baseLong !== null && (long & mask) === (baseLong & mask);
+  };
+  return (
+    inRange('0.0.0.0', 8) ||        // 本网络 / 未指定
+    inRange('10.0.0.0', 8) ||       // 私网
+    inRange('100.64.0.0', 10) ||    // 运营商级 NAT
+    inRange('127.0.0.0', 8) ||      // 环回
+    inRange('169.254.0.0', 16) ||   // 链路本地（含 169.254.169.254 云元数据）
+    inRange('172.16.0.0', 12) ||    // 私网
+    inRange('192.0.0.0', 24) ||     // IETF 保留
+    inRange('192.168.0.0', 16) ||   // 私网
+    inRange('198.18.0.0', 15) ||    // 基准测试
+    inRange('224.0.0.0', 4) ||      // 组播
+    inRange('240.0.0.0', 4)         // 保留
+  );
+}
+
+function isPrivateIpv6(ip) {
+  const value = String(ip || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  if (value === '::1' || value === '::') return true;
+  if (value.startsWith('fe80:')) return true;          // 链路本地
+  if (/^f[cd][0-9a-f]{2}:/.test(value)) return true;    // 唯一本地地址 fc00::/7
+  const mapped = value.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/); // IPv4 映射
+  if (mapped) return isPrivateIpv4(mapped[1]);
+  return false;
+}
+
+function isBlockedAddress(address, family) {
+  if (!address) return true;
+  return family === 6 ? isPrivateIpv6(address) : isPrivateIpv4(address);
+}
+
+// 传给 http/https.get 的自定义 lookup：在真正建连的地址上做私网校验，
+// 天然覆盖重定向逐跳、且规避 DNS 解析后再连接（TOCTOU）的绕过。
+function safeLookup(hostname, options, callback) {
+  const cb = typeof options === 'function' ? options : callback;
+  const opts = typeof options === 'function' ? {} : (options || {});
+  dns.lookup(hostname, { ...opts, all: true }, (err, addresses) => {
+    if (err) {
+      cb(err);
+      return;
+    }
+    const list = Array.isArray(addresses) ? addresses : [];
+    const blocked = list.find(item => isBlockedAddress(item.address, item.family));
+    if (blocked || !list.length) {
+      cb(new Error('blocked host: resolves to a private or reserved address'));
+      return;
+    }
+    const chosen = list[0];
+    if (opts.all) {
+      cb(null, list);
+    } else {
+      cb(null, chosen.address, chosen.family);
+    }
+  });
+}
 
 function initCloudBaseApp(context) {
   try {
@@ -623,14 +716,105 @@ async function normalizeSubmittedMvpVote(vote, snapshot, rawEvent = {}, clientIn
   };
 }
 
-async function submitAttendance(db, input, context, rawEvent = {}) {
-  const docId = typeof input.docId === 'string' && input.docId.trim()
-    ? input.docId.trim()
-    : DEFAULT_DOC_ID;
+// 事务化的"读-改-写"，解决整文档并发提交互相覆盖（last-write-wins）的问题。
+// mutate(snapshot, record) 只做快照内的追加/修改（应为纯内存操作，不要在里面发网络请求）。
+// 校验/网络请求请放在调用方、进入本函数之前完成。
+async function mutateWithTransaction(db, docId, mutate, meta, attempt = 0) {
+  const transaction = await db.startTransaction();
+  let committed = false;
+  try {
+    const record = extractDatabaseRecord(await transaction.collection(COLLECTION).doc(docId).get());
+    const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
+    if (!snapshot) {
+      await transaction.rollback();
+      return { ok: false, code: 'SNAPSHOT_NOT_FOUND', message: 'current lineup snapshot was not found' };
+    }
+    let mutateResult;
+    try {
+      mutateResult = await mutate(snapshot, record);
+    } catch (validationError) {
+      await transaction.rollback();
+      return {
+        ok: false,
+        code: validationError.code || 'INVALID_INPUT',
+        message: validationError.message || String(validationError)
+      };
+    }
+    const now = new Date();
+    await transaction.collection(COLLECTION).doc(docId).update({
+      snapshot,
+      schemaVersion: record.schemaVersion || 1,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy: meta.updatedBy || 'web',
+      clientUpdatedAt: meta.clientUpdatedAt || ''
+    });
+    await transaction.commit();
+    committed = true;
+    return { ok: true, updatedAt: now, record, mutateResult };
+  } catch (error) {
+    if (!committed) {
+      try { await transaction.rollback(); } catch (rollbackError) { /* ignore */ }
+    }
+    if (attempt < 2) {
+      return mutateWithTransaction(db, docId, mutate, meta, attempt + 1);
+    }
+    throw error;
+  }
+}
+
+async function mutateWithReadModifyWrite(db, docId, mutate, meta) {
   const docRef = db.collection(COLLECTION).doc(docId);
   const record = extractDatabaseRecord(await docRef.get());
   const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
   if (!snapshot) {
+    return { ok: false, code: 'SNAPSHOT_NOT_FOUND', message: 'current lineup snapshot was not found' };
+  }
+  let mutateResult;
+  try {
+    mutateResult = await mutate(snapshot, record);
+  } catch (validationError) {
+    return {
+      ok: false,
+      code: validationError.code || 'INVALID_INPUT',
+      message: validationError.message || String(validationError)
+    };
+  }
+  const now = new Date();
+  await docRef.set({
+    snapshot,
+    schemaVersion: record.schemaVersion || 1,
+    updatedAt: now,
+    updatedAtText: now.toISOString(),
+    updatedBy: meta.updatedBy || 'web',
+    clientUpdatedAt: meta.clientUpdatedAt || ''
+  });
+  return { ok: true, updatedAt: now, record, mutateResult };
+}
+
+async function withDocumentMutation(db, docId, mutate, meta = {}) {
+  if (typeof db.startTransaction === 'function') {
+    try {
+      return await mutateWithTransaction(db, docId, mutate, meta);
+    } catch (error) {
+      // 仅当事务机制本身失败时回退到原始读-改-写（功能正常，但退化为 last-write-wins）。
+      // 校验类失败在事务内部已转成 { ok:false }，不会走到这里。
+      console.warn('withDocumentMutation: transaction path failed, falling back to read-modify-write', {
+        docId,
+        message: error && error.message
+      });
+    }
+  }
+  return mutateWithReadModifyWrite(db, docId, mutate, meta);
+}
+
+async function submitAttendance(db, input, context, rawEvent = {}) {
+  const docId = typeof input.docId === 'string' && input.docId.trim()
+    ? input.docId.trim()
+    : DEFAULT_DOC_ID;
+  const preRecord = extractDatabaseRecord(await db.collection(COLLECTION).doc(docId).get());
+  const preSnapshot = preRecord && isPlainObject(preRecord.snapshot) ? preRecord.snapshot : null;
+  if (!preSnapshot) {
     return {
       ok: false,
       code: 'SNAPSHOT_NOT_FOUND',
@@ -638,12 +822,12 @@ async function submitAttendance(db, input, context, rawEvent = {}) {
     };
   }
 
-  const existingRecords = Array.isArray(snapshot.attendanceData) ? snapshot.attendanceData : [];
   const deviceId = normalizeText(input.attendance && input.attendance.deviceId, MAX_DEVICE_ID_LENGTH);
-  const existingRecord = existingRecords.find(item => item && item.deviceId === deviceId) || null;
+  const preExisting = (Array.isArray(preSnapshot.attendanceData) ? preSnapshot.attendanceData : [])
+    .find(item => item && item.deviceId === deviceId) || null;
   let attendance;
   try {
-    attendance = await normalizeSubmittedAttendance(input.attendance, snapshot, rawEvent, input.clientInfo, existingRecord);
+    attendance = await normalizeSubmittedAttendance(input.attendance, preSnapshot, rawEvent, input.clientInfo, preExisting);
   } catch (error) {
     return {
       ok: false,
@@ -652,24 +836,18 @@ async function submitAttendance(db, input, context, rawEvent = {}) {
     };
   }
 
-  snapshot.attendanceData = [
-    attendance,
-    ...existingRecords.filter(item => !item || (item.id !== attendance.id && item.deviceId !== attendance.deviceId))
-  ].slice(0, MAX_ATTENDANCE_RECORDS);
-
-  const now = new Date();
   const auth = context.auth || context.userInfo || {};
   const updatedBy = auth.uid || auth.openId || auth.openid || 'attendance-web';
 
   try {
-    await docRef.set({
-      snapshot,
-      schemaVersion: record.schemaVersion || 1,
-      updatedAt: now,
-      updatedAtText: now.toISOString(),
-      updatedBy,
-      clientUpdatedAt: input.clientUpdatedAt || ''
-    });
+    const outcome = await withDocumentMutation(db, docId, (snapshot) => {
+      const existingRecords = Array.isArray(snapshot.attendanceData) ? snapshot.attendanceData : [];
+      snapshot.attendanceData = [
+        attendance,
+        ...existingRecords.filter(item => !item || (item.id !== attendance.id && item.deviceId !== attendance.deviceId))
+      ].slice(0, MAX_ATTENDANCE_RECORDS);
+    }, { updatedBy, clientUpdatedAt: input.clientUpdatedAt });
+    if (!outcome.ok) return outcome;
     console.log('submitAttendance saved', {
       docId,
       playerNum: attendance.playerNum,
@@ -681,7 +859,7 @@ async function submitAttendance(db, input, context, rawEvent = {}) {
       ok: true,
       docId,
       record: attendance,
-      updatedAt: now.toISOString(),
+      updatedAt: outcome.updatedAt.toISOString(),
       functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
@@ -703,10 +881,9 @@ async function submitMvpVote(db, input, context, rawEvent = {}) {
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
     : DEFAULT_DOC_ID;
-  const docRef = db.collection(COLLECTION).doc(docId);
-  const record = extractDatabaseRecord(await docRef.get());
-  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
-  if (!snapshot) {
+  const preRecord = extractDatabaseRecord(await db.collection(COLLECTION).doc(docId).get());
+  const preSnapshot = preRecord && isPlainObject(preRecord.snapshot) ? preRecord.snapshot : null;
+  if (!preSnapshot) {
     return {
       ok: false,
       code: 'SNAPSHOT_NOT_FOUND',
@@ -714,12 +891,12 @@ async function submitMvpVote(db, input, context, rawEvent = {}) {
     };
   }
 
-  const existingVotes = Array.isArray(snapshot.mvpVotesData) ? snapshot.mvpVotesData : [];
   const deviceId = normalizeText(input.vote && input.vote.deviceId, MAX_DEVICE_ID_LENGTH);
-  const existingVote = existingVotes.find(item => item && item.deviceId === deviceId) || null;
+  const preExistingVote = (Array.isArray(preSnapshot.mvpVotesData) ? preSnapshot.mvpVotesData : [])
+    .find(item => item && item.deviceId === deviceId) || null;
   let vote;
   try {
-    vote = await normalizeSubmittedMvpVote(input.vote, snapshot, rawEvent, input.clientInfo, existingVote);
+    vote = await normalizeSubmittedMvpVote(input.vote, preSnapshot, rawEvent, input.clientInfo, preExistingVote);
   } catch (error) {
     return {
       ok: false,
@@ -728,24 +905,18 @@ async function submitMvpVote(db, input, context, rawEvent = {}) {
     };
   }
 
-  snapshot.mvpVotesData = [
-    vote,
-    ...existingVotes.filter(item => !item || (item.id !== vote.id && item.deviceId !== vote.deviceId))
-  ].slice(0, MAX_MVP_VOTES);
-
-  const now = new Date();
   const auth = context.auth || context.userInfo || {};
   const updatedBy = auth.uid || auth.openId || auth.openid || 'mvp-vote-web';
 
   try {
-    await docRef.set({
-      snapshot,
-      schemaVersion: record.schemaVersion || 1,
-      updatedAt: now,
-      updatedAtText: now.toISOString(),
-      updatedBy,
-      clientUpdatedAt: input.clientUpdatedAt || ''
-    });
+    const outcome = await withDocumentMutation(db, docId, (snapshot) => {
+      const existingVotes = Array.isArray(snapshot.mvpVotesData) ? snapshot.mvpVotesData : [];
+      snapshot.mvpVotesData = [
+        vote,
+        ...existingVotes.filter(item => !item || (item.id !== vote.id && item.deviceId !== vote.deviceId))
+      ].slice(0, MAX_MVP_VOTES);
+    }, { updatedBy, clientUpdatedAt: input.clientUpdatedAt });
+    if (!outcome.ok) return outcome;
     console.log('submitMvpVote saved', {
       docId,
       targetKey: vote.targetKey,
@@ -757,7 +928,7 @@ async function submitMvpVote(db, input, context, rawEvent = {}) {
       ok: true,
       docId,
       vote,
-      updatedAt: now.toISOString(),
+      updatedAt: outcome.updatedAt.toISOString(),
       functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
@@ -779,10 +950,9 @@ async function submitReview(db, input, context, rawEvent = {}) {
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
     : DEFAULT_DOC_ID;
-  const docRef = db.collection(COLLECTION).doc(docId);
-  const record = extractDatabaseRecord(await docRef.get());
-  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
-  if (!snapshot) {
+  const preRecord = extractDatabaseRecord(await db.collection(COLLECTION).doc(docId).get());
+  const preSnapshot = preRecord && isPlainObject(preRecord.snapshot) ? preRecord.snapshot : null;
+  if (!preSnapshot) {
     return {
       ok: false,
       code: 'SNAPSHOT_NOT_FOUND',
@@ -792,7 +962,7 @@ async function submitReview(db, input, context, rawEvent = {}) {
 
   let review;
   try {
-    review = await normalizeSubmittedReview(input.review, snapshot, rawEvent, input.clientInfo);
+    review = await normalizeSubmittedReview(input.review, preSnapshot, rawEvent, input.clientInfo);
   } catch (error) {
     return {
       ok: false,
@@ -801,25 +971,27 @@ async function submitReview(db, input, context, rawEvent = {}) {
     };
   }
 
-  const existingReviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
-  snapshot.reviewsData = [
-    review,
-    ...existingReviews.filter(item => !item || item.id !== review.id)
-  ].slice(0, MAX_REVIEWS);
+  // 队内身份（team_edit）必须持有正确的编辑口令，否则任何人都能冒充球队发言。
+  if (review.reviewerAuth === 'team_edit' && !hasValidEditSecret(input)) {
+    return {
+      ok: false,
+      code: 'EDIT_SECRET_REQUIRED',
+      message: EDIT_SECRET ? '队内身份需要正确的编辑口令' : '服务端未配置 EDIT_SECRET，队内身份评价暂不可用'
+    };
+  }
 
-  const now = new Date();
   const auth = context.auth || context.userInfo || {};
   const updatedBy = auth.uid || auth.openId || auth.openid || 'review-web';
 
   try {
-    await docRef.set({
-      snapshot,
-      schemaVersion: record.schemaVersion || 1,
-      updatedAt: now,
-      updatedAtText: now.toISOString(),
-      updatedBy,
-      clientUpdatedAt: input.clientUpdatedAt || ''
-    });
+    const outcome = await withDocumentMutation(db, docId, (snapshot) => {
+      const existingReviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+      snapshot.reviewsData = [
+        review,
+        ...existingReviews.filter(item => !item || item.id !== review.id)
+      ].slice(0, MAX_REVIEWS);
+    }, { updatedBy, clientUpdatedAt: input.clientUpdatedAt });
+    if (!outcome.ok) return outcome;
     console.log('submitReview saved', {
       docId,
       targetKey: review.targetKey,
@@ -831,7 +1003,7 @@ async function submitReview(db, input, context, rawEvent = {}) {
       ok: true,
       docId,
       review,
-      updatedAt: now.toISOString(),
+      updatedAt: outcome.updatedAt.toISOString(),
       functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
@@ -862,19 +1034,17 @@ async function replyReview(db, input, context, rawEvent = {}) {
     };
   }
 
-  const docRef = db.collection(COLLECTION).doc(docId);
-  const record = extractDatabaseRecord(await docRef.get());
-  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
-  if (!snapshot) {
+  const preRecord = extractDatabaseRecord(await db.collection(COLLECTION).doc(docId).get());
+  const preSnapshot = preRecord && isPlainObject(preRecord.snapshot) ? preRecord.snapshot : null;
+  if (!preSnapshot) {
     return {
       ok: false,
       code: 'SNAPSHOT_NOT_FOUND',
       message: 'current lineup snapshot was not found'
     };
   }
-  const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
-  const index = reviews.findIndex(item => item && item.id === reviewId);
-  if (index < 0) {
+  const preReviews = Array.isArray(preSnapshot.reviewsData) ? preSnapshot.reviewsData : [];
+  if (!preReviews.some(item => item && item.id === reviewId)) {
     return {
       ok: false,
       code: 'REVIEW_NOT_FOUND',
@@ -884,7 +1054,7 @@ async function replyReview(db, input, context, rawEvent = {}) {
 
   let reply;
   try {
-    reply = await normalizeSubmittedReviewReply(input.reply, snapshot, rawEvent, input.clientInfo);
+    reply = await normalizeSubmittedReviewReply(input.reply, preSnapshot, rawEvent, input.clientInfo);
   } catch (error) {
     return {
       ok: false,
@@ -893,30 +1063,37 @@ async function replyReview(db, input, context, rawEvent = {}) {
     };
   }
 
-  const review = isPlainObject(reviews[index]) ? reviews[index] : {};
-  const existingReplies = Array.isArray(review.replies) ? review.replies : [];
-  reviews[index] = {
-    ...review,
-    replies: [
-      ...existingReplies.filter(item => !item || item.id !== reply.id),
-      reply
-    ].slice(-MAX_REVIEW_REPLIES)
-  };
-  snapshot.reviewsData = reviews.slice(0, MAX_REVIEWS);
+  // 队内身份（team_edit）回复同样需要正确的编辑口令。
+  if (reply.reviewerAuth === 'team_edit' && !hasValidEditSecret(input)) {
+    return {
+      ok: false,
+      code: 'EDIT_SECRET_REQUIRED',
+      message: EDIT_SECRET ? '队内身份需要正确的编辑口令' : '服务端未配置 EDIT_SECRET，队内身份回复暂不可用'
+    };
+  }
 
-  const now = new Date();
   const auth = context.auth || context.userInfo || {};
   const updatedBy = auth.uid || auth.openId || auth.openid || 'review-reply-web';
 
   try {
-    await docRef.set({
-      snapshot,
-      schemaVersion: record.schemaVersion || 1,
-      updatedAt: now,
-      updatedAtText: now.toISOString(),
-      updatedBy,
-      clientUpdatedAt: input.clientUpdatedAt || ''
-    });
+    const outcome = await withDocumentMutation(db, docId, (snapshot) => {
+      const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+      const index = reviews.findIndex(item => item && item.id === reviewId);
+      if (index < 0) {
+        throw createError('REVIEW_NOT_FOUND', 'review was not found');
+      }
+      const review = isPlainObject(reviews[index]) ? reviews[index] : {};
+      const existingReplies = Array.isArray(review.replies) ? review.replies : [];
+      reviews[index] = {
+        ...review,
+        replies: [
+          ...existingReplies.filter(item => !item || item.id !== reply.id),
+          reply
+        ].slice(-MAX_REVIEW_REPLIES)
+      };
+      snapshot.reviewsData = reviews.slice(0, MAX_REVIEWS);
+    }, { updatedBy, clientUpdatedAt: input.clientUpdatedAt });
+    if (!outcome.ok) return outcome;
     console.log('replyReview saved', {
       docId,
       reviewId,
@@ -930,7 +1107,7 @@ async function replyReview(db, input, context, rawEvent = {}) {
       docId,
       reviewId,
       reply,
-      updatedAt: now.toISOString(),
+      updatedAt: outcome.updatedAt.toISOString(),
       functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
@@ -962,56 +1139,27 @@ async function deleteReview(db, input, context) {
     };
   }
 
-  const docRef = db.collection(COLLECTION).doc(docId);
-  const record = extractDatabaseRecord(await docRef.get());
-  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
-  if (!snapshot) {
-    return {
-      ok: false,
-      code: 'SNAPSHOT_NOT_FOUND',
-      message: 'current lineup snapshot was not found'
-    };
-  }
-  const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
-  const review = reviews.find(item => item && item.id === reviewId);
-  if (!review) {
-    return {
-      ok: false,
-      code: 'REVIEW_NOT_FOUND',
-      message: 'review was not found'
-    };
-  }
-  if (String(review.deviceId || '') !== deviceId) {
-    return {
-      ok: false,
-      code: 'DELETE_FORBIDDEN',
-      message: 'only the original device can delete this review'
-    };
-  }
-  const createdAt = new Date(review.createdAt || 0).getTime();
-  const deleteUntil = new Date(review.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
-  if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
-    return {
-      ok: false,
-      code: 'DELETE_EXPIRED',
-      message: 'review delete window has expired'
-    };
-  }
-
-  snapshot.reviewsData = reviews.filter(item => !item || item.id !== reviewId).slice(0, MAX_REVIEWS);
-  const now = new Date();
   const auth = context.auth || context.userInfo || {};
   const updatedBy = auth.uid || auth.openId || auth.openid || 'review-delete-web';
 
   try {
-    await docRef.set({
-      snapshot,
-      schemaVersion: record.schemaVersion || 1,
-      updatedAt: now,
-      updatedAtText: now.toISOString(),
-      updatedBy,
-      clientUpdatedAt: input.clientUpdatedAt || ''
-    });
+    const outcome = await withDocumentMutation(db, docId, (snapshot) => {
+      const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+      const review = reviews.find(item => item && item.id === reviewId);
+      if (!review) {
+        throw createError('REVIEW_NOT_FOUND', 'review was not found');
+      }
+      if (String(review.deviceId || '') !== deviceId) {
+        throw createError('DELETE_FORBIDDEN', 'only the original device can delete this review');
+      }
+      const createdAt = new Date(review.createdAt || 0).getTime();
+      const deleteUntil = new Date(review.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
+      if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
+        throw createError('DELETE_EXPIRED', 'review delete window has expired');
+      }
+      snapshot.reviewsData = reviews.filter(item => !item || item.id !== reviewId).slice(0, MAX_REVIEWS);
+    }, { updatedBy, clientUpdatedAt: input.clientUpdatedAt });
+    if (!outcome.ok) return outcome;
     console.log('deleteReview saved', {
       docId,
       reviewId
@@ -1020,7 +1168,7 @@ async function deleteReview(db, input, context) {
       ok: true,
       docId,
       reviewId,
-      updatedAt: now.toISOString(),
+      updatedAt: outcome.updatedAt.toISOString(),
       functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
@@ -1053,71 +1201,37 @@ async function deleteReply(db, input, context) {
     };
   }
 
-  const docRef = db.collection(COLLECTION).doc(docId);
-  const record = extractDatabaseRecord(await docRef.get());
-  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
-  if (!snapshot) {
-    return {
-      ok: false,
-      code: 'SNAPSHOT_NOT_FOUND',
-      message: 'current lineup snapshot was not found'
-    };
-  }
-  const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
-  const reviewIndex = reviews.findIndex(item => item && item.id === reviewId);
-  if (reviewIndex < 0) {
-    return {
-      ok: false,
-      code: 'REVIEW_NOT_FOUND',
-      message: 'review was not found'
-    };
-  }
-
-  const review = isPlainObject(reviews[reviewIndex]) ? reviews[reviewIndex] : {};
-  const replies = Array.isArray(review.replies) ? review.replies : [];
-  const reply = replies.find(item => item && item.id === replyId);
-  if (!reply) {
-    return {
-      ok: false,
-      code: 'REPLY_NOT_FOUND',
-      message: 'reply was not found'
-    };
-  }
-  if (String(reply.deviceId || '') !== deviceId) {
-    return {
-      ok: false,
-      code: 'DELETE_FORBIDDEN',
-      message: 'only the original device can delete this reply'
-    };
-  }
-  const createdAt = new Date(reply.createdAt || 0).getTime();
-  const deleteUntil = new Date(reply.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
-  if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
-    return {
-      ok: false,
-      code: 'DELETE_EXPIRED',
-      message: 'reply delete window has expired'
-    };
-  }
-
-  reviews[reviewIndex] = {
-    ...review,
-    replies: replies.filter(item => !item || item.id !== replyId).slice(-MAX_REVIEW_REPLIES)
-  };
-  snapshot.reviewsData = reviews.slice(0, MAX_REVIEWS);
-  const now = new Date();
   const auth = context.auth || context.userInfo || {};
   const updatedBy = auth.uid || auth.openId || auth.openid || 'reply-delete-web';
 
   try {
-    await docRef.set({
-      snapshot,
-      schemaVersion: record.schemaVersion || 1,
-      updatedAt: now,
-      updatedAtText: now.toISOString(),
-      updatedBy,
-      clientUpdatedAt: input.clientUpdatedAt || ''
-    });
+    const outcome = await withDocumentMutation(db, docId, (snapshot) => {
+      const reviews = Array.isArray(snapshot.reviewsData) ? snapshot.reviewsData : [];
+      const reviewIndex = reviews.findIndex(item => item && item.id === reviewId);
+      if (reviewIndex < 0) {
+        throw createError('REVIEW_NOT_FOUND', 'review was not found');
+      }
+      const review = isPlainObject(reviews[reviewIndex]) ? reviews[reviewIndex] : {};
+      const replies = Array.isArray(review.replies) ? review.replies : [];
+      const reply = replies.find(item => item && item.id === replyId);
+      if (!reply) {
+        throw createError('REPLY_NOT_FOUND', 'reply was not found');
+      }
+      if (String(reply.deviceId || '') !== deviceId) {
+        throw createError('DELETE_FORBIDDEN', 'only the original device can delete this reply');
+      }
+      const createdAt = new Date(reply.createdAt || 0).getTime();
+      const deleteUntil = new Date(reply.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
+      if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
+        throw createError('DELETE_EXPIRED', 'reply delete window has expired');
+      }
+      reviews[reviewIndex] = {
+        ...review,
+        replies: replies.filter(item => !item || item.id !== replyId).slice(-MAX_REVIEW_REPLIES)
+      };
+      snapshot.reviewsData = reviews.slice(0, MAX_REVIEWS);
+    }, { updatedBy, clientUpdatedAt: input.clientUpdatedAt });
+    if (!outcome.ok) return outcome;
     console.log('deleteReply saved', {
       docId,
       reviewId,
@@ -1129,7 +1243,7 @@ async function deleteReply(db, input, context) {
       docId,
       reviewId,
       replyId,
-      updatedAt: now.toISOString(),
+      updatedAt: outcome.updatedAt.toISOString(),
       functionVersion: FUNCTION_VERSION
     };
   } catch (error) {
@@ -1185,6 +1299,7 @@ function fetchImageBuffer(url, redirects = 3) {
     const client = parsed.protocol === 'https:' ? https : http;
     const request = client.get(parsed, {
       timeout: 10000,
+      lookup: safeLookup,
       headers: {
         'User-Agent': 'laohe-wings-lineup-export/1.0',
         'Accept': 'image/*,*/*;q=0.8'
@@ -1281,6 +1396,14 @@ async function proxyImage(input, app) {
 exports.main = async (event = {}, context = {}) => {
   const input = normalizeEvent(event);
   const app = initCloudBaseApp(context);
+  // 客户端解锁编辑时用于校验口令是否正确（不落库、不返回秘钥本身）。
+  if (input.action === 'verifyEditToken') {
+    return {
+      ok: hasValidEditSecret(input),
+      configured: Boolean(EDIT_SECRET),
+      functionVersion: FUNCTION_VERSION
+    };
+  }
   if (input.action === 'proxyImage') {
     return proxyImage(input, app);
   }
@@ -1306,6 +1429,19 @@ exports.main = async (event = {}, context = {}) => {
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
     : DEFAULT_DOC_ID;
+
+  // 全量发布会覆盖整场阵容/评价/报名数据，必须持有正确的编辑口令。
+  // 这是"云端写入无鉴权"的核心修复：仅靠前端口令校验可被直接 POST 绕过。
+  if (!hasValidEditSecret(input)) {
+    return {
+      ok: false,
+      code: 'EDIT_SECRET_REQUIRED',
+      message: EDIT_SECRET
+        ? '编辑口令不正确，无权发布阵容'
+        : '服务端未配置 EDIT_SECRET 环境变量，发布已被拒绝（请先在云函数环境变量中配置）'
+    };
+  }
+
   const snapshot = input.snapshot;
   const invalidReason = validateSnapshot(snapshot);
 
