@@ -1,4 +1,12 @@
 {
+  "competitionPlayers": [
+    {
+      "num": 9,
+      "name": "李炳灿",
+      "avatarHome": "assets/players/9-李炳灿-home.png",
+      "avatarAway": ""
+    }
+  ],
   "starters": [
     {
       "num": 18,
@@ -105,7 +113,7 @@
         "CM",
         "CAM"
       ],
-      "avatarHome": "assets/players/20-张子冲-home.png",
+      "avatarHome": "assets/players/20-张子冲-home-v2.png",
       "avatarAway": "assets/players/20-张子冲-away.png",
       "stats": {
         "goals": 0,
@@ -188,7 +196,7 @@
         "assists": 0,
         "appearances": 0
       },
-      "status": "fit",
+      "status": "injured",
       "captain": false
     },
     {
@@ -313,7 +321,7 @@
       "pos": "",
       "role": "",
       "positions": [],
-      "avatarHome": "",
+      "avatarHome": "assets/players/19-沈熙洲-home.png",
       "avatarAway": "",
       "stats": {
         "goals": 0,
@@ -329,7 +337,7 @@
       "pos": "",
       "role": "",
       "positions": [],
-      "avatarHome": "",
+      "avatarHome": "assets/players/21-徐文浩-home.png",
       "avatarAway": "",
       "stats": {
         "goals": 0,
@@ -473,8 +481,8 @@
       "pos": "",
       "role": "",
       "positions": [],
-      "avatarHome": "",
-      "avatarAway": "",
+      "avatarHome": "assets/players/47-赖飞扬-home.png",
+      "avatarAway": "assets/players/47-赖飞扬-away.png",
       "stats": {
         "goals": 0,
         "assists": 0,
@@ -590,7 +598,8 @@
     "role": "教练",
     "avatar": "",
     "avatarHome": "assets/staff/coach-home.jpg",
-    "avatarAway": "assets/staff/coach-away.jpg"
+    "avatarAway": "assets/staff/coach-away.jpg",
+    "status": "injured"
   },
   "manager": {
     "show": true,

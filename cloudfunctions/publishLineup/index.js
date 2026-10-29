@@ -3,6 +3,7 @@ const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 const dns = require('dns');
+const { resolveWorkspace, validateSnapshot, isPrivateIpv4, imageHostAllowlist, validateImageUrl, isOwnCloudFileId } = require('./security');
 
 const COLLECTION = 'lineups';
 const DEFAULT_DOC_ID = 'current';
@@ -21,7 +22,7 @@ const MAX_ATTENDANCE_RECORDS = 200;
 const MAX_MVP_VOTES = 400;
 const ATTENDANCE_STATUS_SET = new Set(['in', 'out', 'maybe']);
 const REVIEW_IP_HASH_SALT = process.env.REVIEW_IP_HASH_SALT || 'laohe-wings-review';
-const FUNCTION_VERSION = '20260723-auth-ssrf-concurrency';
+const FUNCTION_VERSION = '20261029-teams-security';
 
 // 编辑秘钥：只从环境变量读取，绝不硬编码进代码/前端。
 // 未配置时，所有"需授权写入"（全量发布 publishLineup、队内身份 team_edit 评论）一律拒绝（fail-closed）。
@@ -45,73 +46,18 @@ function hasValidEditSecret(input = {}) {
   return timingSafeEqualStr(input && input.editToken, EDIT_SECRET);
 }
 
-// ---- SSRF 防护：拒绝解析到私网 / 环回 / 链路本地 / 云元数据段的地址 ----
-function ipv4ToLong(ip) {
-  const parts = String(ip).split('.').map(Number);
-  if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return null;
-  return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
-}
-
-function isPrivateIpv4(ip) {
-  const long = ipv4ToLong(ip);
-  if (long === null) return false;
-  const inRange = (base, maskBits) => {
-    const mask = maskBits === 0 ? 0 : (0xffffffff << (32 - maskBits)) >>> 0;
-    const baseLong = ipv4ToLong(base);
-    return baseLong !== null && (long & mask) === (baseLong & mask);
-  };
-  return (
-    inRange('0.0.0.0', 8) ||        // 本网络 / 未指定
-    inRange('10.0.0.0', 8) ||       // 私网
-    inRange('100.64.0.0', 10) ||    // 运营商级 NAT
-    inRange('127.0.0.0', 8) ||      // 环回
-    inRange('169.254.0.0', 16) ||   // 链路本地（含 169.254.169.254 云元数据）
-    inRange('172.16.0.0', 12) ||    // 私网
-    inRange('192.0.0.0', 24) ||     // IETF 保留
-    inRange('192.168.0.0', 16) ||   // 私网
-    inRange('198.18.0.0', 15) ||    // 基准测试
-    inRange('224.0.0.0', 4) ||      // 组播
-    inRange('240.0.0.0', 4)         // 保留
-  );
-}
-
-function isPrivateIpv6(ip) {
-  const value = String(ip || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
-  if (value === '::1' || value === '::') return true;
-  if (value.startsWith('fe80:')) return true;          // 链路本地
-  if (/^f[cd][0-9a-f]{2}:/.test(value)) return true;    // 唯一本地地址 fc00::/7
-  const mapped = value.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/); // IPv4 映射
-  if (mapped) return isPrivateIpv4(mapped[1]);
-  return false;
-}
-
-function isBlockedAddress(address, family) {
-  if (!address) return true;
-  return family === 6 ? isPrivateIpv6(address) : isPrivateIpv4(address);
-}
-
-// 传给 http/https.get 的自定义 lookup：在真正建连的地址上做私网校验，
-// 天然覆盖重定向逐跳、且规避 DNS 解析后再连接（TOCTOU）的绕过。
+// Resolve only IPv4 and validate the actual address used to connect. IP literals
+// are rejected before this point, and every redirect is checked separately.
 function safeLookup(hostname, options, callback) {
   const cb = typeof options === 'function' ? options : callback;
   const opts = typeof options === 'function' ? {} : (options || {});
-  dns.lookup(hostname, { ...opts, all: true }, (err, addresses) => {
-    if (err) {
-      cb(err);
-      return;
+  dns.lookup(hostname, { family: 4, all: true }, (error, addresses) => {
+    if (error) return cb(error);
+    if (!Array.isArray(addresses) || !addresses.length || addresses.some(item => item.family !== 4 || isPrivateIpv4(item.address))) {
+      return cb(new Error('blocked host: private or reserved address'));
     }
-    const list = Array.isArray(addresses) ? addresses : [];
-    const blocked = list.find(item => isBlockedAddress(item.address, item.family));
-    if (blocked || !list.length) {
-      cb(new Error('blocked host: resolves to a private or reserved address'));
-      return;
-    }
-    const chosen = list[0];
-    if (opts.all) {
-      cb(null, list);
-    } else {
-      cb(null, chosen.address, chosen.family);
-    }
+    if (opts.all) return cb(null, addresses);
+    cb(null, addresses[0].address, 4);
   });
 }
 
@@ -125,15 +71,6 @@ function initCloudBaseApp(context) {
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function validateSnapshot(snapshot) {
-  if (!isPlainObject(snapshot)) return 'snapshot must be an object';
-  if (!isPlainObject(snapshot.squadData)) return 'snapshot.squadData is required';
-  if (!Array.isArray(snapshot.squadData.starters)) return 'snapshot.squadData.starters is required';
-  if (!Array.isArray(snapshot.squadData.bench)) return 'snapshot.squadData.bench is required';
-  if (typeof snapshot.formation !== 'string') return 'snapshot.formation is required';
-  return '';
 }
 
 function normalizeText(value, maxLength) {
@@ -219,6 +156,11 @@ function getReviewTargets(snapshot = {}) {
     });
   }
   return Array.from(byKey.values());
+}
+
+function nextUpdateTime(record) {
+  const previous = Date.parse(record && record.updatedAtText || '');
+  return new Date(Math.max(Date.now(), Number.isFinite(previous) ? previous + 1 : 0));
 }
 
 function createError(code, message) {
@@ -740,7 +682,7 @@ async function mutateWithTransaction(db, docId, mutate, meta, attempt = 0) {
         message: validationError.message || String(validationError)
       };
     }
-    const now = new Date();
+    const now = nextUpdateTime(record);
     await transaction.collection(COLLECTION).doc(docId).update({
       snapshot,
       schemaVersion: record.schemaVersion || 1,
@@ -763,49 +705,16 @@ async function mutateWithTransaction(db, docId, mutate, meta, attempt = 0) {
   }
 }
 
-async function mutateWithReadModifyWrite(db, docId, mutate, meta) {
-  const docRef = db.collection(COLLECTION).doc(docId);
-  const record = extractDatabaseRecord(await docRef.get());
-  const snapshot = record && isPlainObject(record.snapshot) ? record.snapshot : null;
-  if (!snapshot) {
-    return { ok: false, code: 'SNAPSHOT_NOT_FOUND', message: 'current lineup snapshot was not found' };
-  }
-  let mutateResult;
-  try {
-    mutateResult = await mutate(snapshot, record);
-  } catch (validationError) {
-    return {
-      ok: false,
-      code: validationError.code || 'INVALID_INPUT',
-      message: validationError.message || String(validationError)
-    };
-  }
-  const now = new Date();
-  await docRef.set({
-    snapshot,
-    schemaVersion: record.schemaVersion || 1,
-    updatedAt: now,
-    updatedAtText: now.toISOString(),
-    updatedBy: meta.updatedBy || 'web',
-    clientUpdatedAt: meta.clientUpdatedAt || ''
-  });
-  return { ok: true, updatedAt: now, record, mutateResult };
-}
-
 async function withDocumentMutation(db, docId, mutate, meta = {}) {
-  if (typeof db.startTransaction === 'function') {
-    try {
-      return await mutateWithTransaction(db, docId, mutate, meta);
-    } catch (error) {
-      // 仅当事务机制本身失败时回退到原始读-改-写（功能正常，但退化为 last-write-wins）。
-      // 校验类失败在事务内部已转成 { ok:false }，不会走到这里。
-      console.warn('withDocumentMutation: transaction path failed, falling back to read-modify-write', {
-        docId,
-        message: error && error.message
-      });
-    }
+  if (typeof db.startTransaction !== 'function') {
+    return { ok: false, code: 'TRANSACTIONS_REQUIRED', message: '云端暂不支持事务，已保留原数据，请管理员检查部署' };
   }
-  return mutateWithReadModifyWrite(db, docId, mutate, meta);
+  try {
+    return await mutateWithTransaction(db, docId, mutate, meta);
+  } catch (error) {
+    console.error('withDocumentMutation: transaction failed', { docId, code: error.code, message: error.message });
+    return { ok: false, code: 'TRANSACTION_FAILED', message: '云端保存失败，原数据未被覆盖，请稍后重试' };
+  }
 }
 
 async function submitAttendance(db, input, context, rawEvent = {}) {
@@ -1126,16 +1035,19 @@ async function replyReview(db, input, context, rawEvent = {}) {
 }
 
 async function deleteReview(db, input, context) {
+  // deviceId is public roster data, so it cannot prove ownership.
+  if (!hasValidEditSecret(input)) {
+    return { ok: false, code: 'EDIT_SECRET_REQUIRED', message: '删除评价需要管理员编辑口令' };
+  }
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
     : DEFAULT_DOC_ID;
   const reviewId = String(input.reviewId || '').trim();
-  const deviceId = normalizeText(input.deviceId, MAX_DEVICE_ID_LENGTH);
-  if (!reviewId || !deviceId) {
+  if (!reviewId) {
     return {
       ok: false,
       code: 'INVALID_DELETE_REQUEST',
-      message: 'reviewId and deviceId are required'
+      message: 'reviewId is required'
     };
   }
 
@@ -1148,14 +1060,6 @@ async function deleteReview(db, input, context) {
       const review = reviews.find(item => item && item.id === reviewId);
       if (!review) {
         throw createError('REVIEW_NOT_FOUND', 'review was not found');
-      }
-      if (String(review.deviceId || '') !== deviceId) {
-        throw createError('DELETE_FORBIDDEN', 'only the original device can delete this review');
-      }
-      const createdAt = new Date(review.createdAt || 0).getTime();
-      const deleteUntil = new Date(review.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
-      if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
-        throw createError('DELETE_EXPIRED', 'review delete window has expired');
       }
       snapshot.reviewsData = reviews.filter(item => !item || item.id !== reviewId).slice(0, MAX_REVIEWS);
     }, { updatedBy, clientUpdatedAt: input.clientUpdatedAt });
@@ -1187,17 +1091,19 @@ async function deleteReview(db, input, context) {
 }
 
 async function deleteReply(db, input, context) {
+  if (!hasValidEditSecret(input)) {
+    return { ok: false, code: 'EDIT_SECRET_REQUIRED', message: '删除回复需要管理员编辑口令' };
+  }
   const docId = typeof input.docId === 'string' && input.docId.trim()
     ? input.docId.trim()
     : DEFAULT_DOC_ID;
   const reviewId = String(input.reviewId || '').trim();
   const replyId = String(input.replyId || '').trim();
-  const deviceId = normalizeText(input.deviceId, MAX_DEVICE_ID_LENGTH);
-  if (!reviewId || !replyId || !deviceId) {
+  if (!reviewId || !replyId) {
     return {
       ok: false,
       code: 'INVALID_DELETE_REPLY_REQUEST',
-      message: 'reviewId, replyId, and deviceId are required'
+      message: 'reviewId and replyId are required'
     };
   }
 
@@ -1216,14 +1122,6 @@ async function deleteReply(db, input, context) {
       const reply = replies.find(item => item && item.id === replyId);
       if (!reply) {
         throw createError('REPLY_NOT_FOUND', 'reply was not found');
-      }
-      if (String(reply.deviceId || '') !== deviceId) {
-        throw createError('DELETE_FORBIDDEN', 'only the original device can delete this reply');
-      }
-      const createdAt = new Date(reply.createdAt || 0).getTime();
-      const deleteUntil = new Date(reply.deleteUntil || (Number.isFinite(createdAt) ? createdAt + REVIEW_DELETE_WINDOW_MS : 0)).getTime();
-      if (!Number.isFinite(deleteUntil) || Date.now() > deleteUntil) {
-        throw createError('DELETE_EXPIRED', 'reply delete window has expired');
       }
       reviews[reviewIndex] = {
         ...review,
@@ -1281,22 +1179,17 @@ function normalizeEvent(event = {}) {
   return event;
 }
 
-function fetchImageBuffer(url, redirects = 3) {
+function fetchImageBuffer(url, redirects = 3, allowedHosts = imageHostAllowlist(process.env.IMAGE_PROXY_ALLOWED_HOSTS)) {
   return new Promise((resolve, reject) => {
     let parsed;
     try {
-      parsed = new URL(url);
+      parsed = validateImageUrl(url, allowedHosts);
     } catch (error) {
-      reject(new Error('invalid image url'));
+      reject(error);
       return;
     }
 
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-      reject(new Error('unsupported image url protocol'));
-      return;
-    }
-
-    const client = parsed.protocol === 'https:' ? https : http;
+    const client = https;
     const request = client.get(parsed, {
       timeout: 10000,
       lookup: safeLookup,
@@ -1308,8 +1201,12 @@ function fetchImageBuffer(url, redirects = 3) {
       const status = response.statusCode || 0;
       if ([301, 302, 303, 307, 308].includes(status) && response.headers.location && redirects > 0) {
         response.resume();
-        const nextUrl = new URL(response.headers.location, parsed).href;
-        fetchImageBuffer(nextUrl, redirects - 1).then(resolve, reject);
+        try {
+          const nextUrl = new URL(response.headers.location, parsed).href;
+          fetchImageBuffer(nextUrl, redirects - 1, allowedHosts).then(resolve, reject);
+        } catch (error) {
+          reject(error);
+        }
         return;
       }
       if (status < 200 || status >= 300) {
@@ -1317,12 +1214,26 @@ function fetchImageBuffer(url, redirects = 3) {
         reject(new Error(`image request failed: HTTP ${status}`));
         return;
       }
+      const contentType = String(response.headers['content-type'] || '').split(';')[0].toLowerCase();
+      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'].includes(contentType)) {
+        response.destroy();
+        reject(new Error('unsupported image content type'));
+        return;
+      }
+      if (Number(response.headers['content-length'] || 0) > MAX_PROXY_IMAGE_BYTES) {
+        response.destroy();
+        reject(new Error('image is too large'));
+        return;
+      }
+      response.on('error', reject);
+      response.on('aborted', () => reject(new Error('image response aborted')));
       const chunks = [];
       let size = 0;
       response.on('data', chunk => {
         size += chunk.length;
         if (size > MAX_PROXY_IMAGE_BYTES) {
-          request.destroy(new Error('image is too large'));
+          reject(new Error('image is too large'));
+          request.destroy();
           return;
         }
         chunks.push(chunk);
@@ -1330,10 +1241,12 @@ function fetchImageBuffer(url, redirects = 3) {
       response.on('end', () => {
         resolve({
           buffer: Buffer.concat(chunks),
-          contentType: String(response.headers['content-type'] || 'image/jpeg').split(';')[0]
+          contentType
         });
       });
     });
+    const deadline = setTimeout(() => request.destroy(new Error('image request timeout')), 10000);
+    request.once('close', () => clearTimeout(deadline));
     request.on('timeout', () => request.destroy(new Error('image request timeout')));
     request.on('error', reject);
   });
@@ -1355,46 +1268,75 @@ async function getCloudTempFileURL(app, fileID) {
 async function proxyImage(input, app) {
   let url = String(input.url || '').trim();
   const fileID = String(input.fileID || '').trim();
-  if (fileID) {
-    try {
-      url = await getCloudTempFileURL(app, fileID) || url;
-    } catch (error) {
-      console.warn('proxyImage getTempFileURL failed', {
-        fileID,
-        message: error && error.message
-      });
-    }
-  }
-  if (!url) {
-    return {
-      ok: false,
-      code: 'INVALID_IMAGE_URL',
-      message: 'url or fileID is required'
-    };
-  }
+  const allowedHosts = imageHostAllowlist(process.env.IMAGE_PROXY_ALLOWED_HOSTS);
   try {
-    const { buffer, contentType } = await fetchImageBuffer(url);
-    const safeType = /^image\//i.test(contentType) ? contentType : 'image/jpeg';
-    return {
-      ok: true,
-      contentType: safeType,
-      dataUrl: `data:${safeType};base64,${buffer.toString('base64')}`
-    };
+    if (fileID) {
+      if (!isOwnCloudFileId(fileID)) throw new Error('cloud file does not belong to this environment');
+      url = await getCloudTempFileURL(app, fileID);
+      if (!url) throw new Error('cloud file URL is unavailable');
+      // Trust only the exact origin returned by this environment's SDK, never an
+      // origin supplied by the browser. Redirects remain constrained to the set.
+      const cloudUrl = new URL(url);
+      allowedHosts.add(cloudUrl.hostname.toLowerCase());
+    }
+    const { buffer, contentType } = await fetchImageBuffer(url, 3, allowedHosts);
+    return { ok: true, contentType, dataUrl: 'data:' + contentType + ';base64,' + buffer.toString('base64') };
   } catch (error) {
-    console.error('proxyImage failed', {
-      url,
-      message: error && error.message
+    console.warn('proxyImage rejected', { message: error.message });
+    return { ok: false, code: 'IMAGE_PROXY_FAILED', message: error.message || String(error) };
+  }
+}
+
+async function publishSnapshot(db, input, workspace, context) {
+  if (!hasValidEditSecret(input)) {
+    return { ok: false, code: 'EDIT_SECRET_REQUIRED', message: EDIT_SECRET ? '编辑口令不正确，无权发布阵容' : '服务端未配置 EDIT_SECRET，发布已被拒绝' };
+  }
+  const invalidReason = validateSnapshot(input.snapshot, workspace);
+  if (invalidReason) return { ok: false, code: 'INVALID_SNAPSHOT', message: invalidReason };
+  if (typeof input.baseUpdatedAt !== 'string') {
+    return { ok: false, code: 'BASE_VERSION_REQUIRED', message: '请刷新页面，读取最新云端版本后再发布' };
+  }
+  if (typeof db.startTransaction !== 'function') {
+    return { ok: false, code: 'TRANSACTIONS_REQUIRED', message: '云端暂不支持事务，发布已停止，请管理员检查部署' };
+  }
+  let transaction;
+  try {
+    transaction = await db.startTransaction();
+    const doc = transaction.collection(COLLECTION).doc(workspace.docId);
+    const record = extractDatabaseRecord(await doc.get());
+    const currentVersion = record ? String(record.updatedAtText || '') : '';
+    if (currentVersion !== input.baseUpdatedAt) {
+      await transaction.rollback();
+      return { ok: false, code: 'VERSION_CONFLICT', message: '云端已有新内容，请先载入最新版本再发布；本地修改仍保留', updatedAt: currentVersion };
+    }
+    const snapshot = { ...input.snapshot, workspaceId: workspace.workspaceId, matchFormat: workspace.matchFormat };
+    // Publishing the tactical board must never restore an outdated copy of
+    // other people's reviews, attendance or votes.
+    for (const field of ['reviewsData', 'attendanceData', 'mvpVotesData']) {
+      snapshot[field] = record && record.snapshot && Array.isArray(record.snapshot[field]) ? record.snapshot[field] : [];
+    }
+    const now = nextUpdateTime(record);
+    const auth = context.auth || context.userInfo || {};
+    await doc.set({
+      snapshot,
+      schemaVersion: 2,
+      updatedAt: now,
+      updatedAtText: now.toISOString(),
+      updatedBy: auth.uid || auth.openId || auth.openid || 'editor-web',
+      clientUpdatedAt: normalizeText(input.clientUpdatedAt, 64)
     });
-    return {
-      ok: false,
-      code: 'IMAGE_PROXY_FAILED',
-      message: error && error.message ? error.message : String(error)
-    };
+    await transaction.commit();
+    return { ok: true, docId: workspace.docId, workspaceId: workspace.workspaceId, updatedAt: now.toISOString(), functionVersion: FUNCTION_VERSION };
+  } catch (error) {
+    if (transaction) { try { await transaction.rollback(); } catch { /* preserve original error */ } }
+    console.error('publishLineup transaction failed', { code: error.code, message: error.message });
+    return { ok: false, code: 'TRANSACTION_FAILED', message: '发布未完成，请重新读取云端状态后重试；本地修改仍保留' };
   }
 }
 
 exports.main = async (event = {}, context = {}) => {
   const input = normalizeEvent(event);
+  if (!isPlainObject(input)) return { ok: false, code: 'INVALID_INPUT', message: 'request must be an object' };
   const app = initCloudBaseApp(context);
   // 客户端解锁编辑时用于校验口令是否正确（不落库、不返回秘钥本身）。
   if (input.action === 'verifyEditToken') {
@@ -1407,6 +1349,14 @@ exports.main = async (event = {}, context = {}) => {
   if (input.action === 'proxyImage') {
     return proxyImage(input, app);
   }
+  const allowedActions = ['publishLineup', 'submitAttendance', 'submitMvpVote', 'submitReview', 'replyReview', 'deleteReview', 'deleteReply'];
+  if (input.action && !allowedActions.includes(input.action)) {
+    return { ok: false, code: 'INVALID_ACTION', message: 'unsupported action' };
+  }
+  const workspace = resolveWorkspace(input);
+  if (!workspace.ok) return workspace;
+  input.docId = workspace.docId;
+  input.workspaceId = workspace.workspaceId;
   const db = app.database();
   if (input.action === 'submitAttendance') {
     return submitAttendance(db, input, context, event);
@@ -1426,71 +1376,5 @@ exports.main = async (event = {}, context = {}) => {
   if (input.action === 'deleteReply') {
     return deleteReply(db, input, context);
   }
-  const docId = typeof input.docId === 'string' && input.docId.trim()
-    ? input.docId.trim()
-    : DEFAULT_DOC_ID;
-
-  // 全量发布会覆盖整场阵容/评价/报名数据，必须持有正确的编辑口令。
-  // 这是"云端写入无鉴权"的核心修复：仅靠前端口令校验可被直接 POST 绕过。
-  if (!hasValidEditSecret(input)) {
-    return {
-      ok: false,
-      code: 'EDIT_SECRET_REQUIRED',
-      message: EDIT_SECRET
-        ? '编辑口令不正确，无权发布阵容'
-        : '服务端未配置 EDIT_SECRET 环境变量，发布已被拒绝（请先在云函数环境变量中配置）'
-    };
-  }
-
-  const snapshot = input.snapshot;
-  const invalidReason = validateSnapshot(snapshot);
-
-  if (invalidReason) {
-    return {
-      ok: false,
-      code: 'INVALID_SNAPSHOT',
-      message: invalidReason
-    };
-  }
-
-  const now = new Date();
-  const auth = context.auth || context.userInfo || {};
-  const updatedBy = auth.uid || auth.openId || auth.openid || 'anonymous-web';
-
-  try {
-    const result = await db.collection(COLLECTION).doc(docId).set({
-      snapshot,
-      schemaVersion: 1,
-      updatedAt: now,
-      updatedAtText: now.toISOString(),
-      updatedBy,
-      clientUpdatedAt: input.clientUpdatedAt || ''
-    });
-
-    console.log('publishLineup saved', {
-      docId,
-      updatedBy,
-      result
-    });
-
-    return {
-      ok: true,
-      docId,
-      updatedAt: now.toISOString(),
-      functionVersion: FUNCTION_VERSION
-    };
-  } catch (error) {
-    console.error('publishLineup failed', {
-      code: error && error.code,
-      message: error && error.message,
-      requestId: error && error.requestId
-    });
-
-    return {
-      ok: false,
-      code: error && error.code ? error.code : 'DATABASE_WRITE_FAILED',
-      message: error && error.message ? error.message : String(error),
-      requestId: error && error.requestId ? error.requestId : ''
-    };
-  }
+  return publishSnapshot(db, input, workspace, context);
 };
