@@ -479,6 +479,9 @@ function updateEditMode() {
   document.querySelectorAll('[contenteditable]').forEach(el => {
     el.contentEditable = unlocked ? 'true' : 'false';
   });
+  document.querySelectorAll('.player-card, [data-swap-value]').forEach(card => {
+    card.draggable = unlocked;
+  });
   if (!unlocked) {
     document.querySelectorAll('.photo-manager input, .photo-manager select, .photo-manager button').forEach(el => {
       el.disabled = true;
@@ -1290,6 +1293,7 @@ function normalizePlayer(player) {
 
 function normalizeCoachData(coach = {}) {
   return {
+    useDefaultPhotos: coach.useDefaultPhotos !== false,
     show: coach.show !== false,
     num: String(coach.num ?? '3'),
     posLabel: String(coach.posLabel ?? 'COACH'),
@@ -1304,6 +1308,7 @@ function normalizeCoachData(coach = {}) {
 
 function normalizeManagerData(manager = {}) {
   return {
+    useDefaultPhotos: manager.useDefaultPhotos !== false,
     show: manager.show !== false,
     num: String(manager.num ?? '·'),
     posLabel: String(manager.posLabel ?? 'MGR'),
@@ -1326,6 +1331,7 @@ function normalizeTeamData(team = {}) {
 function normalizeLegend(legend = {}) {
   const name = normalizeName(legend.name);
   return {
+    useDefaultPhotos: legend.useDefaultPhotos !== false,
     num: legend.num ?? '',
     name,
     role: String(legend.role ?? '绝版人物'),
@@ -1588,6 +1594,7 @@ function findDefaultPlayerByNum(num) {
 }
 
 function getDefaultPlayerAvatar(player) {
+  if (player?.useDefaultPhotos === false) return '';
   const source = [...INLINE_PLAYER_DATA.starters, ...INLINE_PLAYER_DATA.bench].find(item =>
     player?.id && item.id ? player.id === item.id : player?.name === item.name && String(player?.num) === String(item.num));
   if (!source) return '';
@@ -1838,8 +1845,7 @@ function mergeSavedPlayerFields(basePlayer, savedPlayer) {
     pos: saved.pos,
     role: saved.role,
     positions: Array.isArray(saved.positions) ? saved.positions : base.positions,
-    avatarHome: saved.avatarHome || base.avatarHome,
-    avatarAway: saved.avatarAway || base.avatarAway,
+    ...mergeSavedPhotoFields(base, saved),
     stats: saved.stats || base.stats,
     status: saved.status || base.status,
     captain: typeof savedPlayer.captain === 'boolean' ? savedPlayer.captain : base.captain
@@ -1863,6 +1869,19 @@ function isSavedImageSource(value) {
 
 function mergeSavedImageSource(savedValue, baseValue) {
   return isSavedImageSource(savedValue) ? savedValue : baseValue;
+}
+
+// Explicitly clearing a portrait must survive reload, preset restoration and
+// cloud snapshots. Older empty fields still inherit newly supplied seed photos.
+function mergeSavedPhotoFields(base, saved) {
+  const useDefaultPhotos = saved.useDefaultPhotos !== false;
+  const result = { useDefaultPhotos };
+  for (const field of ['avatar', 'avatarHome', 'avatarAway']) {
+    result[field] = useDefaultPhotos
+      ? mergeSavedImageSource(saved[field], base[field])
+      : (isSavedImageSource(saved[field]) ? saved[field] : '');
+  }
+  return result;
 }
 
 function replaceSquadData(nextSquadData) {
@@ -1905,9 +1924,7 @@ function mergeSavedStaffFields(baseData, savedData) {
     ...baseData,
     show: saved.show !== false,
     status: saved.status || baseData.status || 'fit',
-    avatar: mergeSavedImageSource(saved.avatar, baseData.avatar),
-    avatarHome: mergeSavedImageSource(saved.avatarHome, baseData.avatarHome),
-    avatarAway: mergeSavedImageSource(saved.avatarAway, baseData.avatarAway)
+    ...mergeSavedPhotoFields(baseData, saved)
   };
 }
 
@@ -2004,9 +2021,7 @@ function applySnapshot(snapshot, shouldSave = true) {
         if (nextLegends[index]) {
           nextLegends[index] = normalizeLegend({
             ...nextLegends[index],
-            avatar: mergeSavedImageSource(item.avatar, nextLegends[index].avatar),
-            avatarHome: mergeSavedImageSource(item.avatarHome, nextLegends[index].avatarHome),
-            avatarAway: mergeSavedImageSource(item.avatarAway, nextLegends[index].avatarAway)
+            ...mergeSavedPhotoFields(nextLegends[index], item)
           });
         }
       }
@@ -2204,15 +2219,15 @@ function renderPitch() {
 // staff cards no longer rendered on pitch — moved to staff-section strip
 
 function renderBench() {
-  // 始终按号码从小到大排列
-  SQUAD_DATA.bench.sort((a, b) => {
-    const na = Number.parseInt(a.num, 10);
-    const nb = Number.parseInt(b.num, 10);
+  // 只排序显示项；管理输入和拖拽仍使用原数组索引。
+  const sortedBench = SQUAD_DATA.bench.map((player, index) => ({ player, index })).sort((a, b) => {
+    const na = Number.parseInt(a.player.num, 10);
+    const nb = Number.parseInt(b.player.num, 10);
     if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
     return Number.isFinite(na) ? -1 : Number.isFinite(nb) ? 1 : 0;
   });
   benchGrid.innerHTML = '';
-  SQUAD_DATA.bench.forEach((player, index) => {
+  sortedBench.forEach(({ player, index }) => {
     const avatar = getCurrentAvatar(player);
     const fallbackAvatar = getDefaultPlayerAvatar(player);
     const statusIcon = getStatusIcon(player.status);
@@ -3522,14 +3537,10 @@ function clearPhoto(list, index) {
   if (!canEdit()) return;
   const item = list === 'legends' ? LEGENDS_DATA[index] : SQUAD_DATA[list]?.[index];
   if (!item) return;
-  if (list === 'legends') {
-    item.avatar = '';
-    item.avatarHome = '';
-    item.avatarAway = '';
-  } else {
-    item.avatarHome = '';
-    item.avatarAway = '';
-  }
+  item.avatar = '';
+  item.avatarHome = '';
+  item.avatarAway = '';
+  item.useDefaultPhotos = false;
   renderAll();
   saveLastState();
 }
@@ -3547,6 +3558,7 @@ function updatePlayerField(list, index, field, value) {
   renderPitch();
   renderBench();
   renderLegends();
+  renderWorkspaceSummary();
   updateControls();
   queueSaveLastState();
 }
@@ -3569,6 +3581,8 @@ function updatePlayerStatus(list, index, status) {
   if (!player) return;
   player.status = status;
   renderPitch();
+  renderBench();
+  renderWorkspaceSummary();
   queueSaveLastState();
 }
 
@@ -4014,6 +4028,7 @@ function clearCoachPhoto() {
   COACH_DATA.avatar = '';
   COACH_DATA.avatarHome = '';
   COACH_DATA.avatarAway = '';
+  COACH_DATA.useDefaultPhotos = false;
   renderAll();
   saveLastState();
 }
@@ -4075,6 +4090,7 @@ function clearManagerPhoto() {
   MANAGER_DATA.avatar = '';
   MANAGER_DATA.avatarHome = '';
   MANAGER_DATA.avatarAway = '';
+  MANAGER_DATA.useDefaultPhotos = false;
   renderAll();
   saveLastState();
 }

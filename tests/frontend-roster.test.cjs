@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const LaoheCompetition = require('../assets/competition.js');
+const defaults = require('../assets/defaults.js');
 const master = require('../data/players.json');
 const source = fs.readFileSync(path.join(__dirname, '../assets/lineup.js'), 'utf8');
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -27,6 +28,8 @@ function productionObject(name) {
 const functions = [
   'toNonNegativeInt', 'normalizeStats', 'normalizeName', 'normalizePlayer',
   'benchVersionOf', 'mergeSavedPlayerFields', 'replaceSquadData',
+  'isSavedImageSource', 'mergeSavedImageSource', 'mergeSavedPhotoFields', 'clearPhoto',
+  'mergeSavedStaffFields', 'normalizeCoachData', 'normalizeManagerData', 'normalizeLegend', 'getStaffAvatar', 'getLegendAvatar',
   'getStarterSlotLabel', 'applyStarterSlotLabel', 'swapBenchToStarter',
   'parseCloudImageReference', 'resolveImageSource', 'getCurrentAvatar', 'getDefaultPlayerAvatar'
 ].map(productionFunction).join('\n\n');
@@ -79,6 +82,61 @@ test('substitution keeps the outgoing player id and reload restores 15 unique me
   // A second refresh must not silently append the seed starting player again.
   reloaded.replaceSquadData(copy(reloaded.SQUAD_DATA));
   assert.equal(all(reloaded.SQUAD_DATA).length, 15);
+});
+
+test('clearing a player photo stays empty after reload and restoring the default lineup', () => {
+  for (const profile of ['wings-8', 'legacy-11']) {
+    const first = session(profile);
+    const index = first.SQUAD_DATA.starters.findIndex(player => player.name === '张子冲');
+    first.SQUAD_DATA.starters[index].avatar = 'assets/old-generic-photo.png';
+    first.clearPhoto('starters', index);
+    const fresh = session(profile);
+    fresh.replaceSquadData(JSON.parse(first.savedJson));
+    const cleared = all(fresh.SQUAD_DATA).find(player => player.name === '张子冲');
+    assert.equal(cleared.useDefaultPhotos, false);
+    for (const kit of ['home', 'away']) {
+      fresh.currentKit = kit;
+      assert.equal(fresh.getCurrentAvatar(cleared), '');
+      assert.equal(fresh.getDefaultPlayerAvatar(cleared), '');
+    }
+    const reset = defaults.arrange(copy(fresh.SQUAD_DATA), fresh.INLINE_PLAYER_DATA);
+    const afterReset = all(reset).find(player => player.name === '张子冲');
+    assert.equal(afterReset.avatarHome, '');
+    assert.equal(afterReset.avatarAway, '');
+    assert.equal(afterReset.useDefaultPhotos, false);
+  }
+});
+
+test('a new upload after clearing is retained without resurrecting the old other-kit portrait', () => {
+  const first = session('wings-8');
+  const index = first.SQUAD_DATA.starters.findIndex(player => player.name === '张子冲');
+  first.clearPhoto('starters', index);
+  first.SQUAD_DATA.starters[index].avatarHome = 'data:image/png;base64,bmV3LXBvcnRyYWl0';
+  const fresh = session('wings-8');
+  fresh.replaceSquadData(copy(first.SQUAD_DATA));
+  const player = all(fresh.SQUAD_DATA).find(player => player.name === '张子冲');
+  fresh.currentKit = 'away';
+  assert.equal(player.avatarAway, '');
+  assert.equal(fresh.getCurrentAvatar(player), player.avatarHome);
+  assert.equal(fresh.getDefaultPlayerAvatar(player), '');
+});
+
+test('explicit photo deletion persists for staff and legends while old empty records still inherit seed photos', () => {
+  const c = session('legacy-11');
+  const base = { name: '照片测试', avatarHome: 'assets/home.png', avatarAway: 'assets/away.png' };
+  const cleared = { ...base, avatar: '', avatarHome: '', avatarAway: '', useDefaultPhotos: false };
+  const staff = c.normalizeCoachData(c.mergeSavedStaffFields(base, cleared));
+  const manager = c.normalizeManagerData(c.mergeSavedStaffFields(base, cleared));
+  const legend = c.normalizeLegend({ ...base, ...c.mergeSavedPhotoFields(base, cleared) });
+  for (const kit of ['home', 'away']) {
+    c.currentKit = kit;
+    assert.equal(c.getStaffAvatar(staff), '');
+    assert.equal(c.getStaffAvatar(manager), '');
+    assert.equal(c.getLegendAvatar(legend), '');
+  }
+  const oldRecord = c.mergeSavedPhotoFields(base, { avatarHome: '', avatarAway: '' });
+  assert.equal(oldRecord.avatarHome, base.avatarHome);
+  assert.equal(oldRecord.avatarAway, base.avatarAway);
 });
 
 test('older substitutions with a missing id are repaired before roster de-duplication', () => {

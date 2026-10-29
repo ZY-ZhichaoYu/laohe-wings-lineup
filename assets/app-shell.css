@@ -475,6 +475,10 @@ body:not([data-workspace="legacy-11"]) .bench-name {font-size:15px}
 #restore-default-lineup {flex:1 0 100%;font-size:12px;background:transparent;border-color:transparent;color:#60788e;min-height:34px}
 #restore-default-lineup:hover {color:#102f59;background:#e8f1fa}
 .staff-item.unavailable .staff-avatar {filter:grayscale(.65);opacity:.8}
+body:not(.readonly-mode) .player-card,
+body:not(.readonly-mode) .legend-item,
+body:not(.readonly-mode) .staff-item[data-swap-value] {touch-action:none}
+.readonly-mode .bench-item {touch-action:auto}
 .bench-item.unavailable {filter:none}
 .bench-item.unavailable .bench-avatar-img {filter:grayscale(.7);opacity:.65}
 .bench-status-badge {left:3px;bottom:3px;width:auto;min-width:24px;height:auto;padding:3px 5px;border-radius:4px;line-height:1.2;white-space:nowrap;color:#fff;background:#6a3910}
