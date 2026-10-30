@@ -3,8 +3,8 @@
     {
       "num": 9,
       "name": "李炳灿",
-      "avatarHome": "assets/players/9-李炳灿-home.png",
-      "avatarAway": "assets/players/9-李炳灿-away.png"
+      "avatarHome": "assets/players/9-李炳灿-home-v2.png",
+      "avatarAway": "assets/players/9-李炳灿-away-v2.png"
     }
   ],
   "starters": [
@@ -113,8 +113,8 @@
         "CM",
         "CAM"
       ],
-      "avatarHome": "assets/players/20-张子冲-home-v3.png",
-      "avatarAway": "assets/players/20-张子冲-away-v3.png",
+      "avatarHome": "assets/players/20-张子冲-home-v4.png",
+      "avatarAway": "assets/players/20-张子冲-away-v4.png",
       "stats": {
         "goals": 0,
         "assists": 0,
@@ -321,8 +321,8 @@
       "pos": "",
       "role": "",
       "positions": [],
-      "avatarHome": "assets/players/19-沈熙洲-home.png",
-      "avatarAway": "assets/players/19-沈熙洲-away.png",
+      "avatarHome": "assets/players/19-沈熙洲-home-v2.png",
+      "avatarAway": "assets/players/19-沈熙洲-away-v2.png",
       "stats": {
         "goals": 0,
         "assists": 0,
@@ -337,8 +337,8 @@
       "pos": "",
       "role": "",
       "positions": [],
-      "avatarHome": "assets/players/21-徐文浩-home.png",
-      "avatarAway": "assets/players/21-徐文浩-away.png",
+      "avatarHome": "assets/players/21-徐文浩-home-v2.png",
+      "avatarAway": "assets/players/21-徐文浩-away-v2.png",
       "stats": {
         "goals": 0,
         "assists": 0,
@@ -554,6 +554,23 @@
       },
       "status": "fit",
       "captain": false
+    }
+  ],
+  "alumni": [
+    {
+      "id": "alumnus-jin-shiji",
+      "num": 9,
+      "name": "金世纪",
+      "caption": "把并肩踢球的日子，留在这两张旧卡里。",
+      "avatarHome": "assets/players/9-金世纪-home.jpg",
+      "avatarAway": "assets/players/9-金世纪-away.jpg"
+    },
+    {
+      "id": "alumnus-wang-boqiao",
+      "num": 10,
+      "name": "王泊乔",
+      "caption": "球场之外，也有值得珍藏的校园旧影。",
+      "avatar": "assets/alumni/10-王泊乔-original.png"
     }
   ],
   "legends": [

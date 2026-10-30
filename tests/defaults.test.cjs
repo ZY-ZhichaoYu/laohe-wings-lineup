@@ -147,8 +147,8 @@ test('name-only legacy players keep their photo edits and do not duplicate when 
   assert.equal(players.find(player => player.name === '张天乐').avatarHome, zhang.avatarHome);
 });
 
-test('revision 2 to 5 still updates the old bundled home portrait without reapplying injuries or lineup defaults', () => {
-  assert.equal(defaults.revision, 5);
+test('revision 2 to 6 still updates the old bundled home portrait without reapplying injuries or lineup defaults', () => {
+  assert.equal(defaults.revision, 6);
   for (const id of ['wings-8', 'legacy-11']) {
     const profile = competition.profiles[id];
     const seed = seedFor(id);
@@ -172,7 +172,7 @@ test('revision 2 to 5 still updates the old bundled home portrait without reappl
     const before = copy(snapshot);
     const expected = copy(snapshot);
     expected.defaultsRevision = defaults.revision;
-    all(expected.squadData).find(player => player.name === '张子冲').avatarHome = 'assets/players/20-张子冲-home-v3.png';
+    all(expected.squadData).find(player => player.name === '张子冲').avatarHome = 'assets/players/20-张子冲-home-v4.png';
 
     const upgraded = defaults.upgrade(snapshot, profile, seed, competition.formations8);
     assert.deepEqual(upgraded, expected);
@@ -190,7 +190,7 @@ test('photo revision preserves custom cloud, data, HTTPS, and already updated ho
     'cloud://test-environment/photos/20.png',
     'data:image/png;base64,cGVyc29uYWwtcGhvdG8=',
     'https://example.test/custom-player-photo.png',
-    'assets/players/20-张子冲-home-v3.png',
+    'assets/players/20-张子冲-home-v4.png',
     'assets/players/20-custom-home.png'
   ];
   for (const avatarHome of portraits) {
@@ -200,7 +200,7 @@ test('photo revision preserves custom cloud, data, HTTPS, and already updated ho
     snapshot.editables.titleCn = '手工阵容';
     const player = all(snapshot.squadData).find(player => player.name === '张子冲');
     player.avatarHome = avatarHome;
-    player.avatarAway = 'assets/players/20-张子冲-away-v3.png';
+    player.avatarAway = 'assets/players/20-张子冲-away-v4.png';
     const expected = { ...copy(snapshot), defaultsRevision: defaults.revision };
     const upgraded = defaults.upgrade(snapshot, profile, seed, competition.formations8);
     assert.deepEqual(upgraded, expected, `Custom portrait must remain unchanged: ${avatarHome}`);
@@ -208,7 +208,7 @@ test('photo revision preserves custom cloud, data, HTTPS, and already updated ho
   }
 });
 
-test('revision 3 to 5 changes only Zhang Zichong exact old away path and preserves lineup, recovery, and interactions', () => {
+test('revision 3 to 6 changes only Zhang Zichong exact old away path and preserves lineup, recovery, and interactions', () => {
   for (const id of ['wings-8', 'legacy-11']) {
     const profile = competition.profiles[id];
     const seed = seedFor(id);
@@ -226,7 +226,7 @@ test('revision 3 to 5 changes only Zhang Zichong exact old away path and preserv
     for (const player of players) {
       if (['陈炫', '蒋天鸿'].includes(player.name)) player.status = 'fit';
       if (player.name === '张子冲') {
-        player.avatarHome = 'assets/players/20-张子冲-home-v3.png';
+        player.avatarHome = 'assets/players/20-张子冲-home-v4.png';
         player.avatarAway = 'assets/players/20-张子冲-away.png';
       }
     }
@@ -237,7 +237,7 @@ test('revision 3 to 5 changes only Zhang Zichong exact old away path and preserv
     const before = copy(snapshot);
     const expected = copy(snapshot);
     expected.defaultsRevision = defaults.revision;
-    all(expected.squadData).find(player => player.name === '张子冲').avatarAway = 'assets/players/20-张子冲-away-v3.png';
+    all(expected.squadData).find(player => player.name === '张子冲').avatarAway = 'assets/players/20-张子冲-away-v4.png';
 
     const upgraded = defaults.upgrade(snapshot, profile, seed, competition.formations8);
     assert.deepEqual(upgraded, expected);
@@ -257,10 +257,10 @@ test('revision 4 upgrades both bundled v2 portraits without changing saved lineu
   all(snapshot.squadData).find(player => player.name === '蒋天鸿').status = 'fit';
   const before = copy(snapshot);
   const expected = copy(snapshot);
-  expected.defaultsRevision = 5;
+  expected.defaultsRevision = 6;
   const updated = all(expected.squadData).find(player => player.name === '张子冲');
-  updated.avatarHome = 'assets/players/20-张子冲-home-v3.png';
-  updated.avatarAway = 'assets/players/20-张子冲-away-v3.png';
+  updated.avatarHome = 'assets/players/20-张子冲-home-v4.png';
+  updated.avatarAway = 'assets/players/20-张子冲-away-v4.png';
   assert.deepEqual(defaults.upgrade(snapshot, profile, seed, competition.formations8), expected);
   assert.deepEqual(snapshot, before);
 });
@@ -273,7 +273,7 @@ test('away portrait migration keeps uploaded cloud/data/HTTPS sources and alread
     'cloud://test-environment/photos/20-away.png',
     'data:image/png;base64,Y3VzdG9tLWF3YXktcGhvdG8=',
     'https://example.test/custom-away-portrait.png',
-    'assets/players/20-张子冲-away-v3.png',
+    'assets/players/20-张子冲-away-v4.png',
     'assets/players/20-custom-away.png',
     'assets/players/20-张子冲-away.png?custom=1'
   ];
@@ -283,10 +283,58 @@ test('away portrait migration keeps uploaded cloud/data/HTTPS sources and alread
     snapshot.formation = '8-331';
     snapshot.editables.titleCn = '手工阵容';
     const player = all(snapshot.squadData).find(person => person.name === '张子冲');
-    player.avatarHome = 'assets/players/20-张子冲-home-v3.png';
+    player.avatarHome = 'assets/players/20-张子冲-home-v4.png';
     player.avatarAway = avatarAway;
     const expected = { ...copy(snapshot), defaultsRevision: defaults.revision };
     const upgraded = defaults.upgrade(snapshot, profile, seed, competition.formations8);
     assert.deepEqual(upgraded, expected, `Custom away portrait must remain unchanged: ${avatarAway}`);
   }
+});
+
+test('revision 5 refreshes every bundled new-card pair while retaining the match and interactions', () => {
+  const targets = { '张子冲': ['20', 'v4'], '李炳灿': ['9', 'v2'], '沈熙洲': ['19', 'v2'], '徐文浩': ['21', 'v2'] };
+  for (const id of ['wings-8', 'zhiyin-8', 'legacy-11']) {
+    const profile = competition.profiles[id];
+    const seed = seedFor(id);
+    const snapshot = {
+      defaultsRevision: 5, formation: profile.defaultFormation, kit: 'away',
+      squadData: { starters: copy(seed.starters), bench: copy(seed.bench) },
+      coachData: { ...copy(seed.coach), status: 'fit' },
+      editables: { titleCn: '我自己的阵容' },
+      attendanceData: [{ id: 'keep-signup', status: 'in' }],
+      reviewsData: [{ id: 'keep-review', comment: '保留原评价' }],
+      mvpVotesData: [{ id: 'keep-vote' }]
+    };
+    for (const p of all(snapshot.squadData)) {
+      if (targets[p.name]) for (const kit of ['Home','Away']) p['avatar'+kit] = `assets/players/${p.num}-${p.name}-${kit.toLowerCase()}${p.name === '张子冲' ? '-v3' : ''}.png`;
+      p.status = 'fit';
+    }
+    const before = copy(snapshot);
+    const expected = copy(snapshot);
+    expected.defaultsRevision = 6;
+    for (const p of all(expected.squadData)) {
+      const t = targets[p.name];
+      if (t) for (const kit of ['Home','Away']) p['avatar'+kit] = `assets/players/${t[0]}-${p.name}-${kit.toLowerCase()}-${t[1]}.png`;
+    }
+    const result = defaults.upgrade(snapshot, profile, seed, competition.formations8);
+    assert.deepEqual(result, expected);
+    assert.deepEqual(snapshot, before);
+    assert.deepEqual(defaults.upgrade(result, profile, seed, competition.formations8), result);
+  }
+});
+
+test('style revision respects uploaded and cleared photos even for players with new bundled portraits', () => {
+  const profile = competition.profiles['zhiyin-8'];
+  const seed = seedFor(profile.id);
+  const snapshot = { defaultsRevision: 5, squadData: { starters: copy(seed.starters), bench: copy(seed.bench) } };
+  const players = all(snapshot.squadData);
+  const li = players.find(p => p.name === '李炳灿');
+  li.avatarHome = 'https://example.test/personal-home.png';
+  li.avatarAway = 'cloud://environment/personal-away.png';
+  const shen = players.find(p => p.name === '沈熙洲');
+  Object.assign(shen, { useDefaultPhotos: false, avatar: '', avatarHome: '', avatarAway: '' });
+  const xu = players.find(p => p.name === '徐文浩');
+  Object.assign(xu, { useDefaultPhotos: false, avatarHome: 'assets/players/21-徐文浩-home.png', avatarAway: 'data:image/png;base64,cGVyc29uYWw=' });
+  const expected = { ...copy(snapshot), defaultsRevision: 6 };
+  assert.deepEqual(defaults.upgrade(snapshot, profile, seed, competition.formations8), expected);
 });

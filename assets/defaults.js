@@ -4,7 +4,19 @@
   else root.LaoheDefaults = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const revision = 5;
+  const revision = 6;
+  // Exact bundled files only. Custom uploads and intentionally cleared photos
+  // are never treated as assets that the application may replace.
+  const photoUpdates = {
+    '张子冲': {
+      home: ['assets/players/20-张子冲-home.png', 'assets/players/20-张子冲-home-v2.png', 'assets/players/20-张子冲-home-v3.png'],
+      away: ['assets/players/20-张子冲-away.png', 'assets/players/20-张子冲-away-v2.png', 'assets/players/20-张子冲-away-v3.png'],
+      version: 4
+    },
+    '李炳灿': { home: ['assets/players/9-李炳灿-home.png'], away: ['assets/players/9-李炳灿-away.png'], version: 2 },
+    '沈熙洲': { home: ['assets/players/19-沈熙洲-home.png'], away: ['assets/players/19-沈熙洲-away.png'], version: 2 },
+    '徐文浩': { home: ['assets/players/21-徐文浩-home.png'], away: ['assets/players/21-徐文浩-away.png'], version: 2 }
+  };
   const copy = value => JSON.parse(JSON.stringify(value));
   const key = player => player.id || player.playerId || String(player.name || '').trim();
 
@@ -42,11 +54,13 @@
       if (next.coachData && (next.coachData.name || seed.coach?.name) === '陈炫') next.coachData.status = 'injured';
     }
     for (const player of players) {
-      if (player.name === '张子冲' && ['assets/players/20-张子冲-home.png', 'assets/players/20-张子冲-home-v2.png'].includes(player.avatarHome)) {
-        player.avatarHome = 'assets/players/20-张子冲-home-v3.png';
-      }
-      if (player.name === '张子冲' && ['assets/players/20-张子冲-away.png', 'assets/players/20-张子冲-away-v2.png'].includes(player.avatarAway)) {
-        player.avatarAway = 'assets/players/20-张子冲-away-v3.png';
+      const update = photoUpdates[player.name];
+      if (!update || player.useDefaultPhotos === false) continue;
+      for (const kit of ['home', 'away']) {
+        const field = kit === 'home' ? 'avatarHome' : 'avatarAway';
+        if (update[kit].includes(player[field])) {
+          player[field] = update[kit][0].replace('.png', `-v${update.version}.png`);
+        }
       }
     }
     const oldOrder = profile.id === 'wings-8' ? [18, 28, 31, 20, 77, 4, 8, 84] : [10, 15, 2, 5, 39, 24, 88, 1];

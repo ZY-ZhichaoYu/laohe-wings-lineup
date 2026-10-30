@@ -26,25 +26,12 @@ const TEAM_DATA = {
   logoAway: ''
 };
 let LEGENDS_DATA = [];
+let ALUMNI_DATA = [];
 const DEFAULT_PRESET_NAME = `${ACTIVE_PROFILE.name} 默认阵容`;
 let CARD_INTROS = {};
 let REVIEWS_DATA = [];
 let ATTENDANCE_DATA = [];
 let MVP_VOTES_DATA = [];
-const EXTRA_DRAW_CARDS = [
-  {
-    num: '∞',
-    name: '王泊乔',
-    pos: 'ST',
-    role: '航院大前锋 · 抽象',
-    cardType: 'unbelievable',
-    avatarHome: 'assets/special/wang-boqiao.jpg?v=20260512',
-    avatarAway: 'assets/special/wang-boqiao.jpg?v=20260512',
-    stats: { goals: 0, assists: 0, appearances: 0 },
-    status: 'fit',
-    intro: '航院重量级人物，人送外号“抽象”。禁区里不一定每次都按常规物理运行，但只要他起脚，所有人都会先暂停半秒，确认这球到底算射门、传球，还是一次大型空气动力学实验。'
-  }
-];
 const PLAYER_DATA_URL = 'data/players.json';
 const INLINE_PLAYER_DATA = LaoheCompetition.buildPlayerData(ACTIVE_PROFILE, window.LAOHE_PLAYER_DATA);
 const DEFAULT_CAPTAIN_NAME = ACTIVE_PROFILE.captain;
@@ -1955,6 +1942,7 @@ function applyPlayerData(data) {
   MANAGER_DATA = normalizeManagerData(data.manager);
   Object.assign(TEAM_DATA, normalizeTeamData(data.team));
   LEGENDS_DATA = Array.isArray(data.legends) ? data.legends.map(normalizeLegend) : [];
+  ALUMNI_DATA = Array.isArray(data.alumni) ? data.alumni.map(item => ({ ...item })) : [];
   CARD_INTROS = normalizeIntroMap(data.intros);
   REVIEWS_DATA = Array.isArray(data.reviews) ? data.reviews.map(normalizeReview).filter(Boolean) : [];
 }
@@ -3489,6 +3477,7 @@ async function deleteReviewReply(reviewId, replyId) {
 function renderAll() {
   normalizeSquadData();
   renderWorkspaceSummary();
+  renderAlumniArchive();
   renderTeamLogo();
   renderPitch();
   renderBench();
@@ -4101,8 +4090,7 @@ function getAllCardPlayers() {
     ...SQUAD_DATA.bench.map(player => ({ ...normalizePlayer(player), cardType: 'player' })),
     ...LEGENDS_DATA.map(legend => ({ ...normalizeLegend(legend), cardType: 'legend' })),
     ...(COACH_DATA.show ? [{ ...COACH_DATA, cardType: 'staff' }] : []),
-    ...(MANAGER_DATA.show ? [{ ...MANAGER_DATA, cardType: 'staff' }] : []),
-    ...EXTRA_DRAW_CARDS.map(card => ({ ...card }))
+    ...(MANAGER_DATA.show ? [{ ...MANAGER_DATA, cardType: 'staff' }] : [])
   ];
 }
 

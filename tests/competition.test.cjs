@@ -48,8 +48,8 @@ test('photo reuse matches identities, never a recycled shirt number', () => {
     assert.equal(player.avatarAway, '');
   }
   const li = roster.find(player => player.name === '李炳灿');
-  assert.equal(li.avatarHome, 'assets/players/9-李炳灿-home.png');
-  assert.equal(li.avatarAway, 'assets/players/9-李炳灿-away.png');
+  assert.equal(li.avatarHome, 'assets/players/9-李炳灿-home-v2.png');
+  assert.equal(li.avatarAway, 'assets/players/9-李炳灿-away-v2.png');
   const withoutNewPhoto = all(competition.buildPlayerData('zhiyin-8', { ...master, competitionPlayers: [] }));
   assert.equal(withoutNewPhoto.find(player => player.name === '李炳灿').avatarHome, '');
   const wu = roster.find(player => player.name === '吴优');
@@ -133,4 +133,21 @@ test('browser UMD exports the same public interface without CommonJS', () => {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/competition.js'), 'utf8'), browser);
   assert.equal(browser.LaoheCompetition.getProfile('?team=zhiyin-8').id, 'zhiyin-8');
   assert.equal(browser.LaoheCompetition.buildPlayerData('wings-8', master).starters.length, 8);
+});
+
+test('graduated old 9 and 10 have a separate shared archive and never reuse the new 9 identity', () => {
+  assert.deepEqual(master.alumni.map(p => `${p.num}:${p.name}`), ['9:金世纪','10:王泊乔']);
+  const before = JSON.stringify(master.alumni);
+  for (const id of ['wings-8','zhiyin-8','legacy-11']) {
+    const data = build(id);
+    assert.deepEqual(data.alumni, master.alumni);
+    assert.notEqual(data.alumni, master.alumni);
+    if (id !== 'legacy-11') assert.ok(all(data).every(p => !['金世纪','王泊乔'].includes(p.name)));
+    for (const person of data.alumni) for (const field of ['avatar','avatarHome','avatarAway']) {
+      if (person[field]) assert.ok(fs.existsSync(path.join(__dirname,'..',person[field])),person[field]);
+    }
+    data.alumni[0].name = 'changed only in clone';
+  }
+  assert.equal(JSON.stringify(master.alumni), before);
+  assert.notEqual(all(build('zhiyin-8')).find(p=>p.num===9).avatarHome, master.alumni[0].avatarHome);
 });

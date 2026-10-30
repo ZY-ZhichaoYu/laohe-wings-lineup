@@ -150,7 +150,7 @@
         avatarHome: managerSource.avatarHome || '', avatarAway: managerSource.avatarAway || ''
       },
       team: { ...clone(master.team || {}), name: selected.name },
-      legends: [], intros,
+      legends: [], alumni: clone(master.alumni || []), intros,
       competition: { profileId: selected.id, matchFormat: 8, initialLineupDraft: false, lineupSource: 'user-provided' }
     };
   }

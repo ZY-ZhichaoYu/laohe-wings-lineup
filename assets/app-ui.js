@@ -123,6 +123,46 @@ function renderWorkspaceSummary() {
   if (!list.children.length) { const empty = document.createElement('p'); empty.className = 'help'; empty.textContent = '没有匹配的队员，请换一个姓名或号码。'; list.appendChild(empty); }
 }
 
+// Club history is independent from match snapshots, substitutions and voting.
+function renderAlumniArchive() {
+  const section = document.getElementById('alumni-archive');
+  const grid = document.getElementById('alumni-grid');
+  if (!section || !grid) return;
+  section.hidden = ALUMNI_DATA.length === 0;
+  grid.replaceChildren();
+  const node = (tag, className, text) => {
+    const element = document.createElement(tag);
+    element.className = className;
+    if (text !== undefined) element.textContent = text;
+    return element;
+  };
+  ALUMNI_DATA.forEach(person => {
+    const article = node('article', 'alumni-person');
+    const photos = node('div', 'alumni-photos');
+    const sources = person.avatar
+      ? [[person.avatar, '校园旧照']]
+      : [[person.avatarHome, '主场旧卡'], [person.avatarAway, '客场旧卡']];
+    sources.forEach(([source, label]) => {
+      // Archive photographs are bundled club assets, never executable URLs.
+      if (!/^assets\/.+\.(?:png|jpe?g|webp)$/i.test(source || '')) return;
+      const figure = node('figure', 'alumni-photo');
+      const link = node('a', 'alumni-photo-link');
+      link.href = source; link.target = '_blank'; link.rel = 'noopener';
+      link.setAttribute('aria-label', `查看${person.name}的${label}原图`);
+      const img = node('img', 'alumni-photo-img');
+      img.src = source; img.alt = `${person.name} · ${label}`;
+      img.loading = 'lazy'; img.width = 150; img.height = 200;
+      link.appendChild(img);
+      figure.append(link, node('figcaption', 'alumni-photo-label', label));
+      photos.appendChild(figure);
+    });
+    const copy = node('div', 'alumni-copy');
+    copy.append(node('p', 'alumni-kicker', `毕业队员 · 老 ${person.num} 号`), node('h3', 'alumni-name', person.name), node('p', 'alumni-caption', person.caption || '一起踢过的球，我们一直记得。'));
+    article.append(photos, copy);
+    grid.appendChild(article);
+  });
+}
+
 function restoreDefaultLineup() {
   if (!canEdit()) return;
   const presets = getPresets();
