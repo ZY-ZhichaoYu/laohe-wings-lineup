@@ -117,8 +117,10 @@ test('a new upload after clearing is retained without resurrecting the old other
   const player = all(fresh.SQUAD_DATA).find(player => player.name === '张子冲');
   fresh.currentKit = 'away';
   assert.equal(player.avatarAway, '');
-  assert.equal(fresh.getCurrentAvatar(player), player.avatarHome);
+  assert.equal(fresh.getCurrentAvatar(player), '');
   assert.equal(fresh.getDefaultPlayerAvatar(player), '');
+  fresh.currentKit = 'home';
+  assert.equal(fresh.getCurrentAvatar(player), player.avatarHome);
 });
 
 test('explicit photo deletion persists for staff and legends while old empty records still inherit seed photos', () => {
@@ -186,19 +188,36 @@ test('an explicit saved captain=false overrides the seed captain during reload',
   assert.deepEqual(copy(all(current.SQUAD_DATA).filter(player => player.captain).map(player => player.name)), ['徐多']);
 });
 
-test('home-only portraits remain visible in away-kit mode through the production avatar selector', () => {
+test('a missing kit portrait never falls back to the opposite kit in the card or image-error fallback', () => {
   const current = session('zhiyin-8');
-  current.currentKit = 'away';
-  for (const [num, name] of [[19, '沈熙洲'], [21, '徐文浩']]) {
+  for (const [num, name] of [[9, '李炳灿'], [19, '沈熙洲'], [21, '徐文浩']]) {
     const player = {
       id: LaoheCompetition.playerId(name), num, name,
       avatarHome: `assets/players/${num}-${name}-home.png`, avatarAway: ''
     };
-    assert.equal(current.getCurrentAvatar(player), player.avatarHome);
-    // Broken remote-image fallback uses the same home-only bundled source.
+    current.currentKit = 'away';
+    assert.equal(current.getCurrentAvatar(player), '');
     current.INLINE_PLAYER_DATA = { starters: [copy(player)], bench: [] };
+    assert.equal(current.getDefaultPlayerAvatar(player), '');
+    current.currentKit = 'home';
+    assert.equal(current.getCurrentAvatar(player), player.avatarHome);
     assert.equal(current.getDefaultPlayerAvatar(player), player.avatarHome);
+    const awayOnly = { ...player, avatarHome: '', avatarAway: `assets/players/${num}-${name}-away.png` };
+    current.INLINE_PLAYER_DATA = { starters: [copy(awayOnly)], bench: [] };
+    assert.equal(current.getCurrentAvatar(awayOnly), '');
+    assert.equal(current.getDefaultPlayerAvatar(awayOnly), '');
   }
+});
+
+test('staff and legend selectors also keep red portraits out of blue mode', () => {
+  const c = session('legacy-11');
+  const homeOnly = { name: '素材测试', avatar: 'assets/home-generic.png', avatarHome: 'assets/home.png', avatarAway: '' };
+  c.currentKit = 'away';
+  assert.equal(c.getStaffAvatar(homeOnly), '');
+  assert.equal(c.getLegendAvatar(homeOnly), '');
+  c.currentKit = 'home';
+  assert.equal(c.getStaffAvatar(homeOnly), homeOnly.avatarHome);
+  assert.equal(c.getLegendAvatar(homeOnly), homeOnly.avatarHome);
 });
 
 test('an existing away portrait retains priority and home mode still selects the home portrait', () => {

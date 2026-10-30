@@ -4,7 +4,7 @@
       "num": 9,
       "name": "李炳灿",
       "avatarHome": "assets/players/9-李炳灿-home.png",
-      "avatarAway": ""
+      "avatarAway": "assets/players/9-李炳灿-away.png"
     }
   ],
   "starters": [
@@ -113,8 +113,8 @@
         "CM",
         "CAM"
       ],
-      "avatarHome": "assets/players/20-张子冲-home-v2.png",
-      "avatarAway": "assets/players/20-张子冲-away-v2.png",
+      "avatarHome": "assets/players/20-张子冲-home-v3.png",
+      "avatarAway": "assets/players/20-张子冲-away-v3.png",
       "stats": {
         "goals": 0,
         "assists": 0,
@@ -322,7 +322,7 @@
       "role": "",
       "positions": [],
       "avatarHome": "assets/players/19-沈熙洲-home.png",
-      "avatarAway": "",
+      "avatarAway": "assets/players/19-沈熙洲-away.png",
       "stats": {
         "goals": 0,
         "assists": 0,
@@ -338,7 +338,7 @@
       "role": "",
       "positions": [],
       "avatarHome": "assets/players/21-徐文浩-home.png",
-      "avatarAway": "",
+      "avatarAway": "assets/players/21-徐文浩-away.png",
       "stats": {
         "goals": 0,
         "assists": 0,

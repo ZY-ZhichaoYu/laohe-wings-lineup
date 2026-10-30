@@ -1598,7 +1598,7 @@ function getDefaultPlayerAvatar(player) {
   const source = [...INLINE_PLAYER_DATA.starters, ...INLINE_PLAYER_DATA.bench].find(item =>
     player?.id && item.id ? player.id === item.id : player?.name === item.name && String(player?.num) === String(item.num));
   if (!source) return '';
-  const avatar = (currentKit === 'away' ? source.avatarAway : source.avatarHome) || source.avatar || source.avatarHome || source.avatarAway;
+  const avatar = currentKit === 'away' ? source.avatarAway : (source.avatarHome || source.avatar);
   return resolveImageSource(avatar);
 }
 
@@ -1670,22 +1670,22 @@ function handleImageError(event) {
 
 function getCurrentAvatar(player) {
   const normalized = normalizePlayer(player);
-  const avatar = (currentKit === 'away' ? normalized.avatarAway : normalized.avatarHome) || normalized.avatar || normalized.avatarHome || normalized.avatarAway;
+  const avatar = currentKit === 'away' ? normalized.avatarAway : (normalized.avatarHome || normalized.avatar);
   return resolveImageSource(avatar);
 }
 
 function getLegendAvatar(legend) {
   const n = normalizeLegend(legend);
   const chosen = currentKit === 'away'
-    ? (n.avatarAway || n.avatarHome || n.avatar)
-    : (n.avatarHome || n.avatarAway || n.avatar);
+    ? n.avatarAway
+    : (n.avatarHome || n.avatar);
   return resolveImageSource(chosen);
 }
 
 function getStaffAvatar(data) {
   const chosen = currentKit === 'away'
-    ? (data.avatarAway || data.avatarHome || data.avatar || '')
-    : (data.avatarHome || data.avatarAway || data.avatar || '');
+    ? (data.avatarAway || '')
+    : (data.avatarHome || data.avatar || '');
   return resolveImageSource(chosen);
 }
 

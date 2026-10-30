@@ -4,7 +4,7 @@
   else root.LaoheDefaults = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const revision = 4;
+  const revision = 5;
   const copy = value => JSON.parse(JSON.stringify(value));
   const key = player => player.id || player.playerId || String(player.name || '').trim();
 
@@ -42,11 +42,11 @@
       if (next.coachData && (next.coachData.name || seed.coach?.name) === '陈炫') next.coachData.status = 'injured';
     }
     for (const player of players) {
-      if (player.name === '张子冲' && player.avatarHome === 'assets/players/20-张子冲-home.png') {
-        player.avatarHome = 'assets/players/20-张子冲-home-v2.png';
+      if (player.name === '张子冲' && ['assets/players/20-张子冲-home.png', 'assets/players/20-张子冲-home-v2.png'].includes(player.avatarHome)) {
+        player.avatarHome = 'assets/players/20-张子冲-home-v3.png';
       }
-      if (player.name === '张子冲' && player.avatarAway === 'assets/players/20-张子冲-away.png') {
-        player.avatarAway = 'assets/players/20-张子冲-away-v2.png';
+      if (player.name === '张子冲' && ['assets/players/20-张子冲-away.png', 'assets/players/20-张子冲-away-v2.png'].includes(player.avatarAway)) {
+        player.avatarAway = 'assets/players/20-张子冲-away-v3.png';
       }
     }
     const oldOrder = profile.id === 'wings-8' ? [18, 28, 31, 20, 77, 4, 8, 84] : [10, 15, 2, 5, 39, 24, 88, 1];

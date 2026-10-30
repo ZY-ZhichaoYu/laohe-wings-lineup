@@ -49,7 +49,7 @@ test('photo reuse matches identities, never a recycled shirt number', () => {
   }
   const li = roster.find(player => player.name === '李炳灿');
   assert.equal(li.avatarHome, 'assets/players/9-李炳灿-home.png');
-  assert.equal(li.avatarAway, '');
+  assert.equal(li.avatarAway, 'assets/players/9-李炳灿-away.png');
   const withoutNewPhoto = all(competition.buildPlayerData('zhiyin-8', { ...master, competitionPlayers: [] }));
   assert.equal(withoutNewPhoto.find(player => player.name === '李炳灿').avatarHome, '');
   const wu = roster.find(player => player.name === '吴优');
@@ -64,6 +64,8 @@ test('23 players have existing photo files and 10 retain empty placeholders', ()
   const zhiyin = all(build('zhiyin-8'));
   assert.equal(wings.filter(player => player.avatarHome).length, 10);
   assert.equal(zhiyin.filter(player => player.avatarHome).length, 13);
+  assert.equal(wings.filter(player => player.avatarAway).length, 10);
+  assert.equal(zhiyin.filter(player => player.avatarAway).length, 13);
   assert.equal([...wings, ...zhiyin].filter(player => !player.avatarHome).length, 10);
   const lai = zhiyin.find(player => player.name === '赖飞扬');
   assert.equal(lai.avatarHome, 'assets/players/47-赖飞扬-home.png');
