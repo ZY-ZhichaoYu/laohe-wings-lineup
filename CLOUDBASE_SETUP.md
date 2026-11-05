@@ -1,123 +1,142 @@
-# CloudBase 同步部署步骤
+# CloudBase 部署与验收
 
-当前环境：
+本说明对应双队 8 人制升级版。代码检查与云端部署分别验收；部署结果应以实际托管文件、函数日志和线上访问为准。
 
-- envId: `laohe-wings-lineup-d3cz65831519b`
-- region: `ap-shanghai`
-- 静态网站默认域名：`laohe-wings-lineup-d3cz65831519b-1429692601.tcloudbaseapp.com`
-- 数据库集合：`lineups`
-- 数据库权限建议：`ADMINWRITE`
+## 环境与独立文档
 
-## 1. 部署静态网站
+现有公开配置：
 
-进入 CloudBase 控制台：
+| 配置项 | 值 |
+| --- | --- |
+| 环境 ID | `laohe-wings-lineup-d3cz65831519b` |
+| 地域 | `ap-shanghai` |
+| 数据库集合 | `lineups` |
+| 静态网站域名 | `laohe-wings-lineup-d3cz65831519b-1429692601.tcloudbaseapp.com` |
+| 云函数 | `publishLineup` |
+| HTTP 路由 | `/api/publishLineup` |
 
-1. 打开 `静态网站托管`。
-2. 进入 `文件管理`。
-3. 上传项目根目录里的这些内容：
-   - `index.html`
-   - `cloudbase-config.js`
-   - `assets/`
-   - `data/`
-4. 上传后访问默认域名，确认页面能打开。
+| 页面参数 | 工作区 | 数据库文档 |
+| --- | --- | --- |
+| `?team=wings-8` | 老和山之翼 8 人制（默认） | `lineups/current-wings-8` |
+| `?team=zhiyin-8` | 老和山只因 8 人制 | `lineups/current-zhiyin-8` |
+| `?team=legacy-11` | 原 11 人制 | `lineups/current` |
 
-## 2. 创建云函数 publishLineup
+不要用 8 人制数据覆盖 `current`。首次上线前备份原 `lineups/current` 和旧静态文件。队伍切换使用完整页面导航，使草稿、监听及请求留在各自工作区。
 
-进入 CloudBase 控制台：
+若迁移环境，需同时核对 `cloudbase-config.js` 和 `cloudfunctions/publishLineup/security.js` 中的环境 ID、默认图片域名及文档映射，不能只修改页面 URL。
 
-1. 打开 `云函数 / 托管 / 主机`。
-2. 新建云函数，函数名填：`publishLineup`。
-3. 运行环境选择 Node.js。
-4. 上传本项目里的 `cloudfunctions/publishLineup/` 目录。
-5. 部署完成后进入函数详情，确认依赖安装成功。
+## 1. 本地生成部署文件
 
-这个函数会把当前阵容写入 `lineups/current`，也会处理朋友评价、评价回复、评价/回复撤回、到场报名、MVP 投票，并在手机端导出 PNG 时代理读取云存储图片，避免 iOS/微信浏览器因为跨域图片阻止 `canvas` 导出。因为 `lineups` 是 `ADMINWRITE`，普通网页用户只能读，不能直接改数据库；写入统一走这个云函数。
+在项目根目录运行：
 
-### 2.1 配置编辑口令环境变量 `EDIT_SECRET`（必做，否则无法发布）
+```powershell
+npm.cmd run check
+npm.cmd test
+npm.cmd run build
+```
 
-从本次加固版起，"发布整份阵容"和"以队内身份（team_edit）发表评价/回复"会在**服务端**校验口令，而不再只靠前端判断（前端口令可被直接 POST 绕过）。真正的口令保存在云函数环境变量 `EDIT_SECRET` 里，**不写进任何公开代码**。
+`dist/` 包含 `index.html`、`cloudbase-config.js`、`assets/`、`data/` 与 `release.json`。上传的是 `dist/` 内部内容，使网站根目录直接存在 `index.html`，而不是把整个 `dist` 文件夹作为一层目录上传。
 
-1. 进入 `publishLineup` 云函数详情 → `函数配置` / `环境变量`。
-2. 新增环境变量：
-   - 名称：`EDIT_SECRET`
-   - 值：你自定义的强口令（**请与页面里的软口令 `老和山无内鬼` 不同**；页面里那个只用于离线本机解锁，源码公开可见，不是安全边界）。
-3. 保存并让函数重新部署生效。
-4. 把这个新口令线下发给需要编辑的队务人员。线上解锁编辑时输入的就是它（页面会把它发给云函数校验，不在本地保存明文之外的东西）。
+构建只收集页面、样式及人物数据引用的文件，未引用的图片、源代码检查记录和开发配置不进入发布目录。源素材不会被清理。脚本和样式带内容版本号，避免更新后沿用旧缓存；`release.json` 提供每个发布文件的大小和 SHA-256。部署后至少读取该文件并核对 `sourceCommit`，再分别打开三种工作区验收。不要只凭上传命令成功判断新版已生效。
 
-> ⚠️ 如果不配置 `EDIT_SECRET`，云函数会**默认拒绝**所有发布和 team_edit 写入（fail-closed，返回 `EDIT_SECRET_REQUIRED`）。这是有意为之：宁可暂时发布不了，也不留"谁都能覆盖全队数据"的洞。朋友评价、报名、MVP 投票**不受影响**，仍然开放。
+`npm.cmd start` 可在 [127.0.0.1:8765](http://127.0.0.1:8765/) 预览；它仅用于本机检查，不连接线上同步。修改人物 JSON 后由 `build` 或 `npm.cmd run build:data` 重新生成 `assets/players-data.js`。
 
-（可选）图片代理已加 SSRF 防护：`proxyImage` 会拒绝解析到内网 / 环回 / 云元数据段（如 `169.254.169.254`）的地址，仍然允许代理任意**公网**图片。如需进一步限制，可自行在函数里加 host 白名单。
+静态网站与新云函数应配套更新。旧页面没有新版发布协议所需的版本字段，更新后可能被服务端拒绝；应提示管理员刷新页面，不要降低服务端检查来兼容旧客户端。
 
-## 3. 首次发布阵容
+## 2. 数据库、登录和存储
 
-1. 用 CloudBase 默认域名打开网页。
-2. 页面顶部 `同步` 状态应显示 `云端已连接` 或 `云端暂无阵容，使用本地`。
-3. 调整一次阵容或点击 `发布到云端`。
-4. 回到文档型数据库的 `lineups` 集合，确认出现 `_id = current` 的文档。
+创建或保留 `lineups` 集合。数据库权限应达到“普通网页用户可读取、不可直接写入”的效果；若控制台提供 `ADMINWRITE`，核对它在当前环境中的实际权限含义。发布与互动写入统一交由云函数。
 
-如果发布失败，请先重新上传这 3 个文件：
+网页 SDK 使用 CloudBase 登录能力。按现有配置启用所需的匿名登录，并将实际托管域名加入安全来源。不要把数据库改成任何人可写来解决登录或函数错误。
 
-- `index.html`
-- `cloudbase-config.js`
-- `cloudfunctions/publishLineup/index.js`
+照片通过浏览器 SDK 上传到云存储。存储读写规则、来源、容量及上传配额需要独立检查；`EDIT_SECRET` 并不自动成为云存储的访问规则。当前界面只有解锁编辑后才能管理球员照片，尚无队员账号绑定、自助认领或审核流程。不要为了开放队员补照片而向全队公开管理员口令。
 
-新版 CloudBase 可能创建的是函数型云托管函数，前端会先按普通云函数调用，失败后自动按 `cloudrun` 再试。重新上传后，失败状态会显示更具体的错误码；也可以在 `publishLineup` 函数详情的 `日志` 页查看 `publishLineup failed`。
+## 3. 部署完整云函数
 
-如果函数日志仍然没有任何记录，说明 Web SDK 的函数调用在网关层被拦截。请在 `环境管理` → `HTTP 访问服务` → `路由管理` 添加路由：
+将整个 `cloudfunctions/publishLineup/` 目录作为 `publishLineup` 函数部署，包括 `index.js`、`security.js` 和 `package.json`。单独覆盖 `index.js` 会漏掉安全模块。部署后确认依赖安装、函数入口和 Node.js 运行环境可用。
 
-- 路由：`/api/publishLineup`
-- 资源类型：选择能绑定 `publishLineup` 的云函数或函数型云托管
-- 资源对象：`publishLineup`
-- 路径透传：关闭
-- 身份认证：关闭或无需身份认证
-- 方法：允许 `POST`，如果只能选全部方法就选全部
+`@cloudbase/node-sdk` 的直接版本为 `3.18.3`。当前未提供传递依赖锁定，不能保证不同时间安装得到完全相同的依赖树。生产部署应保存实际安装结果并验证所用 SDK 的事务能力。
 
-配置后前端会优先通过同域 HTTP 路径发布阵容，成功状态会显示 `已同步到云端（HTTP）`。
+配置函数环境变量：
 
-注意：静态网站域名是 `tcloudbaseapp.com`，HTTP 路由域名是 `ap-shanghai.app.tcloudbase.com`。前端配置里的 `publishHttpPath` 必须使用完整的 HTTP 路由域名：
+| 变量 | 用途 | 设置方式 |
+| --- | --- | --- |
+| `EDIT_SECRET` | 管理员发布、队内身份评论及删除评论的口令 | 必须使用独立强口令，仅放服务端环境变量 |
+| `REVIEW_IP_HASH_SALT` | 评论元数据中 IP 摘要的盐 | 建议设为本环境独立随机值 |
+| `IMAGE_PROXY_ALLOWED_HOSTS` | 额外允许代理的图片域名 | 按需配置，逗号分隔精确主机名，不写协议、路径或通配符 |
 
-`https://laohe-wings-lineup-d3cz65831519b-1429692601.ap-shanghai.app.tcloudbase.com/api/publishLineup`
+`EDIT_SECRET` 未配置时，受保护的操作会拒绝执行。管理员在线解锁时，口令发送给云函数校验；服务端在每次受保护请求中再次校验。页面会在当前浏览器会话中保留编辑令牌，因此共享设备使用后应点击锁定，不要在截图、日志或源码中暴露它。
 
-如果继续使用相对路径 `/api/publishLineup`，请求会打到静态网站域名并返回 404，函数日志不会有记录。
+本地页面的“编辑本机草稿”无需口令，不赋予线上写权限。现有口令不是成员账号系统：同一管理员口令可管理三套工作区。
 
-## 4. 验证多人同步
+## 4. HTTP 路由与公开配置
 
-1. 用电脑打开 CloudBase 默认域名。
-2. 用手机也打开同一个链接。
-3. 电脑上切换阵型或球衣。
-4. 手机页面应在几秒内自动变成同样状态。
+在 HTTP 访问服务中，将 `/api/publishLineup` 绑定到对应函数，允许页面所需的 POST 请求与跨域来源。路由需能接收游客互动请求；管理员动作的鉴权由函数执行。不要在网关或数据库层新增公开全量写入通道。
 
-如果本地 `127.0.0.1` 或 GitHub Pages 打开，页面会保持 `本地模式`。这是因为体验版不能添加自定义安全域名，CloudBase SDK 只能在已允许的默认域名里正常工作。
+`cloudbase-config.js` 的完整发布地址为：
 
-## 5. 编辑口令与照片同步
+```text
+https://laohe-wings-lineup-d3cz65831519b-1429692601.ap-shanghai.app.tcloudbase.com/api/publishLineup
+```
 
-页面默认是只读模式，队友可以查看阵型、切换主客场、抽卡、查看评价、提交朋友评价和导出海报。需要发布阵容、换人、上传照片、编辑资料或提交队内评价时，输入编辑口令。
+静态网站域名与 HTTP 服务域名不同。若把发布地址误写成静态网站下的相对路径，可能得到 404 且没有函数调用日志。检查请求实际地址、路由绑定和函数日志，不能仅凭浏览器显示 404 判断函数代码有问题。
 
-- **线上（CloudBase 域名）**：输入的口令会发到云函数用 `EDIT_SECRET` 校验，校验通过才解锁；发布/队内评价也会带着这个口令让服务端再校验一次。所以线上口令就是你在 [2.1](#21-配置编辑口令环境变量-edit_secret必做否则无法发布) 里设置的 `EDIT_SECRET`。
-- **离线 / 无云函数（file:// 或 GitHub Pages）**：没有云端可校验，退回页面内置软口令 `老和山无内鬼` 解锁，仅用于本机编辑，此时也无法发布到云端。
+前端保留 HTTP 与 SDK 调用路径的兼容处理；应用层的鉴权、版本冲突和校验错误必须按错误提示处理，不能作为“换条调用路径覆盖数据”的理由。
 
-> 旧版把口令硬编码在 `index.html` 里、且云端不校验，任何人直接 POST 就能覆盖全队数据。现在服务端校验后，这条路被堵死。若要改口令，改云函数的 `EDIT_SECRET` 环境变量即可，不用改代码。
+## 5. 首次发布与版本冲突
 
-CloudBase 域名下上传照片时，页面会先把图片传到云存储，再把云存储 `fileID` 引用和当前临时 URL 写进 `lineups/current`。后续显示或导出时，页面会用 `fileID` 重新换取新临时 URL，避免旧临时图片地址过期。如果照片上传失败，检查：
+1. 打开 `?team=wings-8`，确认显示“老和山之翼 · 8 人制”、15 人名单及 8 个首发位置。
+2. 云端连接后，输入 `EDIT_SECRET` 对应的管理员口令，确认解锁成功。
+3. 核对初始排阵草稿、队长、领队和照片，显式点击“发布到云端”。
+4. 在数据库确认文档为 `current-wings-8`，快照的 `workspaceId`、`matchFormat`、阵型及首发人数一致。
+5. 对 `?team=zhiyin-8` 重复操作，确认 18 人名单写入 `current-zhiyin-8`。
+6. 最后查看 `?team=legacy-11`，确认原 `current` 数据仍可读取。
 
-1. 匿名登录是否开启。
-2. 云存储权限是否允许已登录用户上传。
-3. 静态网站默认域名是否在安全来源里。
+页面编辑默认只保存本机草稿，不自动发布。修改照片后，云文件上传成功也不等于阵容引用已发布；仍需点击发布。
 
-评价保存在 `lineups/current.reviewsData`。队内评价需要编辑口令，评价人显示为自己的号码；朋友评价不需要编辑口令，但需要输入熟悉的老和山球员号码和昵称，评价人显示为 `某某的朋友 昵称（IP：粗略属地）`。评价会记录粗略 IP 属地、掩码 IP、设备类型和浏览器信息，用于防乱评和撤回验证；前台不展示完整 IP。IP 属地是第三方查询的尽力结果，查询失败时会省略属地，不影响评价提交。每次提交都会新增一条评价，不再覆盖旧评价。评价和回复都支持最多 6 张图片，包含 GIF 动图；在线版会先上传到 CloudBase 云存储，再把 `fileID` 引用保存到评价数据里。刚提交的评价和回复都可以在 10 分钟内用同一台设备撤回。
+发布请求携带 `workspaceId`、`docId`、`baseUpdatedAt` 和快照。服务端在事务中比较数据库的 `updatedAtText`；首次创建不存在的文档时，基准版本为空字符串。版本不一致返回 `VERSION_CONFLICT`，不会强行覆盖。
 
-赛前互动保存在同一份快照里：`attendanceData` 是到场报名，`mvpVotesData` 是 MVP 投票。网页游客提交时会调用 `publishLineup` 的 `submitAttendance` / `submitMvpVote` 动作，只更新对应字段，不允许直接覆盖整份阵容。
+遇到冲突，先导出本机 JSON 备份，再点击“重新载入云端”，核对最新阵容并重做所需修改。不要仅刷新页面期待清除冲突：未发布草稿会在刷新后恢复。重新载入会请求确认后替换本机草稿。
 
-手机端导出 PNG 依赖最新 `index.html` 和 `publishLineup` 云函数。如果导出提示 `The operation is insecure` 或提示图片无法准备导出，先覆盖上传最新 `index.html`；如果仍失败，再重新部署 `cloudfunctions/publishLineup/`。
+发布只更新排阵相关内容，服务端保留当时最新的 `reviewsData`、`attendanceData` 和 `mvpVotesData`，避免旧快照抹掉其他人的互动。
 
-## Review image fallback
+## 6. 互动写入与事务
 
-Review and reply images are stored in CloudBase Storage and referenced from `lineups/current` by `fileID`. Non-GIF review images are normalized to standard JPEG before upload; GIFs are kept as GIFs to preserve animation. The frontend first tries a fresh temporary CloudBase URL. If a browser, especially mobile WeChat or iOS Safari, cannot render that URL, `index.html` calls the `publishLineup` HTTP route with `action=proxyImage` and the saved `fileID`; the function fetches the image server-side and returns a data URL. After changing this behavior, redeploy `cloudfunctions/publishLineup/` and upload the latest `index.html`.
+朋友评价、报名和 MVP 仍可作为游客提交；队内身份评价/回复需要正确的管理员口令。球员号码、昵称及设备标识不能证明真实身份，不应把这些功能描述为实名投票或严格的一人一票。
 
-## 6. 本次加固说明（并发 / 版本 / 数据源）
+云端评价和回复只能由持有正确管理员口令者删除。不要依赖公开快照中的设备 ID 判定删除权限；当前没有普通游客自行撤回云端评论的权限。
 
-- **并发写入**：评价 / 回复 / 报名 / MVP / 撤回等"读-改-写"改为走 CloudBase 事务（`db.startTransaction`），避免两人同时提交互相覆盖（last-write-wins）。若某些运行环境不支持事务，函数会**自动回退**到原来的读-改-写逻辑（功能正常，但退化为 last-write-wins）。
-  > ⚠️ 事务这段无法在本地对着线上库跑通，请在**首次部署新函数后**做一次验证：用两台设备/两个标签几乎同时提交评价，确认两条都在，没有互相覆盖；并在函数日志里留意有没有 `transaction path failed, falling back` 的告警。
-- **依赖锁版本**：`cloudfunctions/publishLineup/package.json` 里 `@cloudbase/node-sdk` 已从 `latest` 锁到确切版本 `3.18.3`，保证每次部署可复现。以后要升级手动改这里。
-- **前端 CDN**：`index.html` 引入的 `html2canvas` / `qrcodejs` 已加 SRI（`integrity`）校验，防止 CDN 内容被篡改。客户端 CloudBase SDK 的 `sdkUrl` 暂仍用 `latest`（原因见 `cloudbase-config.js` 里的注释），如需锁版本请先线上实测。
-- **球员数据单一来源**：`data/players.json` 是唯一数据源；`index.html` 里的 `INLINE_PLAYER_DATA`（离线回退副本）改完球员数据后跑一次 `node scripts/sync-inline-players.js` 同步，`--check` 可在提交前校验是否漂移。
+发布及互动修改要求数据库事务。若运行环境不提供事务，返回 `TRANSACTIONS_REQUIRED`；事务失败返回 `TRANSACTION_FAILED`。函数不会退回普通的读改写，也不会在报错后继续覆盖数据。部署后必须用真实数据库验证事务及并发行为。
+
+## 7. 照片、临时链接和图片代理
+
+缺照片球员保持空占位。管理员在“完整名单与照片 → 补充球员照片”上传 JPG、PNG 或 WebP；球员照片最大 12 MB，前端会进行图片处理。云存储成功后保留文件 ID 与临时 URL，显示或导出时可刷新临时地址。
+
+上传失败会提示照片暂存当前浏览器。应检查存储规则、登录和安全来源后重试，再验证另一台设备能看到照片；不能只凭本机预览确认云端照片成功。
+
+`proxyImage` 的边界如下：
+
+- 只允许 HTTPS、443 端口、无 URL 用户名或密码。
+- 直接 URL 的主机必须在精确域名白名单内；IP 字面量与非白名单域名拒绝。
+- `fileID` 必须属于配置的 CloudBase 环境。由该环境 SDK 返回的临时 URL 主机可用于本次获取，不信任客户端自行声明的任意域名。
+- 实际 DNS 连接限定为检查过的公网 IPv4，拒绝私网、环回、保留地址；每次重定向重新校验。
+- 最多跟随 3 次跳转，单次请求设有超时，图片上限 8 MB，限制响应图片类型。
+
+若确需新增外部图片来源，只向 `IMAGE_PROXY_ALLOWED_HOSTS` 添加可信的精确主机名，不开放任意公网地址。前端导出保留图片失败时的降级路径；iOS Safari 和微信内置浏览器仍需真实设备验收。
+
+## 8. 部署后验收
+
+以下是上线验收步骤，不是已完成的线上测试记录：
+
+- 三种入口各自打开正确名单；8 人制为 8 个首发，三种阵型均为 7+1。
+- 两台设备编辑同一队：先发布的一方成功，后发布旧版本的一方看到冲突，本机草稿仍可导出。
+- 切换两队后，阵容、照片、评论、报名和投票不串到另一队。
+- 两个游客近乎同时提交互动，数据库均保留；管理员发布旧互动副本不能清空最新互动。
+- 无口令、错误口令、队伍与文档不匹配、错误阵型、重复号码等请求被拒绝。
+- 游客无法删除云端评价或回复；管理员删除成功。
+- 管理员补照片并发布，另一设备能读取；临时链接更新及 PNG 导出有效。
+- 在真实 iOS / 微信浏览器检查拖拽、换人、滚动与导出图片保存。
+
+客户端 CloudBase SDK 当前仍使用 `latest`，升级部署时须验证登录、监听、函数调用和存储 API。前端其他两个 CDN 脚本已有 SRI，并不意味着所有远程依赖均已锁定。
+
+`miniprogram/` 是旧小程序，本次没有实现双队 8 人制；不要将网页验收结果等同于小程序验收结果。
