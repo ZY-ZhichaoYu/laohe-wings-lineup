@@ -1,6 +1,6 @@
 # CloudBase 部署与验收
 
-本说明对应双队 8 人制升级版。代码已实现的保护与“云端已经部署并验证”是两回事：本次工作不应被视为线上发布记录。本次访问原静态地址观察到 HTTP 404，后续应以控制台文件、函数日志和实际访问为准。
+本说明对应双队 8 人制升级版。代码检查与云端部署分别验收；部署结果应以实际托管文件、函数日志和线上访问为准。
 
 ## 环境与独立文档
 
@@ -35,7 +35,9 @@ npm.cmd test
 npm.cmd run build
 ```
 
-`dist/` 包含 `index.html`、`cloudbase-config.js`、`assets/` 与 `data/`。上传的是 `dist/` 内部内容，使网站根目录直接存在 `index.html`，而不是把整个 `dist` 文件夹作为一层目录上传。
+`dist/` 包含 `index.html`、`cloudbase-config.js`、`assets/`、`data/` 与 `release.json`。上传的是 `dist/` 内部内容，使网站根目录直接存在 `index.html`，而不是把整个 `dist` 文件夹作为一层目录上传。
+
+构建只收集页面、样式及人物数据引用的文件，未引用的图片、源代码检查记录和开发配置不进入发布目录。源素材不会被清理。脚本和样式带内容版本号，避免更新后沿用旧缓存；`release.json` 提供每个发布文件的大小和 SHA-256。部署后至少读取该文件并核对 `sourceCommit`，再分别打开三种工作区验收。不要只凭上传命令成功判断新版已生效。
 
 `npm.cmd start` 可在 [127.0.0.1:8765](http://127.0.0.1:8765/) 预览；它仅用于本机检查，不连接线上同步。修改人物 JSON 后由 `build` 或 `npm.cmd run build:data` 重新生成 `assets/players-data.js`。
 

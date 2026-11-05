@@ -1593,7 +1593,8 @@ function renderImageTag(className, source, fallback = '', alt = '') {
   if (!source && !fallback) return '';
   const classAttr = className ? ` class="${escapeAttr(className)}"` : '';
   const fallbackAttr = fallback && fallback !== source ? ` data-fallback-src="${escapeAttr(fallback)}"` : '';
-  return `<img${classAttr} src="${escapeAttr(source || fallback)}"${fallbackAttr} alt="${escapeAttr(alt)}">`;
+  const loading = className === 'player-avatar-img' ? 'eager' : 'lazy';
+  return `<img${classAttr} src="${escapeAttr(source || fallback)}"${fallbackAttr} alt="${escapeAttr(alt)}" loading="${loading}" decoding="async">`;
 }
 
 function applyImageFallback(image) {
@@ -4563,6 +4564,13 @@ async function prepareImagesForExport(root, options = {}) {
   const images = Array.from(root.querySelectorAll('img'));
   const restores = [];
   await Promise.all(images.map(async image => {
+    // Exports must load staff and bench photographs outside the viewport.
+    const originalLoading = image.getAttribute('loading');
+    image.loading = 'eager';
+    restores.push(() => {
+      if (originalLoading === null) image.removeAttribute('loading');
+      else image.setAttribute('loading', originalLoading);
+    });
     const originalSrc = image.getAttribute('src');
     const renderedSrc = image.currentSrc || image.src || originalSrc;
     if (!renderedSrc || renderedSrc.startsWith('data:') || renderedSrc.startsWith('blob:')) return;
